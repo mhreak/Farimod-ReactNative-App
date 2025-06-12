@@ -12,7 +12,7 @@ export default {
     textAlign: "right",
   } as const satisfies TextStyle,
   headerStyle: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryLight,
     height: 110,
     elevation: 0,
     shadowOpacity: 0,
@@ -20,7 +20,7 @@ export default {
   headerTitleStyle: {
     fontFamily: "Yekan_Bakh_Bold",
     fontSize: 20,
-    color: colors.white,
+    color: colors.primary,
     marginTop: 10,
   },
 };

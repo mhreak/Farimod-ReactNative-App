@@ -20,6 +20,7 @@ import { createStackNavigator } from "@react-navigation/stack";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import colors from "./config/colors";
 import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 export type RootStackParamList = {
   MainTabs: undefined;
@@ -35,6 +36,8 @@ export type RootStackParamList = {
   MagDetailes: undefined;
   GalleryItem: undefined;
 };
+
+export type AppNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator<RootStackParamList>();
@@ -86,7 +89,7 @@ const screenOptions = {
 };
 
 function TabNavigator() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<AppNavigationProp>();
   return (
     <Tab.Navigator
       initialRouteName="خانه"
@@ -141,7 +144,7 @@ function TabNavigator() {
               size={24}
               color={colors.primary}
               style={{ marginRight: 15 }}
-              onPress={() => navigation.navigate("ویرایش پروفایل")}
+              onPress={() => navigation.navigate("EditProfile")}
             />
           ),
         }}
@@ -208,6 +211,8 @@ export function StackNavigator() {
         name="EditProfile"
         component={EditProfileScreen}
         options={{
+          headerShown: false,
+          title: "ویرایش پروفایل",
           headerTitleAlign: "center",
           headerTitleStyle: styles.headerTitleStyle,
           headerStyle: styles.headerStyle,
@@ -328,6 +333,7 @@ export function StackNavigator() {
         name="AddNewCourse"
         component={AddNewCourseScreen}
         options={{
+          title: "ثبت دوره ی جدید",
           headerTitleAlign: "center",
           headerTitleStyle: styles.headerTitleStyle,
           headerStyle: styles.headerStyle,

@@ -11,13 +11,18 @@ import * as ImagePicker from "expo-image-picker";
 
 import colors from "../config/colors";
 
-function ImageInput({ imageUri, onChangeImage }) {
+interface IProps {
+  imageUri?: string;
+  onChangeImage: (value: string | null) => void;
+}
+
+const ImageInput: React.FC<IProps> = ({ imageUri, onChangeImage }) => {
   useEffect(() => {
     requestPermission();
   }, []);
 
   const requestPermission = async () => {
-    const { granted } = await ImagePicker.requestCameraRollPermissionsAsync();
+    const { granted } = await ImagePicker.requestCameraPermissionsAsync();
     if (!granted) alert("You need to enable permission to access the library.");
   };
 
@@ -56,7 +61,7 @@ function ImageInput({ imageUri, onChangeImage }) {
       </View>
     </TouchableWithoutFeedback>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
