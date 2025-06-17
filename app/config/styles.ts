@@ -8,7 +8,7 @@ export default {
     color: colors.dark,
     fontSize: 18,
     // fontFamily: Platform.OS === "android" ? "Roboto" : "Avenir",
-    fontFamily: "Yekan_Bakh_Regular",
+    fontFamily: "iran_sans_medium",
     textAlign: "right",
   } as const satisfies TextStyle,
   headerStyle: {
