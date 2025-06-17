@@ -25,4 +25,5 @@ export default {
   darkGray: "#555555",
   dark: "#0c0c0c",
   danger: "#ff5252",
+  tertiary: "#F0E6FF",
 };

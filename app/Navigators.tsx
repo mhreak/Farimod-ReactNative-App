@@ -10,6 +10,12 @@ import AboutMeScreen from "./screens/AboutMeScreen";
 import MyResumeScreen from "./screens/MyResumeScreen";
 import MyPostsScreen from "./screens/MyPostsScreen";
 import MyCoursesScreen from "./screens/MyCoursesScreen";
+
+import WelcomeIntroScreen from "./screens/Intro/WelcomeIntroScreen";
+import WhyFrimodScreen from "./screens/Intro/WhyFrimodScreen";
+import EventsScreen from "./screens/Intro/EventsScreen";
+import CareerScreen from "./screens/Intro/CareerScreen";
+
 import styles from "./config/styles";
 import MagDetailesScreen from "./screens/MagDetailesScreen";
 import AddNewCourseScreen from "./screens/AddNewCourseScreen";
@@ -22,6 +28,11 @@ import colors from "./config/colors";
 import { useNavigation } from "@react-navigation/native";
 
 export type RootStackParamList = {
+  IntroFlow: undefined;
+  WelcomeIntro: undefined;
+  WhyFrimod: undefined;
+  EventsScreen: undefined;
+  CareerScreen: undefined;
   MainTabs: undefined;
   Login: undefined;
   Signup: undefined;
@@ -38,6 +49,7 @@ export type RootStackParamList = {
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator<RootStackParamList>();
+const IntroStack = createStackNavigator();
 
 // Custom transition configuration for RTL
 const customTransitionConfig = {
@@ -84,6 +96,35 @@ const screenOptions = {
     };
   },
 };
+
+function IntroFlowNavigator() {
+  return (
+    <IntroStack.Navigator
+      screenOptions={{
+        ...screenOptions,
+        headerShown: false,
+      }}
+      initialRouteName="WelcomeIntro"
+    >
+      <IntroStack.Screen
+        name="WelcomeIntro"
+        component={WelcomeIntroScreen}
+      />
+      <IntroStack.Screen
+        name="WhyFrimod"
+        component={WhyFrimodScreen}
+      />
+      <IntroStack.Screen
+        name="EventsScreen"
+        component={EventsScreen}
+      />
+      <IntroStack.Screen
+        name="CareerScreen"
+        component={CareerScreen}
+      />
+    </IntroStack.Navigator>
+  );
+}
 
 function TabNavigator() {
   const navigation = useNavigation();
@@ -184,7 +225,16 @@ function TabNavigator() {
 export function StackNavigator() {
   const navigation = useNavigation();
   return (
-    <Stack.Navigator screenOptions={screenOptions} initialRouteName="Login">
+    <Stack.Navigator
+      screenOptions={screenOptions}
+      initialRouteName="IntroFlow"
+    >
+      <Stack.Screen
+        name="IntroFlow"
+        component={IntroFlowNavigator}
+        options={{ headerShown: false }}
+      />
+
       <Stack.Screen
         name="MainTabs"
         component={TabNavigator}
