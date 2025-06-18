@@ -26,6 +26,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
   const waveAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // انیمیشن ورود
     Animated.sequence([
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -46,6 +47,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
           useNativeDriver: true,
         }),
       ]),
+      // انیمیشن ستاره‌ها
       Animated.loop(
         Animated.sequence([
           Animated.timing(sparkleAnim, {
@@ -62,6 +64,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
       ),
     ]).start();
 
+    // انیمیشن شناور برای المان‌ها - موج‌مانند
     Animated.loop(
       Animated.sequence([
         Animated.timing(floatAnim, {
@@ -77,6 +80,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
       ])
     ).start();
 
+    // انیمیشن چرخش مداوم
     Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
@@ -85,6 +89,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
       })
     ).start();
 
+    // انیمیشن ضربان
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -100,6 +105,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
       ])
     ).start();
 
+    // انیمیشن موج تأخیری
     Animated.loop(
       Animated.sequence([
         Animated.timing(waveAnim, {
@@ -129,6 +135,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
         style={styles.background}
       >
         <View style={styles.container}>
+          {/* المان‌های تزئینی پارچه */}
           <View style={styles.decorativeElements}>
             <Animated.View
               style={[
@@ -212,6 +219,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
               />
             </Animated.View>
 
+            {/* المان‌های جدید */}
             <Animated.View
               style={[
                 styles.fabricElement4,
@@ -345,6 +353,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
             </Animated.View>
           </View>
 
+          {/* لوگو و عنوان اصلی */}
           <Animated.View
             style={[
               styles.logoContainer,
@@ -366,6 +375,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
                 />
               </LinearGradient>
 
+              {/* ستاره‌های اطراف لوگو */}
               <Animated.View
                 style={[
                   styles.sparkle1,
@@ -416,9 +426,10 @@ const WelcomeIntroScreen = ({ navigation }) => {
             </View>
 
             <Text style={styles.appName}>فریمد</Text>
-            {/* <Text style={styles.welcomeText}>سلام و درود</Text> */}
+            <Text style={styles.welcomeText}>سلام و درود</Text>
           </Animated.View>
 
+          {/* متن معرفی */}
           <Animated.View
             style={[
               styles.contentContainer,
@@ -456,6 +467,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
               به خانواده بزرگ طراحان پارچه و لباس ایران بپیوندید
             </Text>
 
+            {/* ستاره‌های تزئینی */}
             <View style={styles.starsContainer}>
               {/* <Text style={styles.star}>✨</Text>
               <Text style={styles.star}>✨</Text>
@@ -464,6 +476,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
             </View>
           </Animated.View>
 
+          {/* دکمه ادامه */}
           <Animated.View
             style={[
               styles.buttonContainer,
