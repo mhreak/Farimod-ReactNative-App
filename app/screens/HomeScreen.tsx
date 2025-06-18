@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { StyleSheet, Text, View, ScrollView, Image } from "react-native";
+import { StyleSheet, Text, View, ScrollView, Image, TouchableOpacity } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Screen from "../components/Screen";
 import colors from "../config/colors";
@@ -16,9 +16,54 @@ const navBarItems = [
   { icon: "settings", title: "تنظیمات", screenName: "Settings" },
 ];
 
+// Sample course data
+const sampleCourses = [
+  {
+    id: 1,
+    courseName: "دوره طراحی لباس پیشرفته",
+    courseType: "حضوری",
+    poster: "../../assets/sample_clothe.jpg",
+    description: "این دوره شامل آموزش کامل طراحی و دوخت انواع لباس‌های مدرن و سنتی می‌باشد. در این دوره شما با تکنیک‌های پیشرفته طراحی آشنا خواهید شد.",
+    coursePrice: "2,500,000",
+    eventLocation: "تهران، خیابان ولیعصر، پلاک 245",
+    phoneNumber: "021-88776655",
+    coaches: "استاد احمدی، استاد رضایی",
+    category: "هنر و صنایع دستی"
+  },
+  {
+    id: 2,
+    courseName: "دوره طراحی داخلی مدرن",
+    courseType: "مجازی",
+    poster: "../../assets/sample_clothe2.jpg",
+    description: "آموزش اصول طراحی داخلی، استفاده از رنگ‌ها، فضا و نور در دکوراسیون منزل و محل کار.",
+    coursePrice: "1,800,000",
+    eventLocation: "آنلاین",
+    phoneNumber: "021-77889900",
+    coaches: "استاد محمدی",
+    category: "طراحی و معماری"
+  },
+  {
+    id: 3,
+    courseName: "دوره عکاسی حرفه‌ای",
+    courseType: "حضوری و مجازی",
+    poster: "../../assets/sample_clothe.jpg",
+    description: "یادگیری تکنیک‌های پیشرفته عکاسی، تنظیمات دوربین و ویرایش عکس.",
+    coursePrice: "3,200,000",
+    eventLocation: "تهران، میدان انقلاب",
+    phoneNumber: "021-66554433",
+    coaches: "استاد علوی، استاد کریمی",
+    category: "هنر و رسانه"
+  }
+];
+
 const HomeScreen = () => {
   const navigation = useNavigation();
   const [selectedScreen, setSelectedScreen] = useState("Home");
+
+  const handleCoursePress = (courseData) => {
+    navigation.navigate("CourseDetails", { courseData });
+  };
+
   return (
     <ScrollView>
       <View style={styles.container}>
@@ -37,39 +82,41 @@ const HomeScreen = () => {
           layoutDirection={"rtl"}
           pageMargin={20}
         >
-          <View style={[styles.pagerViewItem]}>
-            {/* <View style={styles.courseImage}></View> */}
-            <Image
-              style={styles.courseImage}
-              source={require("../../assets/sample_clothe2.jpg")}
-            />
-            <View style={styles.courseDetails}>
-              <AppText
-                style={{
-                  fontFamily: "Yekan_Bakh_Bold",
-                  marginBottom: 10,
-                  textAlign: "center",
-                }}
-              >
-                عنوان دوره
-              </AppText>
-              <View style={{ display: "flex", flexDirection: "row-reverse" }}>
-                <MaterialIcons
-                  name={"place"}
-                  size={25}
-                  color={colors.primary}
-                  style={{ marginLeft: 10, marginRight: 7 }}
-                />
-                <AppText>آدرس دوره خیابان مشتاق کوچه ۲۶ پلاک ۴۳</AppText>
+          {sampleCourses.map((course, index) => (
+            <TouchableOpacity
+              key={course.id}
+              style={[styles.pagerViewItem]}
+              onPress={() => handleCoursePress(course)}
+              activeOpacity={0.8}
+            >
+              <Image
+                style={styles.courseImage}
+                source={require("../../assets/sample_clothe2.jpg")}
+              />
+              <View style={styles.courseDetails}>
+                <AppText
+                  style={{
+                    fontFamily: "Yekan_Bakh_Bold",
+                    marginBottom: 10,
+                    textAlign: "center",
+                  }}
+                >
+                  {course.courseName}
+                </AppText>
+                <View style={{ display: "flex", flexDirection: "row-reverse" }}>
+                  <MaterialIcons
+                    name={"place"}
+                    size={25}
+                    color={colors.primary}
+                    style={{ marginLeft: 10, marginRight: 7 }}
+                  />
+                  <AppText numberOfLines={2}>
+                    {course.eventLocation}
+                  </AppText>
+                </View>
               </View>
-            </View>
-          </View>
-          <View
-            style={[styles.pagerViewItem, { backgroundColor: "blue" }]}
-          ></View>
-          <View
-            style={[styles.pagerViewItem, { backgroundColor: "yellow" }]}
-          ></View>
+            </TouchableOpacity>
+          ))}
         </PagerView>
         <AppText style={styles.bodyText}>جدید ترین افراد</AppText>
         <PagerView
@@ -106,6 +153,7 @@ const HomeScreen = () => {
     </ScrollView>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     padding: 20,

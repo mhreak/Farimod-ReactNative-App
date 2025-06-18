@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from "react";
 import {
   View,
@@ -35,7 +36,7 @@ const WhyFrimodScreen = ({ navigation }) => {
   }, []);
 
   const handleContinue = () => {
-    navigation.navigate("EventsScreenn");
+    navigation.navigate("EventsScreen");
   };
 
   return (
@@ -47,7 +48,6 @@ const WhyFrimodScreen = ({ navigation }) => {
       >
         <ScrollView contentContainerStyle={styles.scrollContainer}>
           <View style={styles.container}>
-            {/* هدر */}
             <Animated.View
               style={[
                 styles.headerContainer,
@@ -72,7 +72,6 @@ const WhyFrimodScreen = ({ navigation }) => {
               </View>
             </Animated.View>
 
-            {/* کارت اصلی */}
             <Animated.View
               style={[
                 styles.mainCard,
@@ -86,7 +85,6 @@ const WhyFrimodScreen = ({ navigation }) => {
                 colors={["rgba(255, 255, 255, 0.95)", "rgba(255, 255, 255, 0.85)"]}
                 style={styles.cardGradient}
               >
-                {/* آیکون اصلی */}
                 <View style={styles.mainIconContainer}>
                   <LinearGradient
                     colors={["#667eea", "#764ba2"]}
@@ -100,11 +98,12 @@ const WhyFrimodScreen = ({ navigation }) => {
                   </LinearGradient>
                 </View>
 
-                <Text style={styles.mainDescription}>
-                  فریمد اولین پلتفرم معرفی طراحان پارچه و لباس کشور، اساتید و مدرسان حوزه فشن، موسسات و آکادمی‌های آموزشی طراحی لباس و دوخت، برندها و مزون‌ها و اژانس‌های مدلینگ، فروشگاه‌های پارچه و لباس‌فروشی‌ها و خرازی‌ها و فروشندگان ابزارهای طراحی لباس است.
-                </Text>
+                <View style={styles.descriptionContainer}>
+                  <Text style={styles.mainDescription}>
+                    فریمد اولین پلتفرم معرفی طراحان پارچه و لباس کشور، اساتید و مدرسان حوزه فشن، موسسات و آکادمی‌های آموزشی طراحی لباس و دوخت، برندها و مزون‌ها و اژانس‌های مدلینگ، فروشگاه‌های پارچه و لباس‌فروشی‌ها و خرازی‌ها و فروشندگان ابزارهای طراحی لباس است.
+                  </Text>
+                </View>
 
-                {/* ویژگی‌ها */}
                 <View style={styles.featuresContainer}>
                   <FeatureItem
                     icon="account-tie"
@@ -145,7 +144,6 @@ const WhyFrimodScreen = ({ navigation }) => {
               </LinearGradient>
             </Animated.View>
 
-            {/* دکمه ادامه */}
             <Animated.View
               style={[
                 styles.buttonContainer,
@@ -256,13 +254,19 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 10,
   },
+  descriptionContainer: {
+    alignItems: "center",
+    width: "100%",
+  },
   mainDescription: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
     color: "#333",
     textAlign: "center",
+
     lineHeight: 26,
     marginBottom: 25,
+    width: 300,
   },
   featuresContainer: {
     marginTop: 10,
@@ -310,10 +314,17 @@ const styles = StyleSheet.create({
     width: "80%",
     borderRadius: 25,
     overflow: "hidden",
-
+    shadowColor: "#917be0",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   buttonGradient: {
-    flexDirection: "row",
+    flexDirection: "row-reverse",
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 16,
@@ -323,7 +334,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: "Yekan_Bakh_Bold",
     color: "white",
-    marginRight: 10,
+    marginLeft: 10,
   },
 });
 export default WhyFrimodScreen;

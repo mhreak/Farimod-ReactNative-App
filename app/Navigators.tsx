@@ -10,11 +10,12 @@ import AboutMeScreen from "./screens/AboutMeScreen";
 import MyResumeScreen from "./screens/MyResumeScreen";
 import MyPostsScreen from "./screens/MyPostsScreen";
 import MyCoursesScreen from "./screens/MyCoursesScreen";
+import CourseDetailsScreen from "./screens/CourseDetailsScreen"; // Add this import
 
-import WelcomeIntroScreen from "./screens/Intro/WelcomeIntroScreen";
-import WhyFrimodScreen from "./screens/Intro/WhyFrimodScreen";
-import EventsScreen from "./screens/Intro/EventsScreen";
-import CareerScreen from "./screens/Intro/CareerScreen";
+import WelcomeIntroScreen from "./screens/intro/WelcomeIntroScreen";
+import WhyFrimodScreen from "./screens/intro/WhyFrimodScreen";
+import EventsScreen from "./screens/intro/EventsScreen";
+import CareerScreen from "./screens/intro/CareerScreen";
 
 import styles from "./config/styles";
 import MagDetailesScreen from "./screens/MagDetailesScreen";
@@ -46,6 +47,7 @@ export type RootStackParamList = {
   AddNewCourse: undefined;
   MagDetailes: undefined;
   GalleryItem: undefined;
+  CourseDetails: { courseData?: any }; // Add this line
 };
 
 export type AppNavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -398,6 +400,14 @@ export function StackNavigator() {
                 onPress={() => navigation.goBack()}
               />
             ) : null,
+        }}
+      />
+
+      <Stack.Screen
+        name="CourseDetails"
+        component={CourseDetailsScreen}
+        options={{
+          headerShown: false,
         }}
       />
       <Stack.Screen
