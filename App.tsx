@@ -7,7 +7,7 @@ import { I18nManager } from "react-native";
 import { StackNavigator } from "./app/Navigators";
 
 // Make sure RTL is enabled
-I18nManager.forceRTL(true);
+// I18nManager.forceRTL(true);
 
 function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);

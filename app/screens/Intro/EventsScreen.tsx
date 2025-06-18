@@ -1,0 +1,425 @@
+import React, { useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Animated,
+  TouchableOpacity,
+  Dimensions,
+  StatusBar,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import colors from "../../config/colors";
+
+const { width, height } = Dimensions.get("window");
+
+const EventsScreen = ({ navigation }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 100,
+        friction: 8,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const handleContinue = () => {
+    navigation.navigate("CareerScreen");
+  };
+
+  return (
+    <>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <LinearGradient
+        colors={["#FF6B9D", "#FFB5D1", "#FFE0EC", "#FFF8FC"]}
+        locations={[0, 0.4, 0.7, 1]}
+        style={styles.background}
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.container}>
+            <Animated.View
+              style={[
+                styles.headerContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [
+                    { translateY: slideAnim },
+                    { scale: scaleAnim }
+                  ],
+                },
+              ]}
+            >
+              <View style={styles.titleWrapper}>
+                <MaterialCommunityIcons
+                  name="star-circle"
+                  size={32}
+                  color="white"
+                />
+                <Text style={styles.headerTitle}>رویدادها و دوره‌ها</Text>
+                <MaterialCommunityIcons
+                  name="star-circle"
+                  size={32}
+                  color="white"
+                />
+              </View>
+              <Text style={styles.headerSubtitle}>
+                دنیای مد و فشن را کشف کنید
+              </Text>
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.mainCard,
+                {
+                  opacity: fadeAnim,
+                  transform: [
+                    { translateY: slideAnim },
+                    { scale: scaleAnim }
+                  ],
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={["rgba(255, 255, 255, 0.98)", "rgba(255, 255, 255, 0.9)"]}
+                style={styles.cardGradient}
+              >
+                <View style={styles.mainIconContainer}>
+                  <LinearGradient
+                    colors={[colors.primary, colors.secondary]}
+                    style={styles.mainIconCircle}
+                  >
+                    <MaterialCommunityIcons
+                      name="calendar-heart"
+                      size={42}
+                      color="white"
+                    />
+                  </LinearGradient>
+                  <View style={styles.iconGlow} />
+                </View>
+
+                <Text style={styles.mainDescription}>
+                  اینجا از جدیدترین ایونت‌ها، رویدادها، دوره‌ها و ورکشاپ‌های مد و لباس، طراحی پارچه و کتاب‌های مفید فشن مطلع می‌شوید
+                </Text>
+
+                <View style={styles.eventsContainer}>
+                  <EventItem
+                    icon="calendar-clock"
+                    title="ایونت‌ها و رویدادها"
+                    description="آخرین اخبار فشن شوها و نمایشگاه‌ها"
+                    color={colors.primary}
+                  />
+
+                  <EventItem
+                    icon="school"
+                    title="دوره‌ها و ورکشاپ‌ها"
+                    description="آموزش‌های تخصصی طراحی و دوخت"
+                    color={colors.secondary}
+                  />
+
+                  <EventItem
+                    icon="palette"
+                    title="طراحی پارچه"
+                    description="دوره‌های طراحی و چاپ پارچه"
+                    color={colors.danger}
+                  />
+
+                  <EventItem
+                    icon="book-open-variant"
+                    title="کتاب‌های مد و فشن"
+                    description="جدیدترین منابع علمی و آموزشی"
+                    color={colors.primaryDark}
+                  />
+
+                  <EventItem
+                    icon="trending-up"
+                    title="ترندهای مد"
+                    description="آخرین ترندهای جهانی مد و لباس"
+                    color={colors.info || colors.secondary}
+                  />
+
+                  <EventItem
+                    icon="certificate"
+                    title="گواهینامه‌ها"
+                    description="مدارک معتبر بین‌المللی"
+                    color={colors.success || colors.secondary}
+                  />
+                </View>
+
+                <View style={styles.decorativeElements}>
+                  <View style={styles.floatingIcon}>
+                    <MaterialCommunityIcons name="star-four-points" size={16} color={colors.primary} />
+                  </View>
+                  <View style={[styles.floatingIcon, styles.floatingIcon2]}>
+                    <MaterialCommunityIcons name="star" size={14} color={colors.secondary} />
+                  </View>
+                  <View style={[styles.floatingIcon, styles.floatingIcon3]}>
+                    <MaterialCommunityIcons name="heart" size={12} color={colors.danger} />
+                  </View>
+                </View>
+              </LinearGradient>
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.buttonContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [
+                    { translateY: slideAnim },
+                    { scale: scaleAnim }
+                  ],
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.continueButton}
+                onPress={handleContinue}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={[colors.primary, colors.secondary]}
+                  style={styles.buttonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <MaterialCommunityIcons
+                    name="arrow-left"
+                    size={20}
+                    color="white"
+                  />
+                  <Text style={styles.buttonText}>ادامه</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </ScrollView>
+      </LinearGradient>
+    </>
+  );
+};
+
+const EventItem = ({ icon, title, description, color }) => (
+  <View style={styles.eventItem}>
+    <View style={styles.eventContent}>
+      <Text style={styles.eventTitle}>{title}</Text>
+      <Text style={styles.eventDescription}>{description}</Text>
+    </View>
+    <View style={[styles.eventIconContainer, { backgroundColor: color + "15" }]}>
+      <MaterialCommunityIcons name={icon} size={26} color={color} />
+    </View>
+  </View>
+);
+
+const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
+  container: {
+    flex: 1,
+    paddingTop: StatusBar.currentHeight + 50,
+    paddingHorizontal: 20,
+  },
+  headerContainer: {
+    alignItems: "center",
+    marginBottom: 35,
+  },
+  titleWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  headerTitle: {
+    fontSize: 30,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "white",
+    marginHorizontal: 15,
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "rgba(255, 255, 255, 0.9)",
+    textAlign: "center",
+    textShadowColor: "rgba(0, 0, 0, 0.2)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  mainCard: {
+    borderRadius: 30,
+    overflow: "hidden",
+    shadowColor: colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 15,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 25,
+    marginBottom: 35,
+    marginHorizontal: 5,
+  },
+  cardGradient: {
+    padding: 30,
+    position: "relative",
+  },
+  mainIconContainer: {
+    alignItems: "center",
+    marginBottom: 25,
+    position: "relative",
+  },
+  mainIconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 15,
+  },
+  iconGlow: {
+    position: "absolute",
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.primary,
+    opacity: 0.1,
+    top: -15,
+  },
+  mainDescription: {
+    fontSize: 17,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "#2c2c2c",
+    textAlign: "center",
+    lineHeight: 28,
+    marginBottom: 30,
+    paddingHorizontal: 10,
+  },
+  eventsContainer: {
+    marginTop: 10,
+  },
+  eventItem: {
+    flexDirection: "row", 
+    alignItems: "center",
+    backgroundColor: "#f9edf5",
+    paddingVertical: 18,
+    paddingHorizontal: 22,
+    borderRadius: 20,
+    marginBottom: 15,
+
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.5)",
+  },
+  eventIconContainer: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 18, 
+  },
+  eventContent: {
+    flex: 1,
+    alignItems: "flex-end", 
+  },
+  eventTitle: {
+    fontSize: 17,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#1a1a1a",
+    marginBottom: 6,
+    textAlign: "right",
+  },
+  eventDescription: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "#555",
+    lineHeight: 22,
+    textAlign: "right",
+  },
+  decorativeElements: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    pointerEvents: "none",
+  },
+  floatingIcon: {
+    position: "absolute",
+    top: 30,
+    right: 80,
+  },
+  floatingIcon2: {
+    top: 120,
+    left: 30,
+  },
+  floatingIcon3: {
+    top: 90,
+    bottom: 180,
+    right: 50,
+  },
+  buttonContainer: {
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  continueButton: {
+    width: "80%",
+    borderRadius: 25,
+    overflow: "hidden",
+    shadowColor: colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  buttonGradient: {
+    flexDirection: "row", 
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 16,
+    paddingHorizontal: 30,
+  },
+  buttonText: {
+    fontSize: 18,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "white",
+    marginLeft: 10, 
+  },
+});
+
+export default EventsScreen;

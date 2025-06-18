@@ -28,5 +28,6 @@ export default {
   success: "#11D277",
   warning: "#ffb300",
   info: "#2578da",
-  tertiary: "#efd6f3",
+  // tertiary: "#efd6f3",
+  tertiary: "#F0E6FF",
 };
