@@ -8,8 +8,13 @@ import colors from "../config/colors";
 import AppButton from "../components/Button";
 import MainBackground from "../components/MainBackground";
 import AppPicker from "../components/Picker";
+import Toast from "../components/Toast";
+import useToast from "../hooks/useToast";
 
 const AddNewCourseScreen = () => {
+  const { toastVisible, setToastVisible, toastMessage, toastType, showToast } =
+    useToast();
+
   const validationSchema = Yup.object().shape({
     courseName: Yup.string().required(""),
     courseType: Yup.number().required(""),
@@ -24,12 +29,16 @@ const AddNewCourseScreen = () => {
   return (
     <ScrollView>
       {/* <MainBackground /> */}
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onDismiss={() => setToastVisible(false)}
+      />
       <View style={styles.formBox}>
         <Formik
           initialValues={{ mobileNumber: "" }}
-          onSubmit={(values) => {
-            navigation.navigate("MainTabs");
-          }}
+          onSubmit={(values) => {}}
           validationSchema={validationSchema}
         >
           {({ handleChange, handleSubmit, errors }) => (
@@ -118,7 +127,11 @@ const AddNewCourseScreen = () => {
                 <AppText style={{ color: colors.danger }}>
                   {errors.mobileNumber}
                 </AppText>
-                <AppButton title="ثبت دوره" onPress={handleSubmit}></AppButton>
+                <AppButton
+                  title="ثبت دوره"
+                  onPress={handleSubmit}
+                  color={colors.success}
+                ></AppButton>
               </View>
             </>
           )}

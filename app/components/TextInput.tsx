@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 1,
     borderColor: colors.gray,
-    borderRadius: 30,
+    borderRadius: 16,
     backgroundColor: colors.white,
   },
   icon: {

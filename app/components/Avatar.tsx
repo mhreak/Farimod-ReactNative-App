@@ -4,7 +4,7 @@ import colors from "../config/colors";
 import AppText from "./Text";
 
 interface IProps {
-  imageUrl: string;
+  imageUrl?: string;
   name: string;
 }
 

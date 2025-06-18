@@ -15,22 +15,31 @@ import colors from "../config/colors";
 import { useNavigation } from "@react-navigation/native";
 import * as Yup from "yup";
 import AppText from "../components/Text";
+import FabricBackground from "../components/FabricBackground";
+import { AppNavigationProp } from "../Navigators";
+import { MaterialIcons } from "@expo/vector-icons";
 
 const validationSchema = Yup.object().shape({
   mobileNumber: Yup.string().required("شماره موبایل وارد نشده است"),
 });
 
 const LoginScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<AppNavigationProp>();
   return (
-    <ImageBackground
-      source={require("../../assets/backgrounds/fashion_pattern_1000px.jpg")} // Local image
-      style={styles.background}
-      resizeMode="repeat" // "cover", "contain", or "stretch"
-      imageStyle={{ width: "100%" }}
-    >
+    // <ImageBackground
+    //   source={require("../../assets/backgrounds/fashion_pattern_1000px.jpg")} // Local image
+    //   style={styles.background}
+    //   resizeMode="repeat" // "cover", "contain", or "stretch"
+    //   imageStyle={{ width: "100%" }}
+    // >
+    <FabricBackground>
       <Screen style={styles.container}>
         <View style={styles.loginBox}>
+          <View style={styles.iconContainer}>
+            <View style={styles.iconCircle}>
+              <MaterialIcons name="lock" color={colors.primary} size={65} />
+            </View>
+          </View>
           <AppText style={styles.logingText}>ورود به حساب کاربری</AppText>
 
           <Formik
@@ -87,7 +96,8 @@ const LoginScreen = () => {
           </Text> */}
         </View>
       </Screen>
-    </ImageBackground>
+    </FabricBackground>
+    // </ImageBackground>
   );
 };
 
@@ -112,7 +122,7 @@ const styles = StyleSheet.create({
   },
   loginBox: {
     backgroundColor: colors.primaryLight,
-    borderRadius: 20,
+    borderRadius: 15,
     padding: 20,
   },
   loginButton: {},
@@ -136,6 +146,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.primary,
     textDecorationLine: "underline",
+  },
+  iconContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 40,
+  },
+  iconCircle: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderRadius: 50,
+    borderColor: colors.primaryLight,
+    width: 100,
+    height: 100,
+    justifyContent: "center",
+    alignItems: "center",
+    position: "absolute",
+    top: -70,
   },
 });
 

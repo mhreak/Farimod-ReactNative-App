@@ -23,13 +23,13 @@ interface AppButtonProps extends Omit<TouchableOpacityProps, "style"> {
 const AppButton: React.FC<AppButtonProps> = ({
   title,
   onPress,
-  color = "primary",
+  color = colors.primary,
   style,
   textColor = colors.white,
 }) => {
   return (
     <TouchableOpacity
-      style={[styles.button, { backgroundColor: colors[color as any] }, style]}
+      style={[styles.button, { backgroundColor: color }, style]}
       onPress={onPress}
     >
       <AppText style={[styles.text, { color: textColor }]}>{title}</AppText>
@@ -40,7 +40,7 @@ const AppButton: React.FC<AppButtonProps> = ({
 const styles = StyleSheet.create({
   button: {
     backgroundColor: colors.primary,
-    borderRadius: 30,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
     padding: 15,
