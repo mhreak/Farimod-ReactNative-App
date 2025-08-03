@@ -14,7 +14,18 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSExceptionDomains": {
+            "89.42.208.49": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSExceptionMinimumTLSVersion": "1.0"
+            }
+          }
+        }
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,7 +38,8 @@
         "android.permission.ACCESS_NETWORK_STATE"
       ],
       "edgeToEdgeEnabled": true,
-      "package": "com.yeganeh0.farimod2"
+      "package": "com.yeganeh0.farimod2",
+      "usesCleartextTraffic": true
     },
     "web": {
       "favicon": "./assets/main-icon.png"
