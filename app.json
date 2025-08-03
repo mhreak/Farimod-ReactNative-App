@@ -3,13 +3,12 @@
     "name": "farimod",
     "slug": "farimod-2",
     "version": "1.0.0",
-    "owner": "yeganeh0",
     "orientation": "portrait",
-    "icon": "./assets/main-icon.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/main-icon.png",
+      "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -21,16 +20,10 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
-      "package": "com.yeganeh0.farimod2"
+      "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/main-icon.png"
-    },
-    "extra": {
-      "eas": {
-        "projectId": "452922dd-854c-4587-9ee8-a4dc7075dccd"
-      }
+      "favicon": "./assets/favicon.png"
     }
   }
 }
