@@ -1,10 +1,9 @@
-
 import React, { useEffect, useRef } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  ImageBackground,
+  Image,
   Animated,
   TouchableOpacity,
   Dimensions,
@@ -321,8 +320,6 @@ const WelcomeIntroScreen = ({ navigation }) => {
               />
             </Animated.View>
 
-
-
             <Animated.View
               style={[
                 styles.fabricElement9,
@@ -362,10 +359,10 @@ const WelcomeIntroScreen = ({ navigation }) => {
                 colors={[colors.white, colors.primaryLight]}
                 style={styles.logoCircle}
               >
-                <MaterialCommunityIcons
-                  name="fashion-handbag"
-                  size={50}
-                  color={colors.primaryDark}
+                <Image
+                  source={require('../../assets/main-icon.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
                 />
               </LinearGradient>
 
@@ -461,9 +458,9 @@ const WelcomeIntroScreen = ({ navigation }) => {
 
             <View style={styles.starsContainer}>
               {/* <Text style={styles.star}>✨</Text>
-              <Text style={styles.star}>✨</Text>
-              <Text style={styles.star}>✨</Text>
-              <Text style={styles.star}>✨</Text> */}
+              <Text style={styles.star">✨</Text>
+              <Text style={styles.star">✨</Text>
+              <Text style={styles.star">✨</Text> */}
             </View>
           </Animated.View>
 
@@ -554,7 +551,6 @@ const styles = StyleSheet.create({
     bottom: 320,
     right: 35,
   },
-
   fabricElement9: {
     position: "absolute",
     bottom: 180,
@@ -570,9 +566,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   logoCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 150,
+    height: 150,
+    borderRadius: 100,
     justifyContent: "center",
     alignItems: "center",
     shadowColor: colors.primary,
@@ -585,6 +581,11 @@ const styles = StyleSheet.create({
     elevation: 15,
     borderWidth: 2,
     borderColor: colors.white,
+  },
+  logoImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 100,
   },
   sparkle1: {
     position: "absolute",
@@ -692,7 +693,6 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     overflow: "hidden",
     shadowColor: colors.primary,
-
   },
   buttonGradient: {
     flexDirection: "row-reverse",
@@ -708,4 +708,5 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
 });
+
 export default WelcomeIntroScreen;
