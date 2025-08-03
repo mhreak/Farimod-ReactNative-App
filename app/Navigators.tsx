@@ -17,12 +17,13 @@ import UserProfileScreen from "./screens/UserProfileScreen";
 import SubscriptionScreen from "./screens/SubscriptionScreen";
 import AddNewPostScreen from "./screens/AddNewPostScreen";
 import PortfolioListScreen from "./screens/PortfolioListScreen";
-
-
+ 
+import CareerScreen from "./screens/intro/CareerScreen"; 
+import WelcomeIntroScreen from "./screens/intro/WelcomeIntroScreen";
 import WhyFrimodScreen from "./screens/intro/WhyFrimodScreen";
 import EventsScreen from "./screens/intro/EventsScreen";
-import CareerScreen from "./screens/intro/CareerScreen";
-import WelcomeIntroScreen from "./screens/intro/WelcomeIntroScreen";
+
+
 
 import styles from "./config/styles";
 import MagDetailesScreen from "./screens/MagDetailesScreen";
