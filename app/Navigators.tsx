@@ -1,5 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View, Platform, I18nManager } from "react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LoginScreen from "./screens/LoginScreen";
 import SignupScreen from "./screens/SignupScreen";
 import ProfileScreeen from "./screens/ProfileScreeen";
@@ -10,7 +11,12 @@ import AboutMeScreen from "./screens/AboutMeScreen";
 import MyResumeScreen from "./screens/MyResumeScreen";
 import MyPostsScreen from "./screens/MyPostsScreen";
 import MyCoursesScreen from "./screens/MyCoursesScreen";
-import CourseDetailsScreen from "./screens/CourseDetailsScreen"; // Add this import
+import MyTeachingCoursesScreen from "./screens/MyTeachingCoursesScreen";
+import CourseDetailsScreen from "./screens/CourseDetailsScreen";
+import UserProfileScreen from "./screens/UserProfileScreen";
+import SubscriptionScreen from "./screens/SubscriptionScreen";
+import AddNewPostScreen from "./screens/AddNewPostScreen";
+import PortfolioListScreen from "./screens/PortfolioListScreen";
 
 import WelcomeIntroScreen from "./screens/intro/WelcomeIntroScreen";
 import WhyFrimodScreen from "./screens/intro/WhyFrimodScreen";
@@ -28,6 +34,13 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import colors from "./config/colors";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import AllCoursesScreen from "./screens/AllCoursesScreen";
+import AllProductsScreen from "./screens/AllProductsScreen";
+import AllMembersScreen from "./screens/AllMemberScreen";
+import ProductDetailsScreen from "./screens/ProductDetailsScreen";
+import portfolioDetailScreen from "./screens/PortfolioDetailScreen";
+import PortfolioDetailScreen from "./screens/PortfolioDetailScreen";
+import AllGalleriesScreen from "./screens/AllGalleriesScreen"
 
 export type RootStackParamList = {
   IntroFlow: undefined;
@@ -46,8 +59,20 @@ export type RootStackParamList = {
   MyCourses: undefined;
   AddNewCourse: undefined;
   MagDetailes: undefined;
+  MyTeachingCourses: undefined;
+  AllCoursesScreen: undefined;
+  AllProducts: undefined;
+  AllMembers: undefined;
+  ProductDetails: undefined;
+  AddNewPost: undefined;
+  PortfolioDetail: undefined;
+  PortfolioList: undefined;
+  AllGalleries: undefined;
+
   GalleryItem: undefined;
-  CourseDetails: { courseData?: any }; // Add this line
+  Subscription: undefined;
+  CourseDetails: { courseData?: any };
+  UserProfile: { userData?: any };
 };
 
 export type AppNavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -56,7 +81,6 @@ const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator<RootStackParamList>();
 const IntroStack = createStackNavigator();
 
-// Custom transition configuration for RTL
 const customTransitionConfig = {
   animation: "spring",
   config: {
@@ -69,7 +93,6 @@ const customTransitionConfig = {
   },
 };
 
-// Custom screen options for RTL animation
 const screenOptions = {
   gestureEnabled: true,
   gestureDirection: I18nManager.isRTL ? "horizontal-inverted" : "horizontal",
@@ -133,6 +156,8 @@ function IntroFlowNavigator() {
 
 function TabNavigator() {
   const navigation = useNavigation<AppNavigationProp>();
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       initialRouteName="خانه"
@@ -158,7 +183,8 @@ function TabNavigator() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: "gray",
         tabBarStyle: {
-          height: 60,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom,
           justifyContent: "center",
           alignItems: "center",
         },
@@ -181,15 +207,8 @@ function TabNavigator() {
         name="پروفایل"
         component={ProfileScreeen}
         options={{
-          headerRight: () => (
-            <MaterialIcons
-              name="edit"
-              size={24}
-              color={colors.primary}
-              style={{ marginRight: 15 }}
-              onPress={() => navigation.navigate("EditProfile")}
-            />
-          ),
+          gestureEnabled: false,
+          headerShown: false,
         }}
       />
       <Tab.Screen
@@ -210,35 +229,30 @@ function TabNavigator() {
       <Tab.Screen
         name="مجله ی فریمد"
         component={MagScreen}
-        options={{
-          headerRight: () => (
-            <Ionicons
-              name="search-outline"
-              size={24}
-              color={colors.primary}
-              style={{ marginRight: 15 }}
-            />
-          ),
-          title: "مجله",
-          headerTitle: "مجله ی فریمد",
-        }}
+        options={{ headerShown: false }}
       />
     </Tab.Navigator>
   );
 }
 
-export function StackNavigator() {
+// بروزرسانی StackNavigator برای دریافت وضعیت intro
+export function StackNavigator({ isIntroCompleted }) {
   const navigation = useNavigation();
+
   return (
     <Stack.Navigator
       screenOptions={screenOptions}
-      initialRouteName="IntroFlow"
+      // تعیین صفحه اولیه بر اساس وضعیت intro
+      initialRouteName={isIntroCompleted ? "Login" : "IntroFlow"}
     >
-      <Stack.Screen
-        name="IntroFlow"
-        component={IntroFlowNavigator}
-        options={{ headerShown: false }}
-      />
+      {/* صفحات intro فقط در صورت عدم تکمیل نمایش داده می‌شوند */}
+      {!isIntroCompleted && (
+        <Stack.Screen
+          name="IntroFlow"
+          component={IntroFlowNavigator}
+          options={{ headerShown: false }}
+        />
+      )}
 
       <Stack.Screen
         name="MainTabs"
@@ -285,80 +299,60 @@ export function StackNavigator() {
         name="AboutMe"
         component={AboutMeScreen}
         options={{
-          headerTitleAlign: "center",
-          headerTitleStyle: styles.headerTitleStyle,
-          headerStyle: styles.headerStyle,
-          headerLeft: () => null,
-          headerRight: ({ canGoBack }) =>
-            canGoBack ? (
-              <Ionicons
-                name="arrow-forward"
-                size={24}
-                color={colors.primary}
-                style={{ marginRight: 15 }}
-                onPress={() => navigation.goBack()}
-              />
-            ) : null,
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="MyResume"
         component={MyResumeScreen}
         options={{
-          headerTitleAlign: "center",
-          headerTitleStyle: styles.headerTitleStyle,
-          headerStyle: styles.headerStyle,
-          headerLeft: () => null,
-          headerRight: ({ canGoBack }) =>
-            canGoBack ? (
-              <Ionicons
-                name="arrow-forward"
-                size={24}
-                color={colors.primary}
-                style={{ marginRight: 15 }}
-                onPress={() => navigation.goBack()}
-              />
-            ) : null,
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="MyGallery"
         component={MyGalleryScreen}
         options={{
-          headerTitleAlign: "center",
-          headerTitleStyle: styles.headerTitleStyle,
-          headerStyle: styles.headerStyle,
-          headerLeft: () => null,
-          headerRight: ({ canGoBack }) =>
-            canGoBack ? (
-              <Ionicons
-                name="arrow-forward"
-                size={24}
-                color={colors.primary}
-                style={{ marginRight: 15 }}
-                onPress={() => navigation.goBack()}
-              />
-            ) : null,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="AllGalleries"
+        component={AllGalleriesScreen}
+        options={{
+          headerShown: false,
         }}
       />
       <Stack.Screen
         name="MyPosts"
         component={MyPostsScreen}
         options={{
-          headerTitleAlign: "center",
-          headerTitleStyle: styles.headerTitleStyle,
-          headerStyle: styles.headerStyle,
-          headerLeft: () => null,
-          headerRight: ({ canGoBack }) =>
-            canGoBack ? (
-              <Ionicons
-                name="arrow-forward"
-                size={24}
-                color={colors.primary}
-                style={{ marginRight: 15 }}
-                onPress={() => navigation.goBack()}
-              />
-            ) : null,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="AddNewPost"
+        component={AddNewPostScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PortfolioDetail"
+        component={PortfolioDetailScreen}
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+
+        }}
+      />
+      <Stack.Screen
+        name="PortfolioList"
+        component={PortfolioListScreen}
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+
         }}
       />
       <Stack.Screen
@@ -374,6 +368,7 @@ export function StackNavigator() {
               <Ionicons
                 name="arrow-forward"
                 size={24}
+
                 color={colors.primary}
                 style={{ marginRight: 15 }}
                 onPress={() => navigation.goBack()}
@@ -385,71 +380,85 @@ export function StackNavigator() {
         name="AddNewCourse"
         component={AddNewCourseScreen}
         options={{
-          title: "ثبت دوره ی جدید",
-          headerTitleAlign: "center",
-          headerTitleStyle: styles.headerTitleStyle,
-          headerStyle: styles.headerStyle,
-          headerLeft: () => null,
-          headerRight: ({ canGoBack }) =>
-            canGoBack ? (
-              <Ionicons
-                name="arrow-forward"
-                size={24}
-                color={colors.primary}
-                style={{ marginRight: 15 }}
-                onPress={() => navigation.goBack()}
-              />
-            ) : null,
+          headerShown: false,
         }}
       />
 
       <Stack.Screen
+        name="AllCourses"
+        component={AllCoursesScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="CourseDetails"
         component={CourseDetailsScreen}
         options={{
+          gestureEnabled: false,
           headerShown: false,
         }}
       />
       <Stack.Screen
+        name="MyTeachingCourses"
+        component={MyTeachingCoursesScreen}
+        options={{
+          gestureEnabled: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="ProductDetails"
+        component={ProductDetailsScreen}
+        options={{
+          gestureEnabled: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="AllProducts"
+        component={AllProductsScreen}
+        options={{
+          gestureEnabled: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="AllMembers"
+        component={AllMembersScreen}
+        options={{
+          gestureEnabled: false,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="Subscription"
+        component={SubscriptionScreen}
+        options={{
+          gestureEnabled: false,
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
+        name="UserProfile"
+        component={UserProfileScreen}
+        options={{
+          gestureEnabled: false,
+          headerShown: false,
+        }}
+      />
+
+      <Stack.Screen
         name="MagDetailes"
         component={MagDetailesScreen}
         options={({ route }) => ({
-          headerTitleAlign: "center",
-          headerTitleStyle: styles.headerTitleStyle,
-          headerStyle: styles.headerStyle,
-          title: "مجله ی فریمد",
-          headerLeft: () => null,
-          headerRight: ({ canGoBack }) =>
-            canGoBack ? (
-              <Ionicons
-                name="arrow-forward"
-                size={24}
-                color={colors.primary}
-                style={{ marginRight: 15 }}
-                onPress={() => navigation.goBack()}
-              />
-            ) : null,
+          headerShown: false,
         })}
       />
       <Stack.Screen
         name="GalleryItem"
         component={GalleryItemScreen}
         options={({ route }) => ({
-          headerTitleAlign: "center",
-          headerTitleStyle: styles.headerTitleStyle,
-          headerStyle: styles.headerStyle,
-          title: route.params?.title,
-          headerLeft: () => null,
-          headerRight: ({ canGoBack }) =>
-            canGoBack ? (
-              <Ionicons
-                name="arrow-forward"
-                size={24}
-                color={colors.primary}
-                style={{ marginRight: 15 }}
-                onPress={() => navigation.goBack()}
-              />
-            ) : null,
+          headerShown: false,
         })}
       />
     </Stack.Navigator>

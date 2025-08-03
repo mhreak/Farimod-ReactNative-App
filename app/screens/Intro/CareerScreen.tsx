@@ -11,15 +11,24 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIntro } from '../../contexts/IntroContext'; // اضافه کردن context
+
 import colors from "../../config/colors";
 
 const { width, height } = Dimensions.get("window");
 
 const CareerScreen = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
+  const { completeIntro } = useIntro(); // دسترسی به تابع تکمیل intro
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+
+  const handleContinue = () => {
+    navigation.navigate("EventsScreen");
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -47,26 +56,25 @@ const CareerScreen = ({ navigation }) => {
           duration: 1500,
           useNativeDriver: true,
         }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }),
       ])
-    ).start();
-
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 8000,
-        useNativeDriver: true,
-      })
     ).start();
   }, []);
 
-  const handleGetStarted = () => {
-    navigation.navigate("Login");
+  const handleGetStarted = async () => {
+    // علامت‌گذاری intro به عنوان کامل شده
+    await completeIntro();
+    // هدایت به صفحه لاگین
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
   };
-
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   return (
     <>
@@ -77,7 +85,8 @@ const CareerScreen = ({ navigation }) => {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ScrollView contentContainerStyle={[styles.scrollContainer, { paddingBottom: insets.bottom + 20 }]}
+        >
           <View style={styles.container}>
             <Animated.View
               style={[
@@ -100,7 +109,7 @@ const CareerScreen = ({ navigation }) => {
                   />
                 </LinearGradient>
                 <Text style={styles.headerTitle}>پروژه‌گیری و کاریابی فشن</Text>
-              
+        
               </View>
             </Animated.View>
 
@@ -114,7 +123,7 @@ const CareerScreen = ({ navigation }) => {
               ]}
             >
               <LinearGradient
-                colors={["rgba(255, 255, 255, 0.25)", "rgba(255, 255, 255, 0.15)", "rgba(248, 244, 244, 0.12)"]}
+                colors={["rgba(255, 255, 255, 0.15)", "rgba(255, 255, 255, 0.08)"]}
                 style={styles.cardGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -215,193 +224,35 @@ const CareerScreen = ({ navigation }) => {
                 styles.buttonsContainer,
                 {
                   opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }, { scale: pulseAnim }],
+                  transform: [
+                    { translateY: slideAnim },
+                    { scale: scaleAnim }
+                  ],
                 },
               ]}
             >
-              <TouchableOpacity style={styles.primaryButton} onPress={handleGetStarted}>
+   
+
+              <TouchableOpacity
+                style={styles.continueButton}
+                onPress={handleContinue}
+                activeOpacity={0.8}
+              >
                 <LinearGradient
-                  colors={['#E91E63', '#AD1457', '#880E4F']}
-                  style={styles.buttonGradient}
+                  colors={[colors.primary, colors.secondary]}
+                  style={styles.continueButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
                   <MaterialCommunityIcons
-                    name="rocket-launch"
-                    size={22}
-                    color="white"
-                  />
-                  <Text style={styles.primaryButtonText}>شروع کنید</Text>
-                </LinearGradient>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={() => navigation.navigate("Login")}
-              >
-                <LinearGradient
-                  colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.1)']}
-                  style={styles.secondaryButtonGradient}
-                >
-                  <MaterialCommunityIcons
-                    name="login"
+                    name="arrow-left"
                     size={20}
                     color="white"
-                    style={{ marginLeft: 8 }}
                   />
-                  <Text style={styles.secondaryButtonText}>ورود به حساب کاربری</Text>
+                  <Text style={styles.continueButtonText}>ادامه</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
-
-            <View style={styles.decorativeElements}>
-              <Animated.View
-                style={[
-                  styles.decorativeIcon1,
-                  { transform: [{ rotate: spin }] }
-                ]}
-              >
-                <LinearGradient
-                  colors={['#FF6B6B', '#FF8E53']}
-                  style={styles.decorativeCircle}
-                >
-                  <MaterialCommunityIcons
-                    name="tshirt-crew"
-                    size={35}
-                    color="white"
-                  />
-                </LinearGradient>
-              </Animated.View>
-
-              <Animated.View
-                style={[
-                  styles.decorativeIcon2,
-                  { transform: [{ rotate: spin }] }
-                ]}
-              >
-                <LinearGradient
-                  colors={['#4ECDC4', '#44A08D']}
-                  style={styles.decorativeCircle}
-                >
-                  <MaterialCommunityIcons
-                    name="account-tie"
-                    size={30}
-                    color="white"
-                  />
-                </LinearGradient>
-              </Animated.View>
-
-              <Animated.View
-                style={[
-                  styles.decorativeIcon3,
-                  { transform: [{ rotate: spin }] }
-                ]}
-              >
-                <LinearGradient
-                  colors={['#A8E6CF', '#7FCDCD']}
-                  style={styles.decorativeCircle}
-                >
-                  <MaterialCommunityIcons
-                    name="glasses"
-                    size={25}
-                    color="white"
-                  />
-                </LinearGradient>
-              </Animated.View>
-
-              <Animated.View
-                style={[
-                  styles.decorativeIcon4,
-                  { transform: [{ rotate: spin }] }
-                ]}
-              >
-                <LinearGradient
-                  colors={['#9C27B0', '#673AB7']}
-                  style={styles.decorativeCircleSmall}
-                >
-                  <MaterialCommunityIcons
-                    name="scissors-cutting"
-                    size={20}
-                    color="white"
-                  />
-                </LinearGradient>
-              </Animated.View>
-
-              <Animated.View
-                style={[
-                  styles.decorativeIcon5,
-                  { transform: [{ rotate: spin }] }
-                ]}
-              >
-                <LinearGradient
-                  colors={['#E91E63', '#F06292']}
-                  style={styles.decorativeCircleSmall}
-                >
-                  <MaterialCommunityIcons
-                    name="shoe-heel"
-                    size={18}
-                    color="white"
-                  />
-                </LinearGradient>
-              </Animated.View>
-              <View style={styles.floatingElements}>
-                <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
-                  <MaterialCommunityIcons
-                    name="star-shooting"
-                    size={22}
-                    color="rgba(255, 215, 0, 0.4)"
-                  />
-                </Animated.View>
-
-                <Animated.View style={[styles.star2, { transform: [{ rotate: spin }] }]}>
-                  <MaterialCommunityIcons
-                    name="meteor"
-                    size={18}
-                    color="rgba(255, 107, 107, 0.4)"
-                  />
-                </Animated.View>
-
-                <Animated.View style={[styles.star3, { transform: [{ rotate: spin }] }]}>
-                  <MaterialCommunityIcons
-                    name="star-shooting-outline"
-                    size={20}
-                    color="rgba(78, 205, 196, 0.4)"
-                  />
-                </Animated.View>
-
-                <Animated.View style={[styles.floatingIcon1, { transform: [{ rotate: spin }] }]}>
-                  <MaterialCommunityIcons
-                    name="bag-personal"
-                    size={16}
-                    color="rgba(156, 39, 176, 0.3)"
-                  />
-                </Animated.View>
-
-                <Animated.View style={[styles.floatingIcon2, { transform: [{ rotate: spin }] }]}>
-                  <MaterialCommunityIcons
-                    name="crown"
-                    size={14}
-                    color="rgba(233, 30, 99, 0.3)"
-                  />
-                </Animated.View>
-
-                <Animated.View style={[styles.floatingIcon3, { transform: [{ rotate: spin }] }]}>
-                  <MaterialCommunityIcons
-                    name="diamond-stone"
-                    size={15}
-                    color="rgba(255, 193, 7, 0.3)"
-                  />
-                </Animated.View>
-
-                <Animated.View style={[styles.floatingIcon4, { transform: [{ rotate: spin }] }]}>
-                  <MaterialCommunityIcons
-                    name="star-four-points"
-                    size={12}
-                    color="rgba(76, 175, 80, 0.3)"
-                  />
-                </Animated.View>
-              </View>
-            </View>
           </View>
         </ScrollView>
       </LinearGradient>
@@ -474,14 +325,12 @@ const styles = StyleSheet.create({
     borderRadius: 35,
     overflow: "hidden",
     marginBottom: 35,
- 
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.4)",
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   cardGradient: {
     padding: 30,
     position: "relative",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
   mainIconContainer: {
     alignItems: "center",
@@ -533,17 +382,15 @@ const styles = StyleSheet.create({
   careerFeature: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-    backdropFilter: "blur(12px)",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     paddingVertical: 18,
     paddingHorizontal: 22,
     borderRadius: 22,
     marginBottom: 14,
     position: "relative",
     overflow: "hidden",
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.4)",
- 
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   careerIconContainer: {
     width: 50,
@@ -594,14 +441,12 @@ const styles = StyleSheet.create({
   linkSection: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    backgroundColor: "rgba(63, 81, 181, 0.25)",
-    backdropFilter: "blur(10px)",
+    backgroundColor: "rgba(63, 81, 181, 0.2)",
     padding: 22,
     borderRadius: 22,
     marginTop: 25,
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.4)",
-   
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
   },
   linkIconContainer: {
     width: 45,
@@ -648,125 +493,33 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontFamily: "Yekan_Bakh_Bold",
     color: "white",
-    marginRight: 12,
+    marginLeft: 12,
   },
-  secondaryButton: {
+  continueButton: {
+    width: "70%",
     borderRadius: 25,
     overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.6)",
-  },
-  secondaryButtonGradient: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 35,
-  },
-  secondaryButtonText: {
-    fontSize: 17,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "white",
-    textAlign: "center",
-  },
-  decorativeElements: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: -1,
-  },
-  decorativeCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowColor: colors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
   },
-  decorativeIcon1: {
-    position: "absolute",
-    top: 120,
-    right: 15,
-  },
-  decorativeIcon2: {
-    position: "absolute",
-    top: 280,
-    left: 20,
-  },
-  decorativeIcon3: {
-    position: "absolute",
-    bottom: 400,
-    right: 25,
-  },
-  decorativeIcon4: {
-    position: "absolute",
-    top: 350,
-    right: 10,
-  },
-  decorativeIcon5: {
-    position: "absolute",
-    bottom: 300,
-    left: 15,
-  },
-  decorativeCircleSmall: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
+  continueButtonGradient: {
+    flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 6,
+    paddingVertical: 16,
+    paddingHorizontal: 30,
   },
-  floatingElements: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  star1: {
-    position: "absolute",
-    top: 180,
-    left: 60,
-  },
-  star2: {
-    position: "absolute",
-    top: 420,
-    right: 70,
-  },
-  star3: {
-    position: "absolute",
-    bottom: 280,
-    left: 50,
-  },
-  floatingIcon1: {
-    position: "absolute",
-    top: 240,
-    right: 40,
-  },
-  floatingIcon2: {
-    position: "absolute",
-    top: 480,
-    left: 80,
-  },
-  floatingIcon3: {
-    position: "absolute",
-    bottom: 380,
-    right: 60,
-  },
-  floatingIcon4: {
-    position: "absolute",
-    top: 320,
-    left: 30,
+  continueButtonText: {
+    fontSize: 18,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "white",
+    marginLeft: 10,
   },
 });
 

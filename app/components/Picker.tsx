@@ -1,118 +1,333 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   StyleSheet,
   TouchableWithoutFeedback,
   Modal,
-  Button,
-  FlatList,
+  Animated,
+  ScrollView,
+  Dimensions,
+  TouchableOpacity,
+  Platform,
+  Pressable,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 
 import Text from "./Text";
 import defaultStyles from "../config/styles";
-import PickerItem from "./PickerItem";
-import Screen from "./Screen";
 import AppButton from "./Button";
 import colors from "../config/colors";
 import AppText from "./Text";
-import { LinearGradient } from "expo-linear-gradient";
+import { toPersianDigits } from "../utils/converters";
 
 interface IProps {
   icon: React.ComponentProps<typeof MaterialIcons>["name"];
-  items: { value: string | number; label: string }[];
+  items: { value: string | number; label: string; price?: number; icon?: string }[];
   numberOfColumns?: number;
-  onSelectItem: (item: { value: string | number; label: string }) => void;
+  onSelectItem: (item: { value: string | number; label: string; price?: number; icon?: string }) => void;
   PickerItemComponent?: React.ReactNode;
   placeholder: string;
   selectedItem?: any;
   width?: string;
   error?: string;
+  disabled?: boolean;
+  onPress?: () => void;
+  theme?: 'default' | 'subscription'; // تم جدید اضافه شده
 }
+
+const { width, height } = Dimensions.get('window');
+
+const modernColors = {
+  primary: "#667eea",
+  primaryDark: "#764ba2",
+  secondary: "#ff6b6b",
+  tertiary: "#4ecdc4",
+  accent: "#45b7d1",
+  surface: "#ffffff",
+  dark: "#2c3e50",
+  medium: "#34495e",
+  light: "#ecf0f1",
+  success: "#2ecc71",
+  warning: "#f39c12",
+  error: "#e74c3c",
+  info: "#3498db",
+};
+
+// رنگ‌های تم سبز برای صفحه اشتراک‌ها
+const subscriptionColors = {
+  primary: "#2ecc71",
+  primaryDark: "#27ae60",
+  iconBackground: "rgba(46, 204, 113, 0.1)",
+  selectedIconBackground: "rgba(255, 255, 255, 0.2)",
+};
 
 const AppPicker: React.FC<IProps> = ({
   icon,
   items,
   numberOfColumns = 1,
   onSelectItem,
-  PickerItemComponent = PickerItem,
+  PickerItemComponent,
   placeholder,
   selectedItem,
   width = "100%",
   error,
+  disabled = false,
+  onPress,
+  theme = 'default', // مقدار پیش‌فرض
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
+  const [tempSelectedItem, setTempSelectedItem] = useState(selectedItem);
+
+  const modalSlideAnim = useRef(new Animated.Value(300)).current;
+  const modalOpacityAnim = useRef(new Animated.Value(0)).current;
+
+  const SAFE_AREA_BOTTOM = Platform.select({
+    ios: height > 736 ? 34 : 0,
+    android: 0,
+    default: 0,
+  });
+
+  // انتخاب رنگ‌ها بر اساس تم
+  const getThemeColors = () => {
+    if (theme === 'subscription') {
+      return {
+        primary: subscriptionColors.primary,
+        primaryDark: subscriptionColors.primaryDark,
+        iconBackground: subscriptionColors.iconBackground,
+        selectedIconBackground: subscriptionColors.selectedIconBackground,
+      };
+    }
+    return {
+      primary: modernColors.primary,
+      primaryDark: modernColors.primaryDark,
+      iconBackground: `rgba(102, 126, 234, 0.1)`,
+      selectedIconBackground: 'rgba(255, 255, 255, 0.2)',
+    };
+  };
+
+  const themeColors = getThemeColors();
+
+  const openModal = () => {
+    if (disabled) return;
+
+    if (onPress) {
+      onPress();
+      return;
+    }
+
+    setModalVisible(true);
+    setTempSelectedItem(selectedItem);
+
+    Animated.parallel([
+      Animated.timing(modalSlideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(modalOpacityAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeModal = () => {
+    Animated.parallel([
+      Animated.timing(modalSlideAnim, {
+        toValue: 300,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(modalOpacityAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setModalVisible(false);
+    });
+  };
+
+  const handleConfirm = () => {
+    if (tempSelectedItem) {
+      onSelectItem(tempSelectedItem);
+    }
+    closeModal();
+  };
+
+  const handleItemSelect = (item: { value: string | number; label: string; price?: number; icon?: string }) => {
+    setTempSelectedItem(item);
+  };
+
+  const clearSelection = () => {
+    setTempSelectedItem(null);
+  };
 
   return (
     <>
       <View style={{ marginBottom: 16 }}>
-        <TouchableWithoutFeedback onPress={() => setModalVisible(true)}>
-          <View style={[styles.container, { width: width as any }]}>
+        <TouchableWithoutFeedback onPress={openModal}>
+          <View style={[
+            styles.container,
+            { width: width as any },
+            disabled && styles.disabledContainer
+          ]}>
             {icon && (
               <MaterialIcons
                 name={icon}
                 size={20}
-                color={defaultStyles.colors.medium}
+                color={disabled ? colors.light : "#6e6e6e"}
                 style={styles.icon}
               />
             )}
-            {selectedItem ? (
-              <Text style={styles.text}>{selectedItem.label}</Text>
+            {selectedItem && selectedItem.label ? (
+              <Text style={[
+                styles.text,
+                disabled && styles.disabledText
+              ]}>
+                {selectedItem.label}
+              </Text>
             ) : (
-              <Text style={styles.placeholder}>{placeholder}</Text>
+              <Text style={[
+                styles.placeholder,
+                disabled && styles.disabledPlaceholder
+              ]}>
+                {placeholder}
+              </Text>
             )}
 
             <MaterialIcons
               name="arrow-drop-down"
               size={20}
-              color={defaultStyles.colors.medium}
+              color={disabled ? colors.light : "#2c3e50"}
             />
           </View>
         </TouchableWithoutFeedback>
         {error && <AppText style={styles.errorText}>{error}</AppText>}
       </View>
+
       <Modal
         visible={modalVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setModalVisible(false)}
+        transparent={true}
+        animationType="none"
+        onRequestClose={closeModal}
       >
-        <View style={styles.backdrop}>
-          <View style={styles.mainContent}>
-            <LinearGradient
-              style={styles.headerContainer}
-              colors={[colors.primaryLight, colors.primary]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-            >
-              <AppText style={styles.headerText}>{placeholder}</AppText>
-            </LinearGradient>
-            <FlatList
-              data={items}
-              keyExtractor={(item) => item.value.toString()}
-              numColumns={numberOfColumns}
-              renderItem={({ item }) => (
-                <PickerItem
-                  item={item}
-                  // label={item.label}
-                  onPress={() => {
-                    setModalVisible(false);
-                    onSelectItem(item);
-                  }}
-                  isSelected={selectedItem.value === item.value}
-                />
-              )}
-            />
-            <View style={styles.bottonContainer}>
-              <AppButton
-                title="بستن"
-                onPress={() => setModalVisible(false)}
-                style={{ width: "80%", padding: 10 }}
-                color={colors.danger}
-              />
+        <Pressable style={styles.modalOverlay} onPress={closeModal}>
+          <Animated.View
+            style={[
+              styles.modalContent,
+              {
+                transform: [{ translateY: modalSlideAnim }],
+                opacity: modalOpacityAnim,
+              }
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHandle} />
+              <View style={styles.headerRow}>
+                <View style={styles.headerTitleContainer}>
+                  <MaterialIcons name={icon} size={24} color={themeColors.primary} />
+                  <AppText style={styles.modalTitle}>{placeholder}</AppText>
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
+
+            <View style={styles.itemsContainer}>
+              <ScrollView
+                style={styles.scrollContainer}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+              >
+                {items.map((item, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.selectionOption,
+                      tempSelectedItem && tempSelectedItem.value === item.value && [
+                        styles.selectedOption,
+                        { backgroundColor: themeColors.primary, borderColor: themeColors.primary }
+                      ],
+                    ]}
+                    onPress={() => handleItemSelect(item)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.optionContent}>
+                      <View style={styles.optionLeft}>
+                        {item.icon && (
+                          <View style={[
+                            styles.optionIconContainer,
+                            { backgroundColor: themeColors.iconBackground },
+                            tempSelectedItem && tempSelectedItem.value === item.value && {
+                              backgroundColor: themeColors.selectedIconBackground
+                            }
+                          ]}>
+                            <MaterialIcons
+                              name={item.icon as any}
+                              size={20}
+                              color={tempSelectedItem && tempSelectedItem.value === item.value ? "#ffffff" : themeColors.primary}
+                            />
+                          </View>
+                        )}
+                        <View style={styles.optionTextContainer}>
+                          <AppText style={[
+                            styles.selectionOptionText,
+                            tempSelectedItem && tempSelectedItem.value === item.value && styles.selectedOptionText,
+                          ]}>
+                            {item.label}
+                          </AppText>
+                          {item.price !== undefined && (
+                            <AppText style={[
+                              styles.priceText,
+                              tempSelectedItem && tempSelectedItem.value === item.value && styles.selectedPriceText,
+                            ]}>
+                              {toPersianDigits(item.price.toString())} تومان
+                            </AppText>
+                          )}
+                        </View>
+                      </View>
+
+                      {tempSelectedItem && tempSelectedItem.value === item.value && (
+                        <MaterialIcons name="check" size={18} color="#ffffff" />
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={styles.resetButton}
+                onPress={closeModal}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="close" size={20} color={modernColors.medium} />
+                <AppText style={styles.resetButtonText}>انصراف</AppText>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.applyButton}
+                onPress={handleConfirm}
+                activeOpacity={0.8}
+                disabled={!tempSelectedItem}
+              >
+                <LinearGradient
+                  colors={tempSelectedItem ? [themeColors.primary, themeColors.primaryDark] : ['#9ca3af', '#6b7280']}
+                  style={styles.applyButtonGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <MaterialIcons name="check" size={20} color="#ffffff" />
+                  <AppText style={styles.applyButtonText}>تأیید انتخاب</AppText>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.modalSafeArea, { height: SAFE_AREA_BOTTOM }]} />
+          </Animated.View>
+        </Pressable>
       </Modal>
     </>
   );
@@ -124,9 +339,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     flexDirection: "row-reverse",
     padding: 15,
-
-    borderColor: colors.gray,
-    borderWidth: 1,
+    borderColor: "#6e6e6e",
+    borderWidth: 0.5,
+    shadowColor: 'rgba(44, 62, 80, 0.3)',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  disabledContainer: {
+    backgroundColor: '#f5f5f5',
+    opacity: 0.6,
   },
   icon: {
     marginLeft: 10,
@@ -134,40 +360,24 @@ const styles = StyleSheet.create({
     marginRight: -3,
   },
   placeholder: {
-    color: defaultStyles.colors.medium,
+    color: "#6e6e6e",
     flex: 1,
-    fontSize: 15,
+    fontSize: 16,
+    textAlign: 'right',
+    fontFamily: "Yekan_Bakh_Bold",
+  },
+  disabledPlaceholder: {
+    color: colors.light,
   },
   text: {
     flex: 1,
     fontSize: 15,
+    color: colors.dark,
+    fontFamily: "Yekan_Bakh_Regular",
+    textAlign: 'right',
   },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  mainContent: {
-    height: 420,
-    width: "80%",
-    backgroundColor: colors.light,
-    borderRadius: 16,
-  },
-  bottonContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  headerContainer: {
-    borderTopRightRadius: 16,
-    borderTopLeftRadius: 16,
-    padding: 12,
-    marginBottom: 15,
-  },
-  headerText: {
+  disabledText: {
     color: colors.light,
-    fontFamily: "Yekan_Bakh_Bold",
   },
   errorText: {
     color: colors.danger,
@@ -175,6 +385,180 @@ const styles = StyleSheet.create({
     marginTop: 5,
     textAlign: "right",
     marginRight: 5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    height: '70%',
+  },
+  modalSafeArea: {
+    backgroundColor: '#FFFFFF',
+  },
+  modalHeader: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#D1D5DB',
+    borderRadius: 2,
+    marginBottom: 15,
+  },
+  headerRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  headerTitleContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: "Yekan_Bakh_ExtraBold",
+    color: "#1F2937",
+    marginRight: 8,
+  },
+  clearButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  clearButtonContent: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearButtonText: {
+    fontSize: 12,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: modernColors.medium,
+    marginRight: 4,
+  },
+  itemsContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingVertical: 8,
+  },
+  selectionOption: {
+    backgroundColor: '#f8fafc',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    marginVertical: 6,
+  },
+  selectedOption: {
+    backgroundColor: modernColors.primary,
+    borderColor: modernColors.primary,
+  },
+  optionContent: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  optionLeft: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    flex: 1,
+  },
+  optionIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: `rgba(102, 126, 234, 0.1)`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  selectedIconContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  optionTextContainer: {
+    flex: 1,
+  },
+  selectionOptionText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: modernColors.dark,
+    marginBottom: 4,
+  },
+  selectedOptionText: {
+    color: '#ffffff',
+  },
+  priceText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#9ca3af',
+  },
+  selectedPriceText: {
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  actionButtons: {
+    flexDirection: 'row-reverse',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  resetButton: {
+    flex: 1,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  resetButtonText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: modernColors.medium,
+    marginRight: 6,
+  },
+  applyButton: {
+    flex: 2,
+  },
+  applyButtonGradient: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  applyButtonText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#ffffff',
+    marginRight: 6,
   },
 });
 

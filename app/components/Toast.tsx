@@ -1,45 +1,47 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from 'react';
 import {
-  Animated,
-  StyleSheet,
-  Text,
   View,
-  TouchableWithoutFeedback,
-} from "react-native";
-import { MaterialIcons } from "@expo/vector-icons";
-import colors from "../config/colors";
+  Text,
+  StyleSheet,
+  Animated,
+  TouchableOpacity,
+  Dimensions,
+} from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import colors from '../config/colors';
 
-type ToastType = "success" | "error" | "warning" | "info";
+
+const { width } = Dimensions.get('window');
 
 interface ToastProps {
   visible: boolean;
   message: string;
-  type?: ToastType;
+  type?: 'success' | 'error' | 'warning' | 'info';
   duration?: number;
-  onDismiss?: () => void;
+  onHide: () => void;
 }
 
 const Toast: React.FC<ToastProps> = ({
   visible,
   message,
-  type = "error",
+  type = 'info',
   duration = 3000,
-  onDismiss,
+  onHide,
 }) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(-20)).current;
+  const translateY = useRef(new Animated.Value(-100)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      // Fade in
+      // Show animation
       Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
+        Animated.timing(translateY, {
+          toValue: 0,
           duration: 300,
           useNativeDriver: true,
         }),
-        Animated.timing(translateY, {
-          toValue: 0,
+        Animated.timing(opacity, {
+          toValue: 1,
           duration: 300,
           useNativeDriver: true,
         }),
@@ -56,87 +58,114 @@ const Toast: React.FC<ToastProps> = ({
 
   const hideToast = () => {
     Animated.parallel([
-      Animated.timing(fadeAnim, {
+      Animated.timing(translateY, {
+        toValue: -100,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
         toValue: 0,
         duration: 300,
         useNativeDriver: true,
       }),
-      Animated.timing(translateY, {
-        toValue: -20,
-        duration: 300,
-        useNativeDriver: true,
-      }),
     ]).start(() => {
-      if (onDismiss) onDismiss();
+      onHide();
     });
   };
 
-  if (!visible) return null;
-
-  const getIconAndColor = (): {
-    icon: React.ComponentProps<typeof MaterialIcons>["name"];
-    color: string;
-  } => {
+  const getToastConfig = () => {
     switch (type) {
-      case "success":
-        return { icon: "check-circle", color: colors.success };
-      case "warning":
-        return { icon: "warning", color: colors.warning || "#FFC107" };
-      case "info":
-        return { icon: "info", color: colors.info || "#2196F3" };
-      case "error":
+      case 'success':
+        return {
+          backgroundColor: colors.success,
+          icon: 'check-circle',
+          color: '#fff',
+        };
+      case 'error':
+        return {
+          backgroundColor: colors.danger,
+          icon: 'error',
+          color: '#fff',
+        };
+      case 'warning':
+        return {
+          backgroundColor: colors.warning,
+          icon: 'warning',
+          color: '#fff',
+        };
       default:
-        return { icon: "error", color: colors.danger };
+        return {
+          backgroundColor: colors.info,
+          icon: 'info',
+          color: '#fff',
+        };
     }
   };
 
-  const { icon, color } = getIconAndColor();
+  const config = getToastConfig();
+
+  if (!visible) return null;
 
   return (
-    <TouchableWithoutFeedback onPress={hideToast}>
-      <Animated.View
-        style={[
-          styles.container,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY }],
-            backgroundColor: color,
-          },
-        ]}
-      >
-        <MaterialIcons name={icon} size={24} color="white" />
-        <Text style={styles.message}>{message}</Text>
-      </Animated.View>
-    </TouchableWithoutFeedback>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          transform: [{ translateY }],
+          opacity,
+          backgroundColor: config.backgroundColor,
+        },
+      ]}
+    >
+      <MaterialIcons
+        name={config.icon}
+        size={24}
+        color={config.color}
+        style={styles.icon}
+      />
+      <Text style={[styles.message, { color: config.color }]} numberOfLines={2}>
+        {message}
+      </Text>
+      <TouchableOpacity onPress={hideToast} style={styles.closeButton}>
+        <MaterialIcons name="close" size={20} color={config.color} />
+      </TouchableOpacity>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    position: "absolute",
-    top: 50, // Adjust based on your layout
+    position: 'absolute',
+    top: 50,
     left: 20,
     right: 20,
-    backgroundColor: colors.danger,
-    borderRadius: 8,
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    paddingVertical: 12,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
     paddingHorizontal: 16,
-    elevation: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
+    paddingVertical: 12,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
     zIndex: 9999,
   },
+  icon: {
+    marginLeft: 12,
+  },
   message: {
-    color: "white",
-    fontSize: 15,
-    marginRight: 12,
-    fontFamily: "Yekan_Bakh_Regular",
     flex: 1,
-    textAlign: "right",
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    textAlign: 'right',
+  },
+  closeButton: {
+    marginRight: 8,
+    padding: 4,
   },
 });
 

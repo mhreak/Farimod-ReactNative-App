@@ -12,13 +12,18 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import colors from "../../config/colors";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useIntro } from '../../contexts/IntroContext'; // اضافه کردن context
 
 const { width, height } = Dimensions.get("window");
 
 const EventsScreen = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
+  const { completeIntro } = useIntro(); // دسترسی به تابع تکمیل intro
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -39,22 +44,47 @@ const EventsScreen = ({ navigation }) => {
         useNativeDriver: true,
       }),
     ]).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
   }, []);
 
   const handleContinue = () => {
     navigation.navigate("CareerScreen");
   };
 
+  const handleGetStarted = async () => {
+    // علامت‌گذاری intro به عنوان کامل شده
+    await completeIntro();
+    // هدایت به صفحه لاگین
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
+  };
+
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <LinearGradient
-        colors={["#FF6B9D", "#FFB5D1", "#FFE0EC", "#FFF8FC"]}
-        locations={[0, 0.4, 0.7, 1]}
+        colors={["#FF6B9D", "#FFB5D1", "#FFF8FC", "#FFE0EC", "#FF6B9D"]}
+        locations={[0, 0.3, 0.6, 0.8, 1]}
         style={styles.background}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContainer}
+          contentContainerStyle={[styles.scrollContainer, { paddingBottom: insets.bottom + 20 }]}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.container}>
@@ -182,33 +212,44 @@ const EventsScreen = ({ navigation }) => {
 
             <Animated.View
               style={[
-                styles.buttonContainer,
+                styles.buttonsContainer,
                 {
                   opacity: fadeAnim,
-                  transform: [
-                    { translateY: slideAnim },
-                    { scale: scaleAnim }
-                  ],
+                  transform: [{ translateY: slideAnim }, { scale: pulseAnim }],
                 },
               ]}
             >
-              <TouchableOpacity
-                style={styles.continueButton}
-                onPress={handleContinue}
-                activeOpacity={0.8}
-              >
+              <TouchableOpacity style={styles.primaryButton} onPress={handleGetStarted}>
                 <LinearGradient
-                  colors={[colors.primary, colors.secondary]}
+                  colors={['#E91E63', '#AD1457', '#880E4F']}
                   style={styles.buttonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                 >
                   <MaterialCommunityIcons
-                    name="arrow-left"
-                    size={20}
+                    name="rocket-launch"
+                    size={22}
                     color="white"
                   />
-                  <Text style={styles.buttonText}>ادامه</Text>
+                  <Text style={styles.primaryButtonText}>شروع کنید</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.secondaryButton}
+                onPress={handleGetStarted}
+              >
+                <LinearGradient
+                  colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.1)']}
+                  style={styles.secondaryButtonGradient}
+                >
+                  <MaterialCommunityIcons
+                    name="login"
+                    size={20}
+                    color="white"
+                    style={{ marginRight: 8 }}
+                  />
+                  <Text style={styles.secondaryButtonText}>ورود به حساب کاربری</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </Animated.View>
@@ -331,14 +372,13 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   eventItem: {
-    flexDirection: "row", 
+    flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f9edf5",
     paddingVertical: 18,
     paddingHorizontal: 22,
     borderRadius: 20,
     marginBottom: 15,
-
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.5)",
   },
@@ -348,11 +388,11 @@ const styles = StyleSheet.create({
     borderRadius: 27.5,
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 18, 
+    marginLeft: 18,
   },
   eventContent: {
     flex: 1,
-    alignItems: "flex-end", 
+    alignItems: "flex-end",
   },
   eventTitle: {
     fontSize: 17,
@@ -390,35 +430,53 @@ const styles = StyleSheet.create({
     bottom: 180,
     right: 50,
   },
-  buttonContainer: {
+  buttonsContainer: {
     alignItems: "center",
-    paddingHorizontal: 20,
+    marginBottom: 25,
   },
-  continueButton: {
-    width: "80%",
-    borderRadius: 25,
+  primaryButton: {
+    width: "92%",
+    borderRadius: 30,
     overflow: "hidden",
-    shadowColor: colors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowColor: "#E91E63",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    elevation: 20,
   },
   buttonGradient: {
-    flexDirection: "row", 
+    flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 30,
+    paddingVertical: 18,
+    paddingHorizontal: 35,
   },
-  buttonText: {
-    fontSize: 18,
+  primaryButtonText: {
+    fontSize: 19,
     fontFamily: "Yekan_Bakh_Bold",
     color: "white",
-    marginLeft: 10, 
+    marginLeft: 12,
+  },
+  secondaryButton: {
+    width: "70%",
+    borderRadius: 25,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.6)",
+    marginTop: 18,
+  },
+  secondaryButtonGradient: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "white",
+    textAlign: "center",
   },
 });
 

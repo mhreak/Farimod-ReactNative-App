@@ -13,10 +13,12 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import colors from "../../config/colors";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get("window");
 
 const WelcomeIntroScreen = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(100)).current;
   const scaleAnim = useRef(new Animated.Value(0.5)).current;
@@ -129,8 +131,8 @@ const WelcomeIntroScreen = ({ navigation }) => {
         locations={[0, 0.5, 1]}
         style={styles.background}
       >
-        <View style={styles.container}>
-          <View style={styles.decorativeElements}>
+        <View style={[styles.container, { paddingBottom: insets.bottom + 60 }]}>
+        <View style={styles.decorativeElements}>
             <Animated.View
               style={[
                 styles.fabricElement1,
@@ -416,7 +418,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
               </Animated.View>
             </View>
 
-            <Text style={styles.appName}>فریمد</Text>
+            <Text style={styles.appName}>فریمد | Farimod</Text>
             {/* <Text style={styles.welcomeText}>سلام و درود</Text> */}
           </Animated.View>
 
@@ -441,20 +443,20 @@ const WelcomeIntroScreen = ({ navigation }) => {
                 style={styles.heartIcon}
               />
             </View>
-            <Text style={styles.mainText}>خوش آمدید</Text>
+            <Text style={styles.mainText}>خوش آمدید!</Text>
 
             <View style={styles.separator}>
               <View style={styles.separatorLine} />
-              <MaterialCommunityIcons
+              <Ionicons
                 name="sparkles"
-                size={20}
+                size={30}
                 color={colors.primary}
               />
               <View style={styles.separatorLine} />
             </View>
 
             <Text style={styles.subText}>
-              به خانواده بزرگ طراحان پارچه و لباس ایران بپیوندید
+              به خانواده بزرگ طراحان پارچه و لباس ایران بپیوندید.
             </Text>
 
             <View style={styles.starsContainer}>

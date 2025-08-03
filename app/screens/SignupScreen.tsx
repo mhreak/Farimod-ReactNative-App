@@ -1,13 +1,16 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
-  ImageBackground,
   StyleSheet,
   Text,
   View,
   TouchableOpacity,
   ScrollView,
   TextInput,
+  Image,
+  Animated,
+  ActivityIndicator,
 } from "react-native";
+import { LinearGradient } from 'expo-linear-gradient';
 import Screen from "../components/Screen";
 import AppButton from "../components/Button";
 import { Formik } from "formik";
@@ -17,33 +20,130 @@ import { useNavigation } from "@react-navigation/native";
 import Icon from "react-native-vector-icons/MaterialCommunityIcons";
 import AppText from "../components/Text";
 import * as Yup from "yup";
-import FabricBackground from "../components/FabricBackground";
 import { MaterialIcons } from "@expo/vector-icons";
 import { toPersianDigits } from "../utils/converters";
 import { AppNavigationProp } from "../Navigators";
+import { useMemberGroups } from "../config/useApi";
+import { MemberGroup } from "../config/type";
+import Toast from "../components/Toast";
+import ChipsUI from '../components/ChipsUI';
+import appConfig from '../config/config'; // Import config
 
 interface IFormData {
   firstName: string;
   lastName: string;
   mobileNumber: string;
-  selectedBadges: number[];
+  selectedGroups: number[];
 }
 
 const SignupScreen = () => {
-  const naviagation = useNavigation<AppNavigationProp>();
+  const navigation = useNavigation<AppNavigationProp>();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<IFormData>({
     firstName: "",
     lastName: "",
     mobileNumber: "",
-    selectedBadges: [],
+    selectedGroups: [],
   });
 
   const [otp, setOtp] = useState(["", "", "", "", ""]);
   const otpInputs = useRef<TextInput[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Loading state for API calls
 
-  const validationSchemaStep1 = Yup.object().shape({
-    mobileNumber: Yup.string().required("شماره موبایل وارد نشده است"),
+  // Toast state
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('info');
+
+  // Fetch member groups from API
+  const { data: memberGroups, loading: groupsLoading, error: groupsError, refetch } = useMemberGroups();
+
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const iconFadeAnim = useRef(new Animated.Value(0)).current;
+  const iconSlideAnim = useRef(new Animated.Value(-50)).current;
+  const formFadeAnim = useRef(new Animated.Value(0)).current;
+  const formSlideAnim = useRef(new Animated.Value(40)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Start all animations immediately
+    Animated.parallel([
+      // Icon appears with slide from top
+      Animated.parallel([
+        Animated.timing(iconFadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(iconSlideAnim, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Form appears with slide from bottom
+      Animated.parallel([
+        Animated.timing(formFadeAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(formSlideAnim, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+
+    // Continuous pulse animation for icon
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.08,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Continuous rotation for decorative ring
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 10000,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  // Clear OTP when moving to step 2
+  useEffect(() => {
+    if (currentStep === 2) {
+      setOtp(["", "", "", "", ""]);
+    }
+  }, [currentStep]);
+
+  // Show toast when there's an error loading groups
+  useEffect(() => {
+    if (groupsError) {
+      setToastMessage("خطا در بارگذاری گروه‌ها: " + groupsError);
+      setToastType('error');
+      setToastVisible(true);
+    }
+  }, [groupsError]);
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
   });
 
   const validationSchemaStep2 = Yup.object().shape({
@@ -52,28 +152,94 @@ const SignupScreen = () => {
       .required("کد تأیید وارد نشده است"),
   });
 
-  // نمونه badge ها
-  const availableBadges = [
-    { id: 1, title: "طراحی گرافیک", icon: "palette" },
-    { id: 2, title: "برنامه نویسی", icon: "code-tags" },
-    { id: 3, title: "عکاسی", icon: "camera" },
-    { id: 4, title: "نویسندگی", icon: "pencil" },
-    { id: 5, title: "موسیقی", icon: "music" },
-    { id: 6, title: "ورزش", icon: "basketball" },
-    { id: 7, title: "آشپزی", icon: "chef-hat" },
-    { id: 8, title: "سفر", icon: "airplane" },
-    { id: 9, title: "مطالعه", icon: "book-open" },
-    { id: 10, title: "بازی", icon: "gamepad-variant" },
-  ];
+  // API call function for sending registration data
+  const sendRegistrationData = async (userData: Omit<IFormData, "selectedGroups">) => {
+    try {
+      setIsSubmitting(true);
 
-  const handleStep1Submit = (values: Omit<IFormData, "selectedBadges">) => {
-    setFormData((prev) => ({
-      ...prev,
-      firstName: values.firstName,
-      lastName: values.lastName,
-      mobileNumber: values.mobileNumber,
-    }));
-    setCurrentStep(2);
+      const response = await fetch(`${appConfig.mobileApi}MobileAccount/SignUp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          FirstName: userData.firstName,
+          LastName: userData.lastName,
+          Mobile: userData.mobileNumber,
+        }),
+      });
+
+      const result = await response.json();
+      console.log('API Response:', response.status, result);
+
+      if (response.status >= 200 && response.status < 300) {
+        // Success response
+        console.log('Success - showing toast');
+        setToastMessage(result.Message || "عملیات با موفقیت انجام شد");
+        setToastType('success');
+        setToastVisible(true);
+
+        // Save form data and move to next step
+        setFormData((prev) => ({
+          ...prev,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          mobileNumber: userData.mobileNumber,
+        }));
+
+        setTimeout(() => {
+          setCurrentStep(2);
+        }, 1000);
+      } else {
+        // Error response - Always show error message
+        console.log('Error detected - showing toast');
+        let errorMessage = "خطا در ارسال اطلاعات";
+
+        if (result.Message) {
+          errorMessage = result.Message;
+          console.log('Using result.Message:', errorMessage);
+        } else if (result.errors && result.errors.Mobile && result.errors.Mobile[0]) {
+          errorMessage = result.errors.Mobile[0];
+          console.log('Using validation error:', errorMessage);
+        } else if (result.title) {
+          errorMessage = result.title;
+          console.log('Using result.title:', errorMessage);
+        }
+
+        console.log('Setting toast message:', errorMessage);
+        setToastMessage(errorMessage);
+        setToastType('error');
+        setToastVisible(true);
+
+        // Force re-render by logging state
+        setTimeout(() => {
+          console.log('Toast state after setting:', {
+            visible: toastVisible,
+            message: toastMessage,
+            type: toastType
+          });
+        }, 100);
+
+        // Check for redirect to login
+        if (result.RedirectToLogin === true) {
+          setTimeout(() => {
+            navigation.navigate("Login");
+          }, 1000);
+        }
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      console.log('Network error - showing toast');
+      setToastMessage("خطا در اتصال به سرور");
+      setToastType('error');
+      setToastVisible(true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleStep1Submit = async (values: Omit<IFormData, "selectedGroups">) => {
+    await sendRegistrationData(values);
   };
 
   const handleOtpChange = (text: string, index: number) => {
@@ -85,15 +251,21 @@ const SignupScreen = () => {
       if (text && index < 4) {
         otpInputs.current[index + 1].focus();
       }
-
-      if (index === 4 && text) {
-        const otpCode = newOtp.join("");
-        if (otpCode.length === 5) {
-          // Simulate OTP verification
-          setCurrentStep(3);
-        }
-      }
     }
+  };
+
+  const handleOtpSubmit = () => {
+    const otpCode = otp.join("");
+    if (otpCode.length !== 5) {
+      setToastMessage("لطفاً کد ۵ رقمی را کامل وارد کنید");
+      setToastType('error');
+      setToastVisible(true);
+      return;
+    }
+
+    // Here you can add OTP verification API call
+    // For now, we simulate successful verification
+    setCurrentStep(3);
   };
 
   const handleOtpKeyPress = (e: any, index: number, currentValue: string) => {
@@ -102,19 +274,46 @@ const SignupScreen = () => {
     }
   };
 
-  const toggleBadge = (badgeId: number) => {
+  const toggleGroup = (groupId: number) => {
     setFormData((prev) => ({
       ...prev,
-      selectedBadges: prev.selectedBadges.includes(badgeId)
-        ? prev.selectedBadges.filter((id) => id !== badgeId)
-        : [...prev.selectedBadges, badgeId],
+      selectedGroups: prev.selectedGroups.includes(groupId)
+        ? prev.selectedGroups.filter((id) => id !== groupId)
+        : [...prev.selectedGroups, groupId],
     }));
   };
 
   const handleFinalSubmit = () => {
+    if (formData.selectedGroups.length === 0) {
+      setToastMessage("لطفاً حداقل یک گروه انتخاب کنید");
+      setToastType('warning');
+      setToastVisible(true);
+      return;
+    }
+
     console.log("Final form data:", formData);
-    naviagation.navigate("MainTabs");
-    // اینجا می‌تونید داده‌ها رو به سرور ارسال کنید
+
+    // Show success message
+    setToastMessage("ثبت نام با موفقیت انجام شد");
+    setToastType('success');
+    setToastVisible(true);
+
+    // Navigate after a short delay
+    setTimeout(() => {
+      navigation.navigate("MainTabs");
+    }, 1500);
+  };
+
+  const hideToast = () => {
+    setToastVisible(false);
+  };
+
+  // Test function for Toast
+  const testToast = () => {
+    console.log('Test button pressed');
+    setToastMessage("تست پیام خطا");
+    setToastType('error');
+    setToastVisible(true);
   };
 
   const renderStepIndicator = () => (
@@ -179,15 +378,42 @@ const SignupScreen = () => {
 
   const renderStep1 = () => (
     <Formik
-      validationSchema={validationSchemaStep1}
       initialValues={{
         firstName: formData.firstName,
         lastName: formData.lastName,
         mobileNumber: formData.mobileNumber,
       }}
-      onSubmit={handleStep1Submit}
+      onSubmit={(values, { setFieldError }) => {
+        // Validate fields and show toast errors instead of inline errors
+        if (!values.firstName) {
+          setToastMessage("نام وارد نشده است");
+          setToastType('error');
+          setToastVisible(true);
+          return;
+        }
+        if (!values.lastName) {
+          setToastMessage("نام خانوادگی وارد نشده است");
+          setToastType('error');
+          setToastVisible(true);
+          return;
+        }
+        if (!values.mobileNumber) {
+          setToastMessage("شماره موبایل وارد نشده است");
+          setToastType('error');
+          setToastVisible(true);
+          return;
+        }
+        if (!/^09\d{9}$/.test(values.mobileNumber)) {
+          setToastMessage("شماره موبایل باید با 09 شروع شده و 11 رقم باشد");
+          setToastType('error');
+          setToastVisible(true);
+          return;
+        }
+
+        handleStep1Submit(values);
+      }}
     >
-      {({ handleChange, handleSubmit, values, errors }) => (
+      {({ handleChange, handleSubmit, values }) => (
         <View>
           <AppTextInput
             autoCapitalize="words"
@@ -218,14 +444,17 @@ const SignupScreen = () => {
             placeholder="شماره موبایل"
             value={values.mobileNumber}
             onChangeText={handleChange("mobileNumber")}
-            error={errors.mobileNumber}
+            maxLength={11}
           />
 
           <AppButton
             style={styles.nextButton}
-            title="مرحله بعد"
+            title={isSubmitting ? "در حال ارسال..." : "مرحله بعد"}
             onPress={handleSubmit}
+            disabled={isSubmitting}
           />
+
+        
         </View>
       )}
     </Formik>
@@ -244,7 +473,7 @@ const SignupScreen = () => {
             key={index}
             ref={(ref) => (otpInputs.current[index] = ref!)}
             style={styles.otpInput}
-            value={toPersianDigits(digit)}
+            value={digit}
             onChangeText={(text) => handleOtpChange(text, index)}
             onKeyPress={(e) => handleOtpKeyPress(e, index, digit)}
             keyboardType="numeric"
@@ -257,16 +486,17 @@ const SignupScreen = () => {
 
       <View style={styles.buttonContainer}>
         <AppButton
-          style={{ width: "100%" }}
-          title="تغییر شماره موبایل"
+          style={[styles.backButton, { marginLeft: 10, width: "48%" }]}
+          title="تغییر شماره"
           color={colors.medium}
           onPress={() => setCurrentStep(1)}
         />
-        {/* <AppButton
-          style={[styles.submitButton, { width: "50%" }]}
-          title="تأیید"
-          onPress={() => setCurrentStep(3)}
-        /> */}
+
+        <AppButton
+          style={[styles.submitButton, { width: "48%" }]}
+          title="تایید کد"
+          onPress={handleOtpSubmit}
+        />
       </View>
     </View>
   );
@@ -280,45 +510,31 @@ const SignupScreen = () => {
         میتوانید چند گزینه انتخاب کنید
       </AppText>
 
-      <ScrollView
-        style={styles.badgesContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.badgesGrid}>
-          {availableBadges.map((badge) => {
-            const isSelected = formData.selectedBadges.includes(badge.id);
-            return (
-              <TouchableOpacity
-                key={badge.id}
-                style={[styles.badge, isSelected && styles.selectedBadge]}
-                onPress={() => toggleBadge(badge.id)}
-              >
-                <MaterialIcons
-                  name={isSelected ? "highlight-remove" : "add-circle-outline"}
-                  size={20}
-                  color={isSelected ? colors.white : colors.medium}
-                />
-                <AppText
-                  style={[
-                    styles.badgeText,
-                    isSelected && styles.selectedBadgeText,
-                  ]}
-                >
-                  {badge.title}
-                </AppText>
-                {/* {isSelected && (
-                  <TouchableOpacity
-                    style={styles.removeIcon}
-                    onPress={() => toggleBadge(badge.id)}
-                  >
-                    <Icon name="close" size={16} color={colors.white} />
-                  </TouchableOpacity>
-                )} */}
-              </TouchableOpacity>
-            );
-          })}
+      {groupsLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <AppText style={styles.loadingText}>در حال بارگذاری گروه‌ها...</AppText>
         </View>
-      </ScrollView>
+      ) : groupsError ? (
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={48} color="#9e9e9e" />
+          <AppText style={styles.errorText}>خطا در بارگذاری گروه‌ها</AppText>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={refetch}
+          >
+            <MaterialIcons name="refresh" size={20} color={colors.white} />
+            <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ChipsUI
+          groups={memberGroups}
+          selectedGroups={formData.selectedGroups}
+          onToggleGroup={toggleGroup}
+          allowMultipleSelection={true}
+        />
+      )}
 
       <View style={styles.buttonContainer}>
         <AppButton
@@ -332,57 +548,200 @@ const SignupScreen = () => {
           style={[styles.submitButton, { width: "50%" }]}
           title="ثبت نام"
           onPress={handleFinalSubmit}
+          disabled={groupsLoading}
         />
       </View>
     </View>
   );
 
   return (
-    // <ImageBackground
-    //   source={require("../../assets/backgrounds/fashion_pattern_1000px.jpg")}
-    //   style={styles.background}
-    //   resizeMode="repeat"
-    // >
-    <FabricBackground>
-      <Screen style={styles.container}>
-        <View style={styles.loginBox}>
-          <View style={styles.iconContainer}>
-            <View style={styles.iconCircle}>
-              <MaterialIcons name="lock" color={colors.primary} size={65} />
-            </View>
-          </View>
-          <AppText style={styles.logingText}>ثبت نام</AppText>
+    <View style={styles.backgroundContainer}>
+      <View style={styles.backgroundWrapper}>
+        <Image
+          source={require('../../assets/backgrounds/background-1.jpg')}
+          style={styles.backgroundImage}
+        />
+      </View>
 
-          {renderStepIndicator()}
-          {currentStep === 1
-            ? renderStep1()
-            : currentStep === 2
-            ? renderStep2()
-            : renderStep3()}
-        </View>
-      </Screen>
-    </FabricBackground>
-    // </ImageBackground>
+      <LinearGradient
+        colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0.8)', 'rgba(255,255,255,1)']}
+        style={styles.gradientOverlay}
+      >
+        <Screen style={styles.container}>
+          <Animated.View
+            style={[
+              styles.iconContainer,
+              {
+                opacity: iconFadeAnim,
+                transform: [
+                  { translateY: iconSlideAnim },
+                  { scale: pulseAnim },
+                ],
+              },
+            ]}
+          >
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark || colors.primary]}
+              style={styles.iconCircle}
+            >
+              <View style={styles.iconInnerCircle}>
+                <MaterialIcons name="person-add" color={colors.white} size={65} />
+              </View>
+              <Animated.View
+                style={[
+                  styles.iconRing,
+                  {
+                    transform: [{ rotate: spin }],
+                  },
+                ]}
+              />
+            </LinearGradient>
+          </Animated.View>
+
+          <View style={styles.centerContainer}>
+            <Animated.View
+              style={[
+                styles.loginBox,
+                {
+                  opacity: formFadeAnim,
+                  transform: [{ translateY: formSlideAnim }],
+                },
+              ]}
+            >
+              <View style={styles.glassOverlay} />
+
+              <View style={styles.contentContainer}>
+                <AppText style={styles.logingText}>ثبت نام</AppText>
+
+                {renderStepIndicator()}
+                {currentStep === 1
+                  ? renderStep1()
+                  : currentStep === 2
+                    ? renderStep2()
+                    : renderStep3()}
+              </View>
+            </Animated.View>
+          </View>
+        </Screen>
+      </LinearGradient>
+
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={hideToast}
+        duration={3000}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  background: {
-    width: "100%",
+  backgroundContainer: {
+    flex: 1,
+  },
+  backgroundWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  backgroundImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'repeat',
+  },
+  gradientOverlay: {
     flex: 1,
   },
   container: {
     padding: 10,
     justifyContent: "center",
     fontFamily: "Yekan_Bakh_Regular",
+    backgroundColor: 'transparent',
+  },
+  centerContainer: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   loginBox: {
-    backgroundColor: colors.primaryLight,
-    borderRadius: 20,
-    padding: 20,
-    maxHeight: "90%",
+    borderRadius: 25,
+    padding: 25,
+    width: "100%",
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  glassOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 206, 232, 0.7)',
+    borderRadius: 25,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 206, 232, 1)',
+    shadowColor: 'rgba(255, 255, 255, 1)',
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+    zIndex: 0,
+  },
+  contentContainer: {
+    position: 'relative',
+    zIndex: 1,
+    backgroundColor: 'transparent',
+  },
+  iconContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: -20,
+    zIndex: 1000
+  },
+  iconCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    position: "absolute",
+    top: -80,
+    shadowColor: 'rgba(255, 206, 232, 0.2)',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  iconInnerCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 206, 232, 0.15)',
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: 'rgba(255, 206, 232, 0.4)',
+    zIndex: 99,
+  },
+  iconRing: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 206, 232, 0.3)',
+    borderStyle: 'dashed',
   },
   logingText: {
+    marginTop: 50,
     fontSize: 40,
     textAlign: "center",
     marginBottom: 20,
@@ -449,20 +808,24 @@ const styles = StyleSheet.create({
   },
   sectionSubTitle: {
     fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
     textAlign: "center",
+    color: "#7e7e7e",
     marginBottom: 20,
   },
-  badgesContainer: {
+
+  // Updated Groups Container Styles (keeping original badge style)
+  groupsContainer: {
     maxHeight: 300,
     marginBottom: 20,
     paddingVertical: 10,
   },
-  badgesGrid: {
+  groupsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
   },
-  badge: {
+  group: {
     flexDirection: "row-reverse",
     alignItems: "center",
     backgroundColor: colors.light,
@@ -475,29 +838,72 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.medium,
   },
-  selectedBadge: {
+  selectedGroup: {
     backgroundColor: colors.success,
     borderColor: colors.success,
   },
-  badgeText: {
-    marginRight: 8,
+  groupInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  groupText: {
     fontSize: 14,
     color: colors.dark,
     fontFamily: "Yekan_Bakh_Regular",
+    marginBottom: 2,
   },
-  selectedBadgeText: {
+  selectedGroupText: {
     color: colors.white,
   },
-  removeIcon: {
-    position: "absolute",
-    top: -5,
-    left: 5,
-    backgroundColor: colors.danger,
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
+  groupMemberCount: {
+    fontSize: 12,
+    color: colors.medium,
+    fontFamily: "Yekan_Bakh_Regular",
+  },
+  selectedGroupMemberCount: {
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+
+  // Loading and Error States
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: colors.medium,
+    fontFamily: "Yekan_Bakh_Regular",
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 120,
+    width: '100%',
+    marginVertical: 20,
+  },
+  errorText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#9e9e9e',
+    marginTop: 12,
+    textAlign: 'center',
+  },
+  retryButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  retryButtonText: {
+    fontSize: 12,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: colors.white,
+    marginRight: 8,
   },
 
   // Button Styles
@@ -512,23 +918,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.medium,
   },
   submitButton: {},
-  iconContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 40,
-  },
-  iconCircle: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderRadius: 50,
-    borderColor: colors.primaryLight,
-    width: 100,
-    height: 100,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "absolute",
-    top: -70,
-  },
   otpContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -544,6 +933,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     backgroundColor: colors.white,
     fontFamily: "Yekan_Bakh_Regular",
+  },
+  chipsContainer: {
+    maxHeight: 250,
+    marginBottom: 20,
+  },
+
+  // Optional: Update your existing groupsContainer style if you want to keep both options
+  groupsContainerChips: {
+    maxHeight: 250,
+    marginBottom: 20,
+    paddingVertical: 0,
   },
 });
 

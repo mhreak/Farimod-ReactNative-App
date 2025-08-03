@@ -8,71 +8,53 @@ import {
 } from "react-native";
 import ImageInput from "./ImageInput";
 import AppButton from "./Button";
+
 interface IProps {
   imageUris: string[];
   onRemoveImage: (uri: string | null) => void;
   onAddImage: (uri: string | null) => void;
+  onImagePress?: (uri: string) => void; // New prop for handling image press
 }
 
 const ImageInputList: React.FC<IProps> = ({
   imageUris = [],
   onRemoveImage,
   onAddImage,
+  onImagePress,
 }) => {
   const renderItems = (uri: string) => {
     if (uri === "") {
       return (
         <View style={styles.gridItem}>
-          <ImageInput onChangeImage={(uri) => onAddImage(uri)} />;
+          <ImageInput onChangeImage={(uri) => onAddImage(uri)} />
         </View>
       );
     } else
       return (
         <View style={styles.gridItem}>
-          <ImageInput imageUri={uri} onChangeImage={() => onRemoveImage(uri)} />
+          <ImageInput
+            imageUri={uri}
+            onChangeImage={() => onRemoveImage(uri)}
+            onImagePress={onImagePress} // Pass the prop to ImageInput
+          />
         </View>
       );
   };
 
   return (
     <View>
-      {/* <FlatList
-        data={imageUris}
-        numColumns={3}
-        renderItem={({ item }) => renderItems(item)}
-        keyExtractor={(item) => item}
-        contentContainerStyle={{ padding: 10 }}
-      /> */}
-      {/* <ScrollView
-        ref={scrollView}
-        horizontal
-        onContentSizeChange={() => scrollView.current.scrollToEnd()}
-      >
-        <View style={styles.container}>
-          {imageUris.map((uri) => (
-            <View key={uri} style={styles.image}>
-              <ImageInput
-                imageUri={uri}
-                onChangeImage={() => onRemoveImage(uri)}
-              />
-            </View>
-          ))}
-          <ImageInput onChangeImage={(uri) => onAddImage(uri)} />
-        </View>
-      </ScrollView> */}
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.itemContainer}>
-          <ImageInput onChangeImage={(uri) => onAddImage(uri)} />
-        </View>
+       
         {imageUris.map((uri) => (
           <View key={uri} style={styles.itemContainer}>
             <ImageInput
               imageUri={uri}
               onChangeImage={() => onRemoveImage(uri)}
+              onImagePress={onImagePress} // Pass the prop to ImageInput
             />
           </View>
         ))}
-        <AppButton title={"ذخیره ی گالری"} />
+        {/* <AppButton title={"ذخیره ی گالری"} /> */}
       </ScrollView>
     </View>
   );

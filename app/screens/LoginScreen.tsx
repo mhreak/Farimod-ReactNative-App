@@ -1,12 +1,13 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import {
-  ImageBackground,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
+  Image,
+  Animated,
 } from "react-native";
-import { BlurView } from "expo-blur";
+import { LinearGradient } from 'expo-linear-gradient';
 import Screen from "../components/Screen";
 import AppButton from "../components/Button";
 import { ErrorMessage, Formik } from "formik";
@@ -15,7 +16,6 @@ import colors from "../config/colors";
 import { useNavigation } from "@react-navigation/native";
 import * as Yup from "yup";
 import AppText from "../components/Text";
-import FabricBackground from "../components/FabricBackground";
 import { AppNavigationProp } from "../Navigators";
 import { MaterialIcons } from "@expo/vector-icons";
 
@@ -25,112 +25,307 @@ const validationSchema = Yup.object().shape({
 
 const LoginScreen = () => {
   const navigation = useNavigation<AppNavigationProp>();
-  return (
-    // <ImageBackground
-    //   source={require("../../assets/backgrounds/fashion_pattern_1000px.jpg")} // Local image
-    //   style={styles.background}
-    //   resizeMode="repeat" // "cover", "contain", or "stretch"
-    //   imageStyle={{ width: "100%" }}
-    // >
-    <FabricBackground>
-      <Screen style={styles.container}>
-        <View style={styles.loginBox}>
-          <View style={styles.iconContainer}>
-            <View style={styles.iconCircle}>
-              <MaterialIcons name="lock" color={colors.primary} size={65} />
-            </View>
-          </View>
-          <AppText style={styles.logingText}>ورود به حساب کاربری</AppText>
 
-          <Formik
-            initialValues={{ mobileNumber: "" }}
-            onSubmit={(values) => {
-              navigation.navigate("MainTabs");
-            }}
-            validationSchema={validationSchema}
+  // Animation values
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const iconFadeAnim = useRef(new Animated.Value(0)).current;
+  const iconSlideAnim = useRef(new Animated.Value(-50)).current;
+  const formFadeAnim = useRef(new Animated.Value(0)).current;
+  const formSlideAnim = useRef(new Animated.Value(40)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Sequential animations for better effect
+    Animated.sequence([
+      // Icon appears with slide from top
+      Animated.parallel([
+        Animated.timing(iconFadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(iconSlideAnim, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+      // Form appears with slide from bottom
+      Animated.parallel([
+        Animated.timing(formFadeAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+        Animated.timing(formSlideAnim, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+
+    // Continuous pulse animation for icon
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.08,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    // Continuous rotation for decorative ring
+    Animated.loop(
+      Animated.timing(rotateAnim, {
+        toValue: 1,
+        duration: 10000,
+        useNativeDriver: true,
+      })
+    ).start();
+  }, []);
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  return (
+    <View style={styles.backgroundContainer}>
+      <View style={styles.backgroundWrapper}>
+        <Image
+          source={require('../../assets/backgrounds/background-1.jpg')}
+          style={styles.backgroundImage}
+        />
+      </View>
+
+      <LinearGradient
+        colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0.8)', 'rgba(255,255,255,1)']}
+        style={styles.gradientOverlay}
+      >
+        <Screen style={styles.container}>
+          <Animated.View
+            style={[
+              styles.iconContainer,
+              {
+                opacity: iconFadeAnim,
+                transform: [
+                  { translateY: iconSlideAnim },
+                  { scale: pulseAnim },
+                ],
+              },
+            ]}
           >
-            {({ handleChange, handleSubmit, errors }) => (
-              <>
-                <View>
-                  <AppTextInput
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    icon="phone-android"
-                    keyboardType="phone-pad"
-                    name="mobileNumber"
-                    placeholder="شماره موبایل"
-                    onChangeText={handleChange("mobileNumber")}
-                  ></AppTextInput>
-                  <AppText style={{ color: colors.danger }}>
-                    {errors.mobileNumber}
-                  </AppText>
-                  <AppButton
-                    style={styles.loginButton}
-                    title="ورود"
-                    onPress={handleSubmit}
-                  ></AppButton>
-                  <View style={styles.footerContainer}>
-                    <AppText style={styles.footerText}>
-                      حساب کاربری ندارید؟{" "}
-                    </AppText>
-                    <TouchableOpacity
-                      onPress={() => {
-                        navigation.navigate("Signup");
-                      }}
-                    >
-                      <AppText style={styles.signupText}>ثبت نام کنید</AppText>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </>
-            )}
-          </Formik>
-          {/* <Text style={styles.footerText}>
-            حساب کاربری ندارید؟{" "}
-            <Text
-              style={styles.signupText}
-              onPress={() => navigation.navigate("Sign up")}
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark || colors.primary]}
+              style={styles.iconCircle}
             >
-              ثبت نام کنید
-            </Text>
-          </Text> */}
-        </View>
-      </Screen>
-    </FabricBackground>
-    // </ImageBackground>
+              <View style={styles.iconInnerCircle}>
+                <MaterialIcons name="lock" color={colors.white} size={65} />
+              </View>
+              {/* Decorative ring with rotation */}
+              <Animated.View
+                style={[
+                  styles.iconRing,
+                  {
+                    transform: [{ rotate: spin }],
+                  },
+                ]}
+              />
+            </LinearGradient>
+          </Animated.View>
+
+          <View style={styles.centerContainer}>
+            <Animated.View
+              style={[
+                styles.loginBox,
+                {
+                  opacity: formFadeAnim,
+                  transform: [{ translateY: formSlideAnim }],
+                },
+              ]}
+            >
+              {/* Glassmorphism overlay */}
+              <View style={styles.glassOverlay} />
+
+              {/* Content */}
+              <View style={styles.contentContainer}>
+                <AppText style={styles.logingText}>ورود به حساب کاربری</AppText>
+
+                <Formik
+                  initialValues={{ mobileNumber: "" }}
+                  onSubmit={(values) => {
+                    navigation.navigate("MainTabs");
+                  }}
+                  validationSchema={validationSchema}
+                >
+                  {({ handleChange, handleSubmit, errors }) => (
+                    <>
+                      <View>
+                        <AppTextInput
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          icon="phone-android"
+                          keyboardType="phone-pad"
+                          name="mobileNumber"
+                          placeholder="شماره موبایل"
+                          onChangeText={handleChange("mobileNumber")}
+                        />
+                        <AppText style={{ color: colors.danger }}>
+                          {errors.mobileNumber}
+                        </AppText>
+                        <AppButton
+                          style={styles.loginButton}
+                          title="ورود"
+                          onPress={handleSubmit}
+                        />
+                        <View style={styles.footerContainer}>
+                          <AppText style={styles.footerText}>
+                            حساب کاربری ندارید؟{" "}
+                          </AppText>
+                          <TouchableOpacity
+                            onPress={() => {
+                              navigation.navigate("Signup");
+                            }}
+                          >
+                            <AppText style={styles.signupText}>ثبت نام کنید</AppText>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </>
+                  )}
+                </Formik>
+              </View>
+            </Animated.View>
+          </View>
+        </Screen>
+      </LinearGradient>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  background: {
-    width: "100%",
+  backgroundContainer: {
+    flex: 1,
+  },
+  backgroundWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  backgroundImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'repeat',
+  },
+  gradientOverlay: {
     flex: 1,
   },
   container: {
     padding: 10,
     justifyContent: "center",
     fontFamily: "Yekan_Bakh_Regular",
+    backgroundColor: 'transparent',
   },
-  blurContainer: {
-    flex: 1,
-    padding: 20,
-    margin: 16,
-    textAlign: "center",
+  centerContainer: {
     justifyContent: "center",
-    overflow: "hidden",
-    borderRadius: 20,
+    alignItems: "center",
   },
   loginBox: {
-    backgroundColor: colors.primaryLight,
-    borderRadius: 15,
-    padding: 20,
+    borderRadius: 25,
+    padding: 25,
+    width: "100%",
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  glassOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 206, 232, 0.7)',
+    borderRadius: 25,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 206, 232, 1)',
+    shadowColor: 'rgba(255, 255, 255, 1)',
+    shadowOffset: {
+      width: 0,
+      height: 6,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+    zIndex: 1,
+  },
+  contentContainer: {
+    position: 'relative',
+    zIndex: 1,
+  },
+  iconContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: -20,
+    zIndex: 1000
+  },
+  iconCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: "center",
+    alignItems: "center",
+    position: "absolute",
+    top: -80,
+    shadowColor: 'rgba(255, 206, 232, 0.2)',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  iconInnerCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 206, 232, 0.15)',
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: 'rgba(255, 206, 232, 0.4)',
+    zIndex: 99,
+  },
+  iconRing: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 206, 232, 0.3)',
+    borderStyle: 'dashed',
   },
   loginButton: {},
   logingText: {
+    marginTop: 50,
     fontSize: 30,
     textAlign: "center",
     marginBottom: 30,
     fontFamily: "Yekan_Bakh_Bold",
+    color: colors.primary,
+    textShadowColor: 'rgba(255, 206, 232, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   footerContainer: {
     marginTop: 20,
@@ -146,23 +341,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.primary,
     textDecorationLine: "underline",
-  },
-  iconContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 40,
-  },
-  iconCircle: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderRadius: 50,
-    borderColor: colors.primaryLight,
-    width: 100,
-    height: 100,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "absolute",
-    top: -70,
   },
 });
 

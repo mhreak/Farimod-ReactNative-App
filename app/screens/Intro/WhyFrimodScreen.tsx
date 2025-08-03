@@ -13,10 +13,13 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import colors from "../../config/colors";
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
+
 
 const { width, height } = Dimensions.get("window");
 
 const WhyFrimodScreen = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
 
@@ -36,7 +39,7 @@ const WhyFrimodScreen = ({ navigation }) => {
   }, []);
 
   const handleContinue = () => {
-    navigation.navigate("EventsScreen");
+    navigation.navigate("CareerScreen");
   };
 
   return (
@@ -46,7 +49,8 @@ const WhyFrimodScreen = ({ navigation }) => {
         colors={["#667eea", "#c58bff", "#c3b3e7", "#b2afd8"]}
         style={styles.background}
       >
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <ScrollView contentContainerStyle={[styles.scrollContainer, { paddingBottom: insets.bottom + 20 }]}
+        >
           <View style={styles.container}>
             <Animated.View
               style={[
@@ -118,6 +122,12 @@ const WhyFrimodScreen = ({ navigation }) => {
                   />
 
                   <FeatureItem
+                    icon="domain"
+                    title="آکادمی مد و لباس"
+                    description="آموزشگاه‌های تخصصی طراحی و دوخت"
+                  />
+
+                  <FeatureItem
                     icon="store"
                     title="برندها و مزون‌ها"
                     description="شبکه‌ای از معتبرترین برندها"
@@ -136,7 +146,7 @@ const WhyFrimodScreen = ({ navigation }) => {
                   />
 
                   <FeatureItem
-                    icon="tools"
+                    icon="brush"
                     title="ابزارها و تجهیزات"
                     description="فروشندگان ابزارهای طراحی"
                   />

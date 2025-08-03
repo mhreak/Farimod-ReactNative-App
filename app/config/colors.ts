@@ -10,12 +10,16 @@ export type ColorKeys =
   | "warning"
   | "primaryLight"
   | "info"
-  | "background";
+  | "background"
+  | "primaryButton"
+  |"primaryDarkButton"
 
 export default {
   primary: "#A106B9",
   primaryLight: "#efd6f3",
   primaryDark: "#61046f",
+  primaryButton: "#667eea",
+  primaryDarkButton: "#764ba2",
   secondary: "#4ecdc4",
   black: "#000",
   white: "#fff",
