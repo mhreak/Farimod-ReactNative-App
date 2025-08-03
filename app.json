@@ -21,7 +21,9 @@
           "NSExceptionDomains": {
             "89.42.208.49": {
               "NSExceptionAllowsInsecureHTTPLoads": true,
-              "NSExceptionMinimumTLSVersion": "1.0"
+              "NSExceptionMinimumTLSVersion": "1.0",
+              "NSIncludesSubdomains": true,
+              "NSThirdPartyExceptionAllowsInsecureHTTPLoads": true
             }
           }
         }
