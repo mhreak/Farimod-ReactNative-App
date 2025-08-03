@@ -13,26 +13,6 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "ios": {
-      "supportsTablet": true,
-      "infoPlist": {
-        "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true,
-          "NSAllowsArbitraryLoadsForMedia": true,
-          "NSAllowsArbitraryLoadsInWebContent": true,
-          "NSAllowsLocalNetworking": true,
-          "NSExceptionDomains": {
-            "89.42.208.49": {
-              "NSExceptionAllowsInsecureHTTPLoads": true,
-              "NSExceptionMinimumTLSVersion": "1.0",
-              "NSIncludesSubdomains": true,
-              "NSThirdPartyExceptionAllowsInsecureHTTPLoads": true,
-              "NSThirdPartyExceptionRequiresForwardSecrecy": false
-            }
-          }
-        }
-      }
-    },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/favicon512.png",
@@ -48,7 +28,10 @@
       "edgeToEdgeEnabled": true,
       "package": "com.yeganeh0.farimod2",
       "usesCleartextTraffic": true,
-      "networkSecurityConfig": "@xml/network_security_config"
+      "networkSecurityConfig": "./network_security_config.xml"
+    },
+    "ios": {
+      "supportsTablet": true
     },
     "web": {
       "favicon": "./assets/main-icon.png"
@@ -60,12 +43,14 @@
       "apiUrl": "http://89.42.208.49"
     },
     "plugins": [
-      "expo-build-properties",
-      {
-        "android": {
-          "networkSecurityConfig": "./network_security_config.xml"
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "networkSecurityConfig": "./network_security_config.xml"
+          }
         }
-      }
+      ]
     ]
   }
 }
