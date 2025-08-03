@@ -35,8 +35,9 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/favicon128.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/favicon512.png",
+        "backgroundColor": "#ffffff",
+        "padding": "100px"
       },
       "permissions": [
         "android.permission.CAMERA",
@@ -57,6 +58,14 @@
         "projectId": "452922dd-854c-4587-9ee8-a4dc7075dccd"
       },
       "apiUrl": "http://89.42.208.49"
-    }
+    },
+    "plugins": [
+      "expo-build-properties",
+      {
+        "android": {
+          "networkSecurityConfig": "./network_security_config.xml"
+        }
+      }
+    ]
   }
 }
