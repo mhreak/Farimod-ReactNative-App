@@ -164,6 +164,7 @@ function TabNavigator() {
     <Tab.Navigator
       initialRouteName="خانه"
       screenOptions={({ route }) => ({
+
         tabBarLabelStyle: {
           fontFamily: "Yekan_Bakh_Regular",
           fontSize: 13,
@@ -216,17 +217,7 @@ function TabNavigator() {
       <Tab.Screen
         name="خانه"
         component={HomeScreen}
-        options={{
-          headerLeft: () => (
-            <Ionicons
-              name="notifications-outline"
-              size={24}
-              color={colors.primary}
-              style={{ marginLeft: 15 }}
-            />
-          ),
-          headerTitle: "فریمد",
-        }}
+        options={{ headerShown: false }}
       />
       <Tab.Screen
         name="مجله ی فریمد"

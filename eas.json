@@ -14,7 +14,8 @@
       },
       "env": {
         "ENABLE_HERMES": "true",
-        "NODE_ENV": "development"
+        "NODE_ENV": "development",
+         "API_URL": "http://89.42.208.49"
       },
       "channel": "development"
     },
@@ -31,11 +32,19 @@
       "android": {
         "buildType": "apk"
       },
+      "env": {
+        "NODE_ENV": "production",
+        "API_URL": "http://89.42.208.49"
+      },
       "channel": "production"
     },
     "release": {
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "NODE_ENV": "production",
+        "API_URL": "http://89.42.208.49"
       },
       "distribution": "store",
       "channel": "release"

@@ -21,6 +21,7 @@ import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AddNewCourseScreen from "./AddNewCourseScreen";
 import { AppNavigationProp, RootStackParamList } from "../Navigators";
 
+
 const { width, height } = Dimensions.get('window');
 
 // Enhanced modern color palette (same as AboutMe)

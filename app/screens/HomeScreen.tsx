@@ -24,6 +24,9 @@ import appConfig from "../config/config";
 import { Member, Product, Course, AvatarProps } from "../config/type";
 import { useMembers, useProducts, useCourses } from "../config/useApi";
 import Toast from "../components/Toast";
+import { StatusBar } from "react-native";
+
+
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -1358,6 +1361,43 @@ const HomeScreen = () => {
         type={toastType}
         onHide={() => setToastVisible(false)}
       />
+      <TouchableOpacity
+        style={styles.frameButton}
+        onPress={() => {
+          // Handle frame logo press
+          console.log('Frame logo pressed');
+        }}
+      >
+        <View style={styles.frameButtonContainer}>
+          <Image
+            source={require("../../assets/main-icon.png")} // تغییر دهید به عکس مورد نظرتان
+            style={styles.frameImage}
+          />
+        </View>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.notificationButton}
+        onPress={() => {
+          // Handle notification press
+          console.log('Notification pressed');
+        }}
+      >
+        <View style={styles.notificationButtonContainer}>
+          <MaterialIcons
+            name="notifications"
+            size={24}
+            color="#6366f1"
+          />
+        </View>
+      </TouchableOpacity>
+
+      <View style={styles.headerContainer}>
+        <View style={styles.titleWrapper}>
+          <AppText style={styles.headerTitle}>فریمد</AppText>
+        </View>
+      </View>
+
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {slidesLoading ? (
@@ -1773,6 +1813,62 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     flex: 1,
+  },
+  headerContainer: {
+    alignItems: "center",
+    marginBottom: 50,
+    paddingTop: StatusBar.currentHeight + 35,
+    paddingHorizontal: 20,
+  },
+  frameButton: {
+    position: 'absolute',
+    top: StatusBar.currentHeight + 45,
+    right: 20,
+    zIndex: 1000,
+  },
+  frameButtonContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    marginTop: -12
+  },
+  frameImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+    padding:10
+  },
+  notificationButton: {
+    position: 'absolute',
+    top: StatusBar.currentHeight + 45,
+    left: 20,
+    zIndex: 1000,
+  },
+  notificationButtonContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'white',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: -12
+  },
+  titleWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontFamily: "Yekan_Bakh_ExtraBold",
+    color: "#2c3e50",
+    marginHorizontal: 15,
+    textAlign: "center",
+    marginTop:-100
   },
   bodyText: {
     fontSize: 20,
