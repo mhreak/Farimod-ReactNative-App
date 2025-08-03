@@ -29,7 +29,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/favicon256.png",
+        "foregroundImage": "./assets/favicon48.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [
@@ -39,7 +39,8 @@
       ],
       "edgeToEdgeEnabled": true,
       "package": "com.yeganeh0.farimod2",
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "networkSecurityConfig": "@xml/network_security_config"
     },
     "web": {
       "favicon": "./assets/main-icon.png"
