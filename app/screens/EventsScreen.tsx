@@ -11,9 +11,9 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import colors from "../../config/colors";
+import colors from "../config/colors";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIntro } from '../../contexts/IntroContext'; // اضافه کردن context
+import { useIntro } from '../contexts/IntroContext'; // اضافه کردن context
 
 const { width, height } = Dimensions.get("window");
 

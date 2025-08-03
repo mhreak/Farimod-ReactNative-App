@@ -12,9 +12,9 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIntro } from '../../contexts/IntroContext'; // اضافه کردن context
+import { useIntro } from '../contexts/IntroContext'; // اضافه کردن context
 
-import colors from "../../config/colors";
+import colors from "../config/colors";
 
 const { width, height } = Dimensions.get("window");
 
@@ -109,7 +109,7 @@ const CareerScreen = ({ navigation }) => {
                   />
                 </LinearGradient>
                 <Text style={styles.headerTitle}>پروژه‌گیری و کاریابی فشن</Text>
-        
+
               </View>
             </Animated.View>
 
@@ -231,7 +231,7 @@ const CareerScreen = ({ navigation }) => {
                 },
               ]}
             >
-   
+
 
               <TouchableOpacity
                 style={styles.continueButton}

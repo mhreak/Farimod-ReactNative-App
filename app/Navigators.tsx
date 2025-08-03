@@ -18,10 +18,10 @@ import SubscriptionScreen from "./screens/SubscriptionScreen";
 import AddNewPostScreen from "./screens/AddNewPostScreen";
 import PortfolioListScreen from "./screens/PortfolioListScreen";
  
-import CareerScreen from "./screens/intro/CareerScreen"; 
-import WelcomeIntroScreen from "./screens/intro/WelcomeIntroScreen";
-import WhyFrimodScreen from "./screens/intro/WhyFrimodScreen";
-import EventsScreen from "./screens/intro/EventsScreen";
+import CareerScreen from "./screens/CareerScreen";
+import WelcomeIntroScreen from "./screens/WelcomeIntroScreen";
+import WhyFrimodScreen from "./screens/WhyFrimodScreen";
+import EventsScreen from "./screens/EventsScreen";
 
 
 

@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import colors from "../../config/colors";
+import colors from "../config/colors";
 import { useSafeAreaInsets } from 'react-native-safe-area-context'; 
 
 

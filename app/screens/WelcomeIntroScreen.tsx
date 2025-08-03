@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
-import colors from "../../config/colors";
+import colors from "../config/colors";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get("window");
@@ -132,7 +132,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
         style={styles.background}
       >
         <View style={[styles.container, { paddingBottom: insets.bottom + 60 }]}>
-        <View style={styles.decorativeElements}>
+          <View style={styles.decorativeElements}>
             <Animated.View
               style={[
                 styles.fabricElement1,
