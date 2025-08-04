@@ -26,9 +26,7 @@
         "android.permission.ACCESS_WIFI_STATE"
       ],
       "edgeToEdgeEnabled": true,
-      "package": "com.yeganeh0.farimod2",
-      "usesCleartextTraffic": true,
-      "networkSecurityConfig": "./network_security_config.xml"
+      "package": "com.yeganeh0.farimod2"
     },
     "ios": {
       "supportsTablet": true
@@ -47,6 +45,7 @@
         "expo-build-properties",
         {
           "android": {
+            "usesCleartextTraffic": true,
             "networkSecurityConfig": "./network_security_config.xml"
           }
         }
