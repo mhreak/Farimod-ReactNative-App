@@ -10,7 +10,8 @@ import {
   StatusBar,
   TouchableOpacity,
   FlatList,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
@@ -19,7 +20,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useNavigation } from "@react-navigation/native";
 import Toast from "../components/Toast";
 import { formatPersianDate, formatPrice, toPersianDigits } from "../utils/converters";
-import RatingComponent, { StarDisplay } from "../components/RatingComponent";
+import MultiOptionRatingComponent, { StarDisplay } from "../components/RatingComponent";
 import appConfig from "../config/config";
 
 const { width, height } = Dimensions.get('window');
@@ -61,22 +62,26 @@ const transformContentReviewToRatingOptions = (contentReviewList) => {
       {
         id: 'quality',
         title: 'کیفیت آموزش',
-        subtitle: 'کیفیت کلی و دقت در ارائه مطالب'
+        subtitle: 'کیفیت کلی و دقت در ارائه مطالب',
+        contentReviewItemId: 'quality'
       },
       {
         id: 'content',
         title: 'محتوای دوره',
-        subtitle: 'جامعیت و کاربردی بودن مطالب'
+        subtitle: 'جامعیت و کاربردی بودن مطالب',
+        contentReviewItemId: 'content'
       },
       {
         id: 'instructor',
         title: 'مربی',
-        subtitle: 'تسلط و نحوه تدریس مربی'
+        subtitle: 'تسلط و نحوه تدریس مربی',
+        contentReviewItemId: 'instructor'
       },
       {
         id: 'organization',
         title: 'تشکیلات',
-        subtitle: 'زمان‌بندی و سازماندهی'
+        subtitle: 'زمان‌بندی و سازماندهی',
+        contentReviewItemId: 'organization'
       }
     ];
   }
@@ -219,7 +224,7 @@ const useCourseDetails = () => {
 
       // Transform the data to include necessary fields
       const transformedData = {
-        ...result.Course, // استفاده از result.Course به جای result.Data
+        ...result.Course,
         IsMemberLiked: result.IsMemberLiked || false,
         ContentReviewItemList: result.ContentReviewItemList || [],
         LikeCount: result.Course?.LikeCount || 0,
@@ -260,12 +265,6 @@ const formatCourseType = (courseType) => {
   return types[courseType] || "نامشخص";
 };
 
-// Helper function to format date
-const formatDate = (dateString) => {
-  if (!dateString) return "تاریخ مشخص نشده";
-  return formatPersianDate(dateString, 'medium');
-};
-
 // Helper function to get course schedule
 const getCourseSchedule = (courseData) => {
   const days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -287,7 +286,7 @@ const getCourseSchedule = (courseData) => {
 };
 
 // Helper function to get course description
-const getCourseDescription = (courseData) => {
+const getCourseDescription = (courseData, coaches) => {
   const description = [];
 
   // Base description
@@ -316,9 +315,9 @@ const getCourseDescription = (courseData) => {
     description.push("ثبت‌نام برای این دوره در حال حاضر بسته است.");
   }
 
-  // Coaches info
-  if (courseData.Course_Member_ViewModel_List && courseData.Course_Member_ViewModel_List.length > 0) {
-    description.push(`این دوره توسط ${courseData.Course_Member_ViewModel_List.length} مربی متخصص ارائه می‌شود.`);
+  // Coaches info - only mention if coaches actually exist
+  if (coaches && coaches.length > 0) {
+    description.push(`این دوره توسط ${coaches.length} مربی متخصص ارائه می‌شود.`);
   }
 
   return description.join(' ');
@@ -327,6 +326,7 @@ const getCourseDescription = (courseData) => {
 const CourseDetailsScreen = ({ route }) => {
   const navigation = useNavigation();
 
+  // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -336,6 +336,9 @@ const CourseDetailsScreen = ({ route }) => {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('info');
+
+  // Get course ID from navigation params FIRST
+  const courseId = route?.params?.courseData?.CourseId || route?.params?.courseId;
 
   // Use custom hook for API
   const { data: courseData, loading, error, fetchCourseDetails, setData } = useCourseDetails();
@@ -351,9 +354,19 @@ const CourseDetailsScreen = ({ route }) => {
   const [userDetailedRatings, setUserDetailedRatings] = useState({});
   const [dynamicRatingOptions, setDynamicRatingOptions] = useState([]);
 
-  // Get course ID from navigation params
-  const courseId = route?.params?.courseData?.CourseId || route?.params?.courseId;
+  // Course action states
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
+  const modalSlideAnim = useRef(new Animated.Value(0)).current;
+  const modalBackdropAnim = useRef(new Animated.Value(0)).current;
+  const deleteModalSlideAnim = useRef(new Animated.Value(0)).current;
+  const deleteModalBackdropAnim = useRef(new Animated.Value(0)).current;
+
+  const isOwnCourse = courseData && courseData.MemberId === CURRENT_MEMBER_ID;
+
+  // ALL useEffect HOOKS
   useEffect(() => {
     if (courseId) {
       fetchCourseDetails(courseId);
@@ -363,15 +376,11 @@ const CourseDetailsScreen = ({ route }) => {
   useEffect(() => {
     if (courseData) {
       console.log('Course Data received:', courseData);
-      console.log('Course Address:', courseData.CourseAddress);
-      console.log('Register Amount:', courseData.RegisterAmount);
-
       setLikeCount(courseData.LikeCount || 0);
       setIsLiked(courseData.IsMemberLiked || false);
 
       const ratingOptions = transformContentReviewToRatingOptions(courseData.ContentReviewItemList);
       setDynamicRatingOptions(ratingOptions);
-      console.log('Dynamic Rating Options:', ratingOptions);
     }
   }, [courseData]);
 
@@ -413,6 +422,14 @@ const CourseDetailsScreen = ({ route }) => {
     ).start();
   }, []);
 
+  // Show error toast when API call fails
+  useEffect(() => {
+    if (error) {
+      showToast('خطا در دریافت اطلاعات دوره. لطفاً دوباره تلاش کنید.', 'error');
+    }
+  }, [error]);
+
+  // ALL FUNCTION DEFINITIONS
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -425,12 +442,111 @@ const CourseDetailsScreen = ({ route }) => {
     setToastVisible(true);
   };
 
-  // Show error toast when API call fails
-  useEffect(() => {
-    if (error) {
-      showToast('خطا در دریافت اطلاعات دوره. لطفاً دوباره تلاش کنید.', 'error');
+  const handleEditCourse = () => {
+    navigation.navigate("AddNewCourse", {
+      isEdit: true,
+      courseData: courseData
+    });
+  };
+
+  const handleShowActions = () => {
+    console.log('handleShowActions called');
+    setShowActionModal(true);
+
+    // Add proper animations like MagDetailesScreen
+    Animated.parallel([
+      Animated.timing(modalBackdropAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(modalSlideAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const handleCloseModal = () => {
+    Animated.parallel([
+      Animated.timing(modalBackdropAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(modalSlideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowActionModal(false);
+    });
+  };
+
+  const handleDeleteCourse = () => {
+    handleCloseModal();
+    setTimeout(() => {
+      setShowDeleteConfirmModal(true);
+      Animated.parallel([
+        Animated.timing(deleteModalBackdropAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(deleteModalSlideAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, 300);
+  };
+
+  const handleCloseDeleteModal = () => {
+    Animated.parallel([
+      Animated.timing(deleteModalBackdropAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(deleteModalSlideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowDeleteConfirmModal(false);
+    });
+  };
+
+  const confirmDeleteCourse = async () => {
+    handleCloseDeleteModal();
+
+    try {
+      setIsDeleting(true);
+
+      const response = await fetch(`${appConfig.mobileApi}Course/Delete?courseId=${courseData.CourseId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        showToast('دوره با موفقیت حذف شد', 'success');
+        setTimeout(() => {
+          navigation.goBack();
+        }, 2000);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.Message || 'خطا در حذف دوره');
+      }
+    } catch (error) {
+      console.error('Error deleting course:', error);
+      showToast(error.message || 'خطا در حذف دوره', 'error');
+    } finally {
+      setIsDeleting(false);
     }
-  }, [error]);
+  };
 
   // Like functionality
   const handleLike = async () => {
@@ -442,7 +558,6 @@ const CourseDetailsScreen = ({ route }) => {
     const countChange = newIsLiked ? 1 : -1;
     const newLikeCount = likeCount + countChange;
 
-    // Optimistic update
     setIsLiked(newIsLiked);
     setLikeCount(newLikeCount);
 
@@ -505,10 +620,7 @@ const CourseDetailsScreen = ({ route }) => {
     }
 
     try {
-      // Call the like API
       const currentCourseId = courseId || courseData.CourseId;
-      console.log('Sending like request for course ID:', currentCourseId);
-
       const response = await fetch(
         `${appConfig.mobileApi}Course/Like?id=${currentCourseId}`,
         {
@@ -519,8 +631,6 @@ const CourseDetailsScreen = ({ route }) => {
         }
       );
 
-      console.log('Like API Response Status:', response.status);
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -530,65 +640,14 @@ const CourseDetailsScreen = ({ route }) => {
 
     } catch (error) {
       console.error('Like API Error:', error);
-
-      // Revert optimistic update on error
       setIsLiked(isLiked);
       setLikeCount(likeCount);
-
     } finally {
       setIsLiking(false);
     }
   };
 
-  // Rating functionality
-  const handleRatingChange = (newRating, detailedRatings = null) => {
-    if (courseData) {
-      const updatedCourseData = {
-        ...courseData,
-        UserRating: newRating
-      };
-
-      if (detailedRatings) {
-        updatedCourseData.UserDetailedRatings = detailedRatings;
-        setUserDetailedRatings(detailedRatings);
-      }
-
-      setData(updatedCourseData);
-    }
-
-    if (detailedRatings) {
-      const ratingTexts = Object.entries(detailedRatings).map(([key, value]) => {
-        const option = (dynamicRatingOptions.length > 0 ? dynamicRatingOptions : [])
-          .find(opt => opt.id === key);
-        return `${option?.title}: ${toPersianDigits(value.toString())}`;
-      }).join('، ');
-
-      showToast(`امتیازها ثبت شد - ${ratingTexts}`, 'success');
-    } else {
-      showToast(`امتیاز ${toPersianDigits(newRating.toString())} ستاره ثبت شد`, 'success');
-    }
-  };
-
-  const handleRatingSubmit = async (rating, detailedRatings = null) => {
-    try {
-      console.log('Submitting rating:', rating);
-      if (detailedRatings) {
-        console.log('Detailed ratings:', detailedRatings);
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      if (detailedRatings) {
-        const totalCategories = Object.keys(detailedRatings).length;
-        showToast(`امتیاز شما در ${toPersianDigits(totalCategories.toString())} بخش با موفقیت ثبت شد`, 'success');
-      } else {
-        showToast('امتیاز شما با موفقیت ثبت شد', 'success');
-      }
-    } catch (error) {
-      showToast('خطا در ثبت امتیاز', 'error');
-    }
-  };
-
+  // NOW CONDITIONAL RENDERING CAN HAPPEN AFTER ALL HOOKS
   // Show loading skeleton while data is being fetched
   if (loading) {
     return <CourseDetailsSkeleton />;
@@ -668,11 +727,7 @@ const CourseDetailsScreen = ({ route }) => {
 
   // Smart Detail Item Component
   const SmartDetailItem = ({ label, value, icon, maxLength = 30 }) => {
-    // Debug log for troubleshooting
-    console.log(`SmartDetailItem - Label: ${label}, Value: ${value}, Type: ${typeof value}`);
-
     if (!value || value === "نامشخص" || value === "تاریخ مشخص نشده") {
-      console.log(`SmartDetailItem - ${label} hidden because value is empty or invalid`);
       return null;
     }
 
@@ -728,8 +783,17 @@ const CourseDetailsScreen = ({ route }) => {
     }
   };
 
-  // Coaches processing (fallback for when no coaches data)
+  // Coaches processing - only show if actual coaches exist
   const processCoaches = () => {
+    // Check for Course_Member_List first (as per your JSON structure)
+    if (courseData.Course_Member_List && courseData.Course_Member_List.length > 0) {
+      return courseData.Course_Member_List.map(member => ({
+        name: member.MemberName || member.Name || "مربی",
+        image: member.ProfileImageUrl || null
+      }));
+    }
+
+    // Fallback to Course_Member_ViewModel_List if it exists
     if (courseData.Course_Member_ViewModel_List && courseData.Course_Member_ViewModel_List.length > 0) {
       return courseData.Course_Member_ViewModel_List.map(member => ({
         name: member.MemberName || "مربی",
@@ -737,18 +801,12 @@ const CourseDetailsScreen = ({ route }) => {
       }));
     }
 
-    // Fallback coaches
-    const fallbackCoaches = [
-      "استاد احمدی", "استاد رضایی", "استاد محمدی", "استاد علوی", "استاد حسینی"
-    ];
-
-    return fallbackCoaches.slice(0, 3).map(name => ({
-      name,
-      image: null
-    }));
+    // Return empty array if no coaches found
+    return [];
   };
 
   const coaches = processCoaches();
+  const hasCoaches = coaches.length > 0;
 
   const CoachItem = ({ coach, index }) => (
     <View style={styles.coachContainer}>
@@ -862,6 +920,20 @@ const CourseDetailsScreen = ({ route }) => {
             </View>
           </TouchableOpacity>
 
+          {/* Menu Button - فقط برای صاحب دوره */}
+          {isOwnCourse && !loading && (
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={handleShowActions}
+              disabled={isDeleting}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuButtonContainer}>
+                <MaterialIcons name="more-vert" size={24} color="#6366f1" />
+              </View>
+            </TouchableOpacity>
+          )}
+
           <Animated.View
             style={[
               styles.headerContainer,
@@ -887,7 +959,7 @@ const CourseDetailsScreen = ({ route }) => {
           >
             <Image
               style={styles.headerImage}
-              source={require("../../assets/sample_clothe.jpg")}
+              source={require("../../assets/new_course.jpg")}
             />
             <LinearGradient
               colors={['transparent', 'rgba(190, 126, 234, 0.9)', 'rgba(118, 75, 162, 0.95)']}
@@ -912,7 +984,6 @@ const CourseDetailsScreen = ({ route }) => {
                 styles.topLikeBadge,
                 {
                   backgroundColor: isLiked ? 'rgba(233, 30, 99, 0.8)' : 'rgba(255, 255, 255, 0.8)',
-            
                 }
               ]}
             >
@@ -978,7 +1049,7 @@ const CourseDetailsScreen = ({ route }) => {
           >
             <SmartDetailItem
               label="درباره این دوره"
-              value={getCourseDescription(courseData)}
+              value={getCourseDescription(courseData, coaches)}
               icon="description"
               maxLength={50}
             />
@@ -990,11 +1061,14 @@ const CourseDetailsScreen = ({ route }) => {
               maxLength={25}
             />
 
-            <DetailItemWithCoaches
-              label="مربیان"
-              coaches={coaches}
-              icon="group"
-            />
+            {/* فقط در صورت وجود مربی نمایش داده شود */}
+            {hasCoaches && (
+              <DetailItemWithCoaches
+                label="مربیان"
+                coaches={coaches}
+                icon="group"
+              />
+            )}
 
             <SmartDetailItem
               label="هزینه ثبت نام"
@@ -1002,9 +1076,7 @@ const CourseDetailsScreen = ({ route }) => {
               icon="attach-money"
             />
 
-         
-
-            {/* اطلاعات تکمیلی - آخرین سکشن */}
+            {/* اطلاعات تکمیلی */}
             <View style={styles.detailItem}>
               <View style={styles.labelContainer}>
                 <LinearGradient
@@ -1058,7 +1130,6 @@ const CourseDetailsScreen = ({ route }) => {
                   </View>
                 )}
 
-                {/* برنامه زمانی */}
                 <View style={styles.infoRow}>
                   <View style={styles.infoItem}>
                     <MaterialIcons name="schedule" size={20} color={modernColors.info} />
@@ -1074,7 +1145,8 @@ const CourseDetailsScreen = ({ route }) => {
 
               <View style={[styles.featureAccent, { backgroundColor: getIconColor('info') + "60" }]} />
             </View>
-            {/* Rating Section */}
+
+            {/* Rating Section با کامپوننت جدید */}
             <View style={styles.detailItem}>
               <View style={styles.labelContainer}>
                 <LinearGradient
@@ -1087,32 +1159,96 @@ const CourseDetailsScreen = ({ route }) => {
               </View>
 
               <View style={styles.ratingSection}>
-                <RatingComponent
-                  initialRating={courseData.UserRating}
-                  averageRating={courseData.AverageRating}
-                  ratingCount={courseData.RatingCount}
-                  onRatingChange={handleRatingChange}
-                  onSubmit={handleRatingSubmit}
+                <MultiOptionRatingComponent
+                  contentId={courseData.CourseId}
+                  averageRating={courseData.AverageRating || 0}
+                  ratingCount={courseData.RatingCount || 0}
+                  initialRating={courseData.UserRating || 0}
+                  initialDetailedRatings={userDetailedRatings}
                   maxStars={5}
                   size={24}
-                  showRatingText={true}
-                  showRatingCount={true}
-                  animated={true}
-                  allowHalfStars={false}
                   starColor={modernColors.fashionGold}
-                  style={styles.ratingComponent}
                   enableMultipleOptions={true}
                   ratingOptions={dynamicRatingOptions}
-                  modalTitle="امتیاز دهی دوره آموزشی"
+                  modalTitle="امتیازدهی دوره آموزشی"
                   submitButtonText="ثبت امتیاز"
                   cancelButtonText="لغو"
+                  showRatingCount={true}
+                  showRatingText={true}
+                  animated={true}
+                  allowHalfStars={false}
+                  onRatingSubmitted={(result) => {
+                    console.log('Rating submitted successfully:', result);
+
+                    if (result.ratings) {
+                      setUserDetailedRatings(result.ratings);
+                      const averageRating = result.averageRating;
+
+                      setData(prevData => ({
+                        ...prevData,
+                        UserRating: averageRating,
+                        UserDetailedRatings: result.ratings
+                      }));
+
+                      showToast(`امتیاز شما در ${Object.keys(result.ratings).length} بخش با موفقیت ثبت شد`, 'success');
+                    } else {
+                      setData(prevData => ({
+                        ...prevData,
+                        UserRating: result.rating
+                      }));
+
+                      showToast(`امتیاز ${toPersianDigits(result.rating.toString())} ستاره ثبت شد`, 'success');
+                    }
+                  }}
+                  onRatingError={(errorMessage) => {
+                    console.error('Rating submission failed:', errorMessage);
+                    showToast(errorMessage || 'خطا در ثبت امتیاز', 'error');
+                  }}
+                  onRatingChange={(rating, detailedRatings) => {
+                    if (detailedRatings) {
+                      setUserDetailedRatings(detailedRatings);
+                    }
+                  }}
+                  style={styles.ratingComponent}
                 />
 
-                {/* نمایش میانگین امتیاز در هر بخش فقط اگر حداقل یک بخش امتیاز داشته باشد */}
+                {/* نمایش امتیازات تفصیلی کاربر */}
+                {dynamicRatingOptions.length > 0 && Object.keys(userDetailedRatings).length > 0 && (
+                  <View style={styles.userDetailedRatingsContainer}>
+                    <AppText style={styles.userDetailedRatingsTitle}>امتیازات شما:</AppText>
+                    {dynamicRatingOptions
+                      .filter(option => userDetailedRatings[option.id])
+                      .map((option) => (
+                        <View key={option.id} style={styles.userRatingRow}>
+                          <View style={styles.userRatingRowContent}>
+                            <View style={styles.userRatingRowText}>
+                              <AppText style={styles.userRatingRowTitle}>{option.title}</AppText>
+                            </View>
+                            <View style={styles.userRatingRowStars}>
+                              <StarDisplay
+                                rating={userDetailedRatings[option.id]}
+                                maxStars={5}
+                                size={16}
+                                color={modernColors.fashionGold}
+                                emptyColor="#e0e0e0"
+                                showHalfStars={false}
+                                animated={false}
+                              />
+                              <AppText style={styles.userRatingScore}>
+                                {toPersianDigits(userDetailedRatings[option.id].toString())}
+                              </AppText>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                  </View>
+                )}
+
+                {/* نمایش میانگین امتیاز در هر بخش */}
                 {dynamicRatingOptions.length > 0 &&
                   dynamicRatingOptions.some(option => option.averageRating != null && option.averageRating !== 0) && (
                     <View style={styles.detailedRatingsContainer}>
-                      <AppText style={styles.detailedRatingsTitle}>میانگین امتیاز در هر بخش:</AppText>
+                      <AppText style={styles.detailedRatingsTitle}>میانگین امتیاز سایر کاربران:</AppText>
                       {dynamicRatingOptions
                         .filter(option => option.averageRating != null && option.averageRating !== 0)
                         .map((option) => (
@@ -1132,6 +1268,9 @@ const CourseDetailsScreen = ({ route }) => {
                                   showHalfStars={true}
                                   animated={false}
                                 />
+                                <AppText style={styles.averageRatingScore}>
+                                  {toPersianDigits(option.averageRating.toFixed(1))}
+                                </AppText>
                               </View>
                             </View>
                           </View>
@@ -1171,16 +1310,6 @@ const CourseDetailsScreen = ({ route }) => {
                 </AppText>
               </LinearGradient>
             </TouchableOpacity>
-
-            <TouchableOpacity style={styles.secondaryButton}>
-              <LinearGradient
-                colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.1)']}
-                style={styles.secondaryButtonGradient}
-              >
-                <MaterialIcons name="share" size={20} style={{ marginRight: 8 }} />
-                <AppText style={styles.secondaryButtonText}>اشتراک گذاری دوره</AppText>
-              </LinearGradient>
-            </TouchableOpacity>
           </Animated.View>
 
           <View style={styles.decorativeElements}>
@@ -1199,6 +1328,184 @@ const CourseDetailsScreen = ({ route }) => {
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
+
+        <Modal
+          visible={showActionModal}
+          transparent={true}
+          animationType="none"
+          onRequestClose={handleCloseModal}
+        >
+          <View style={styles.modalContainer}>
+            <Animated.View
+              style={[
+                styles.modalBackdrop,
+                {
+                  opacity: modalBackdropAnim,
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.backdropTouchable}
+                onPress={handleCloseModal}
+                activeOpacity={1}
+              />
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.modalContent,
+                {
+                  transform: [
+                    {
+                      translateY: modalSlideAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [300, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <View style={styles.modalHandle} />
+
+              <View style={styles.modalHeader}>
+                <AppText style={styles.modalTitle}>عملیات دوره</AppText>
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.modalActionItem}
+                  onPress={() => {
+                    handleCloseModal();
+                    setTimeout(() => {
+                      handleEditCourse();
+                    }, 300);
+                  }}
+                >
+                  <View style={styles.modalActionContent}>
+                    <View style={[styles.modalActionIcon, { backgroundColor: modernColors.info }]}>
+                      <MaterialIcons name="edit" size={22} color="#ffffff" />
+                    </View>
+                    <View style={styles.modalActionText}>
+                      <AppText style={styles.modalActionTitle}>ویرایش دوره</AppText>
+                      <AppText style={styles.modalActionSubtitle}>ویرایش مشخصات و تنظیمات دوره</AppText>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalActionItem}
+                  onPress={handleDeleteCourse}
+                  disabled={isDeleting}
+                >
+                  <View style={styles.modalActionContent}>
+                    <View style={[styles.modalActionIcon, { backgroundColor: modernColors.error }]}>
+                      <MaterialIcons name="delete" size={22} color="#ffffff" />
+                    </View>
+                    <View style={styles.modalActionText}>
+                      <AppText style={styles.modalActionTitle}>حذف دوره</AppText>
+                      <AppText style={styles.modalActionSubtitle}>حذف کامل دوره از سیستم</AppText>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={handleCloseModal}
+              >
+                <AppText style={styles.modalCancelText}>لغو</AppText>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={showDeleteConfirmModal}
+          transparent={true}
+          animationType="none"
+          onRequestClose={handleCloseDeleteModal}
+        >
+          <View style={styles.modalContainer}>
+            <Animated.View
+              style={[
+                styles.modalBackdrop,
+                {
+                  opacity: deleteModalBackdropAnim,
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.backdropTouchable}
+                onPress={handleCloseDeleteModal}
+                activeOpacity={1}
+              />
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.deleteModalContent,
+                {
+                  transform: [
+                    {
+                      translateY: deleteModalSlideAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [300, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <View style={styles.modalHandle} />
+
+              <View style={styles.deleteModalHeader}>
+                <View style={styles.deleteWarningIcon}>
+                  <MaterialIcons name="warning" size={32} color="#ffffff" />
+                </View>
+                <AppText style={styles.deleteModalTitle}>تأیید حذف</AppText>
+                <AppText style={styles.deleteModalMessage}>
+                  آیا از حذف این دوره اطمینان دارید؟{'\n'}
+                  این عمل قابل بازگشت نیست و تمام اطلاعات دوره حذف خواهد شد.
+                </AppText>
+              </View>
+
+              <View style={styles.deleteModalActions}>
+                <View style={styles.deleteButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.deleteModalCancelButton}
+                    onPress={handleCloseDeleteModal}
+                    disabled={isDeleting}
+                  >
+                    <AppText style={styles.deleteModalCancelText}>لغو</AppText>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.confirmDeleteButton}
+                    onPress={confirmDeleteCourse}
+                    disabled={isDeleting}
+                  >
+                    <LinearGradient
+                      colors={[modernColors.error, '#c0392b']}
+                      style={styles.confirmDeleteGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      {isDeleting ? (
+                        <MaterialIcons name="hourglass-empty" size={20} color="#ffffff" />
+                      ) : (
+                        <MaterialIcons name="delete-forever" size={20} color="#ffffff" />
+                      )}
+                      <AppText style={styles.confirmDeleteText}>
+                        {isDeleting ? 'در حال حذف...' : 'بله، حذف کن'}
+                      </AppText>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
       </View>
     </>
   );
@@ -1228,6 +1535,29 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   backButtonContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    marginTop: -12
+  },
+  menuButton: {
+    position: 'absolute',
+    top: StatusBar.currentHeight + 45,
+    left: 20,
+    zIndex: 1000,
+  },
+  menuButtonContainer: {
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -1519,6 +1849,57 @@ const styles = StyleSheet.create({
   ratingComponent: {
     alignItems: 'flex-end',
   },
+  // امتیازات تفصیلی کاربر
+  userDetailedRatingsContainer: {
+    marginTop: 20,
+    backgroundColor: '#e8f5e8',
+    borderRadius: 15,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+  },
+  userDetailedRatingsTitle: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    textAlign: 'right',
+    marginBottom: 15,
+  },
+  userRatingRow: {
+    marginBottom: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e8f5e8',
+  },
+  userRatingRowContent: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  userRatingRowText: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  userRatingRowTitle: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    marginBottom: 4,
+  },
+  userRatingRowStars: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    marginLeft: 15,
+    gap: 8,
+  },
+  userRatingScore: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: modernColors.success,
+  },
+  // میانگین امتیازات سایر کاربران
   detailedRatingsContainer: {
     marginTop: 15,
     backgroundColor: 'rgba(255, 248, 225, 0.5)',
@@ -1557,7 +1938,15 @@ const styles = StyleSheet.create({
     color: "#2c3e50",
   },
   ratingRowStars: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
     marginLeft: 10,
+    gap: 8,
+  },
+  averageRatingScore: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#666",
   },
   coachesContentContainer: {
     paddingVertical: 15,
@@ -1775,6 +2164,206 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 30,
+  },
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  backdropTouchable: {
+    flex: 1,
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    paddingTop: 15,
+    paddingBottom: 35,
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -5,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+  },
+  modalActions: {
+    marginBottom: 20,
+  },
+  modalActionItem: {
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    borderRadius: 15,
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  modalActionContent: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  modalActionIcon: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 15,
+  },
+  modalActionText: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  modalActionTitle: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    marginBottom: 2,
+  },
+  modalActionSubtitle: {
+    fontSize: 13,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "#6c757d",
+  },
+  modalCancelButton: {
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 15,
+    borderRadius: 15,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#6c757d',
+  },
+
+  // Delete Modal Styles - Updated to match MagDetailesScreen
+  deleteModalContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    paddingTop: 15,
+    paddingBottom: 35,
+    paddingHorizontal: 25,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -5,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  deleteModalHeader: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  deleteWarningIcon: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: modernColors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    shadowColor: modernColors.error,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  deleteModalTitle: {
+    fontSize: 20,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    marginBottom: 15,
+  },
+  deleteModalMessage: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "#6c757d",
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  deleteModalActions: {
+    marginTop: 10,
+  },
+  deleteButtonsRow: {
+    flexDirection: 'row-reverse',
+    gap: 15,
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    borderRadius: 15,
+    overflow: 'hidden',
+    shadowColor: modernColors.error,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  confirmDeleteGradient: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  confirmDeleteText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#ffffff',
+  },
+  deleteModalCancelButton: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 16,
+    borderRadius: 15,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  deleteModalCancelText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#6c757d',
   },
 });
 

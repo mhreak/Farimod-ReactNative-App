@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import AppText from "../components/Text";
 import {
-  ScrollView,
   StyleSheet,
   View,
   Dimensions,
@@ -10,15 +9,17 @@ import {
   TouchableOpacity,
   FlatList,
   RefreshControl,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
 import MainBackground from "../components/MainBackground";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useNavigation, useRoute } from "@react-navigation/native";
-import CourseCard from "../components/CourseCard";
+import { useNavigation } from "@react-navigation/native";
 import Toast from "../components/Toast";
+import { toPersianDigits, safeNumber, formatPrice, safeString } from "../utils/converters";
 import appConfig from "../config/config";
+import AuthService from "../services/AuthService";
 
 const { width, height } = Dimensions.get('window');
 
@@ -40,24 +41,29 @@ const modernColors = {
   info: "#3498db",
   gradientStart: "#667eea",
   gradientEnd: "#764ba2",
-  schoolIcon: "#2ecc71",
 };
 
 const ITEMS_PER_PAGE = 20;
 
-const useCoursesWithPagination = () => {
+const useProductsWithPagination = () => {
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchCourses = async (page = 1, pageSize = ITEMS_PER_PAGE) => {
+  const fetchProducts = async (page = 1, pageSize = ITEMS_PER_PAGE) => {
     try {
       setLoading(true);
       setError(null);
 
+      // Get user data from AuthService to get MemberId
+      const userData = await AuthService.getUserData();
+      const memberId = userData?.MemberGroupList?.[0]?.MemberId || 1;
+
+      let queryParams = `filterMemberId=${memberId}&currentPage=${page}&pageSize=${pageSize}`;
+
       const response = await fetch(
-        `${appConfig.mobileApi}Course/GetAll?filterRegisterActive=true&currentPage=${page}&pageSize=${pageSize}`
+        `${appConfig.mobileApi}Product/GetAll?${queryParams}`
       );
 
       if (!response.ok) {
@@ -82,46 +88,45 @@ const useCoursesWithPagination = () => {
     total,
     loading,
     error,
-    fetchCourses,
+    fetchProducts,
   };
 };
 
-// Skeleton Component
-const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
+// Skeleton Components
+const SkeletonLoader = ({ style }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const startAnimation = () => {
+    const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(animatedValue, {
           toValue: 1,
-          duration: 1000,
-          useNativeDriver: false,
+          duration: 1200,
+          useNativeDriver: true,
         }),
         Animated.timing(animatedValue, {
           toValue: 0,
-          duration: 1000,
-          useNativeDriver: false,
+          duration: 1200,
+          useNativeDriver: true,
         }),
-      ]).start(() => startAnimation());
-    };
+      ])
+    );
+    animation.start();
 
-    startAnimation();
+    return () => animation.stop();
   }, [animatedValue]);
 
-  const backgroundColor = animatedValue.interpolate({
+  const opacity = animatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#e0e0e0', '#f0f0f0'],
+    outputRange: [0.3, 0.7],
   });
 
   return (
     <Animated.View
       style={[
         {
-          width,
-          height,
-          backgroundColor,
-          borderRadius,
+          backgroundColor: '#e1e5e9',
+          opacity,
         },
         style,
       ]}
@@ -129,58 +134,92 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   );
 };
 
-// Course Skeleton
-const CourseCardSkeleton = () => {
+const ProductCardSkeleton = () => {
   return (
-    <View style={styles.courseSkeletonContainer}>
-      {/* Image Section */}
-      <View style={styles.courseImageSkeleton}>
-        <SkeletonLoader width="100%" height="100%" borderRadius={0} />
+    <View style={styles.productCard}>
+      <View style={styles.productImageContainer}>
+        <SkeletonLoader style={styles.productImage} />
       </View>
 
-      {/* Course Details Section */}
-      <View style={styles.courseDetailsSkeleton}>
-        {/* Header with icon and content */}
-        <View style={styles.courseHeaderSkeleton}>
-          <SkeletonLoader width={44} height={44} borderRadius={12} style={{ marginLeft: 12 }} />
-          <View style={{ flex: 1 }}>
-            {/* Title */}
-            <SkeletonLoader width="90%" height={16} style={{ marginBottom: 8, alignSelf: 'flex-end' }} />
-            <SkeletonLoader width="70%" height={16} style={{ marginBottom: 8, alignSelf: 'flex-end' }} />
-            {/* Price */}
-            <SkeletonLoader width="40%" height={14} style={{ marginBottom: 6, alignSelf: 'flex-end' }} />
-            {/* Category */}
-            <SkeletonLoader width="50%" height={12} style={{ alignSelf: 'flex-end' }} />
-          </View>
+      <View style={styles.productContent}>
+        <View style={styles.skeletonTextContainer}>
+          <SkeletonLoader style={styles.skeletonTitle} />
+          <SkeletonLoader style={styles.skeletonTitleSecond} />
         </View>
 
-        {/* Location Section */}
-        <View style={styles.locationSectionSkeleton}>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', marginBottom: 6 }}>
-            <SkeletonLoader width={20} height={20} borderRadius={10} style={{ marginLeft: 8 }} />
-            <SkeletonLoader width={80} height={13} />
-          </View>
-          <SkeletonLoader width="85%" height={13} style={{ alignSelf: 'flex-end', marginBottom: 4 }} />
-          <SkeletonLoader width="60%" height={13} style={{ alignSelf: 'flex-end' }} />
-        </View>
-
-        {/* Additional Info */}
-        <View style={styles.additionalInfoSkeleton}>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center' }}>
-            <SkeletonLoader width={16} height={16} borderRadius={8} style={{ marginLeft: 4 }} />
-            <SkeletonLoader width={40} height={11} />
-          </View>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center' }}>
-            <SkeletonLoader width={16} height={16} borderRadius={8} style={{ marginLeft: 4 }} />
-            <SkeletonLoader width={50} height={11} />
-          </View>
+        <View style={styles.skeletonPriceContainer}>
+          <SkeletonLoader style={styles.skeletonPrice} />
         </View>
       </View>
     </View>
   );
 };
 
-// Beautiful Pagination Component
+// ProductCard Component
+const ProductCard = ({ item, onPress }) => {
+  const price = safeNumber(item.Price);
+  const specialPrice = safeNumber(item.SpecialSalePrice);
+  const discountPercentage = specialPrice > 0 && price > 0
+    ? Math.round(((price - specialPrice) / price) * 100)
+    : 0;
+
+  return (
+    <TouchableOpacity
+      style={styles.productCard}
+      activeOpacity={0.8}
+      onPress={() => onPress(item)}
+    >
+      <View style={styles.productImageContainer}>
+        <Image
+          source={
+            item.ProductImageFileName
+              ? { uri: `${appConfig.mobileApi}Product/GetProductImage/${item.ProductImageFileName}` }
+              : require("../../assets/Product_icon.jpg")
+          }
+          style={styles.productImage}
+          resizeMode="cover"
+        />
+        {discountPercentage > 0 && (
+          <View style={styles.discountBadge}>
+            <AppText style={styles.discountText}>
+              {toPersianDigits(discountPercentage.toString())}% تخفیف
+            </AppText>
+          </View>
+        )}
+        {!item.Active && (
+          <View style={styles.unavailableBadge}>
+            <AppText style={styles.unavailableText}>ناموجود</AppText>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.productContent}>
+        <AppText style={styles.productTitle} numberOfLines={2}>
+          {safeString(item.ProductName, 'نام محصول')}
+        </AppText>
+
+        <View style={styles.priceSection}>
+          {discountPercentage > 0 ? (
+            <View style={styles.priceContainer}>
+              <AppText style={styles.originalPrice}>
+                {formatPrice(price)}
+              </AppText>
+              <AppText style={styles.specialPrice}>
+                {formatPrice(specialPrice)}
+              </AppText>
+            </View>
+          ) : (
+            <AppText style={styles.productPrice}>
+              {formatPrice(price)}
+            </AppText>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+};
+
+// PaginationComponent
 const PaginationComponent = ({
   currentPage,
   totalPages,
@@ -252,7 +291,6 @@ const PaginationComponent = ({
       startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
 
-    // Previous button
     if (currentPage > 1) {
       items.push(
         <TouchableOpacity
@@ -273,7 +311,6 @@ const PaginationComponent = ({
       );
     }
 
-    // First page + ellipsis
     if (startPage > 1) {
       items.push(renderPageButton(1, currentPage === 1));
       if (startPage > 2) {
@@ -285,12 +322,10 @@ const PaginationComponent = ({
       }
     }
 
-    // Page numbers
     for (let i = startPage; i <= endPage; i++) {
       items.push(renderPageButton(i, i === currentPage));
     }
 
-    // Last page + ellipsis
     if (endPage < totalPages) {
       if (endPage < totalPages - 1) {
         items.push(
@@ -302,7 +337,6 @@ const PaginationComponent = ({
       items.push(renderPageButton(totalPages, currentPage === totalPages));
     }
 
-    // Next button
     if (currentPage < totalPages) {
       items.push(
         <TouchableOpacity
@@ -333,100 +367,131 @@ const PaginationComponent = ({
       <View style={styles.paginationWrapper}>
         {renderPaginationItems()}
       </View>
-
-
-
     </View>
   );
 };
 
-const AllCoursesScreen = () => {
+// Main Component
+const MyProductScreen = () => {
   const navigation = useNavigation();
-  const route = useRoute();
-
-  const { filteredMemberId, filteredMemberName, filterType } = route.params || {};
-
-  // بروزرسانی custom hook برای پشتیبانی از فیلتر کاربر
-  const useCoursesWithPagination = () => {
-    const [data, setData] = useState([]);
-    const [total, setTotal] = useState(0);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-
-    const fetchCourses = async (page = 1, pageSize = ITEMS_PER_PAGE, filters = {}) => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        let queryParams = `filterRegisterActive=true&currentPage=${page}&pageSize=${pageSize}`;
-
-        if (filters.filterMemberId) {
-          queryParams += `&filterMemberId=${filters.filterMemberId}`;
-        }
-
-        const response = await fetch(
-          `${appConfig.mobileApi}Course/GetAll?${queryParams}`
-        );
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        setData(result.Data || []);
-        setTotal(result.Total || 0);
-      } catch (err) {
-        setError(err.message);
-        setData([]);
-        setTotal(0);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    return { data, total, loading, error, fetchCourses };
-  };
-
-  useEffect(() => {
-    const initialFilters = {};
-
-    if (filteredMemberId && filterType === 'member') {
-      initialFilters.filterMemberId = filteredMemberId;
-      showToast(`نمایش دوره‌های ${filteredMemberName}`, 'info');
-    }
-
-    fetchCourses(currentPage, ITEMS_PER_PAGE, initialFilters);
-  }, [currentPage, filteredMemberId]);
-
-  const getHeaderTitle = () => {
-    if (filteredMemberId && filteredMemberName) {
-      return `دوره‌های ${filteredMemberName}`;
-    }
-    return 'دوره‌های آموزشی';
-  };
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  // Use custom hook for API with pagination
-  const { data: courses, total, loading: coursesLoading, error: coursesError, fetchCourses } = useCoursesWithPagination();
+  const { data: products, total, loading: productsLoading, error: productsError, fetchProducts } = useProductsWithPagination();
 
-  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
-  // Toast states
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('info');
 
-  // Refreshing state
   const [refreshing, setRefreshing] = useState(false);
 
-  // Initial load and page changes
+  // Helper functions defined before use
+  const showToast = (message, type = 'info') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
+
+  const handleProductPress = (productData) => {
+    navigation.navigate("ProductDetails", { productData });
+  };
+
+  const handleAddProduct = () => {
+    navigation.navigate("AddProduct");
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    Animated.timing(slideAnim, {
+      toValue: 20,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchProducts(currentPage, ITEMS_PER_PAGE);
+    setRefreshing(false);
+  };
+
+  // Generate skeleton data
+  const createSkeletonData = () => {
+    return Array.from({ length: ITEMS_PER_PAGE }, (_, index) => ({
+      id: `skeleton-${index}`,
+      isSkeleton: true
+    }));
+  };
+
+  const renderProductItem = ({ item, index }) => {
+    if (item.isSkeleton) {
+      return (
+        <View style={styles.productItemContainer}>
+          <ProductCardSkeleton />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.productItemContainer}>
+        <ProductCard item={item} onPress={handleProductPress} />
+      </View>
+    );
+  };
+
+  const renderEmptyComponent = () => {
+    return (
+      <View style={styles.emptyContainer}>
+        <MaterialIcons name="shopping-bag" size={80} color="#9e9e9e" />
+        <AppText style={styles.emptyTitle}>هیچ محصولی موجود نیست</AppText>
+        <AppText style={styles.emptySubtitle}>
+          در حال حاضر محصولی برای نمایش وجود ندارد
+        </AppText>
+      </View>
+    );
+  };
+
+  const renderErrorComponent = () => (
+    <View style={styles.errorContainer}>
+      <MaterialIcons name="error" size={80} color="#9e9e9e" />
+      <AppText style={styles.errorTitle}>خطا در دریافت اطلاعات</AppText>
+      <AppText style={styles.errorSubtitle}>
+        لطفاً اتصال اینترنت خود را بررسی کنید
+      </AppText>
+      <TouchableOpacity
+        style={styles.retryButton}
+        onPress={() => fetchProducts(currentPage, ITEMS_PER_PAGE)}
+      >
+        <MaterialIcons name="refresh" size={20} color={colors.white} />
+        <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const spin = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  // Determine what data to show
+  const displayData = productsLoading && products.length === 0
+    ? createSkeletonData()
+    : products;
+
+  // Effects
   useEffect(() => {
-    fetchCourses(currentPage, ITEMS_PER_PAGE);
+    fetchProducts(currentPage, ITEMS_PER_PAGE);
   }, [currentPage]);
 
   useEffect(() => {
@@ -452,120 +517,11 @@ const AllCoursesScreen = () => {
     ).start();
   }, []);
 
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
-  // Toast helper function
-  const showToast = (message, type = 'info') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastVisible(true);
-  };
-
-  // Show error toasts when API calls fail
   useEffect(() => {
-    if (coursesError) {
-      showToast('خطا در دریافت اطلاعات دوره‌ها. لطفاً دوباره تلاش کنید.', 'error');
+    if (productsError) {
+      showToast('خطا در دریافت اطلاعات محصولات من. لطفاً دوباره تلاش کنید.', 'error');
     }
-  }, [coursesError]);
-
-  const handleCoursePress = (courseData) => {
-    navigation.navigate("CourseDetails", {
-
-      courseId: courseData.CourseId
-    });
-  };
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    // Add smooth scroll to top effect
-    Animated.timing(slideAnim, {
-      toValue: 20,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    });
-  };
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchCourses(currentPage, ITEMS_PER_PAGE);
-    setRefreshing(false);
-  };
-
-  // Create skeleton data for loading state
-  const createSkeletonData = () => {
-    return Array.from({ length: ITEMS_PER_PAGE }, (_, index) => ({ id: `skeleton-${index}` }));
-  };
-
-  const renderCourseItem = ({ item, index }) => {
-    if (item.id && item.id.startsWith('skeleton')) {
-      return (
-        <View style={styles.courseItemContainer}>
-          <CourseCardSkeleton />
-        </View>
-      );
-    }
-
-    return (
-      <View style={styles.courseItemContainer}>
-        <TouchableOpacity
-          onPress={() => handleCoursePress(item)}
-          activeOpacity={0.8}
-        >
-          <CourseCard course={item} onPress={handleCoursePress} />
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const renderEmptyComponent = () => {
-    if (coursesLoading) return null;
-
-    return (
-      <View style={styles.emptyContainer}>
-        <MaterialIcons name="school" size={80} color="#9e9e9e" />
-        <AppText style={styles.emptyTitle}>هیچ دوره‌ای موجود نیست</AppText>
-        <AppText style={styles.emptySubtitle}>
-          در حال حاضر دوره‌ای برای نمایش وجود ندارد
-        </AppText>
-      </View>
-    );
-  };
-
-  const renderErrorComponent = () => (
-    <View style={styles.errorContainer}>
-      <MaterialIcons name="error" size={80} color="#9e9e9e" />
-      <AppText style={styles.errorTitle}>خطا در دریافت اطلاعات</AppText>
-      <AppText style={styles.errorSubtitle}>
-        لطفاً اتصال اینترنت خود را بررسی کنید
-      </AppText>
-      <TouchableOpacity
-        style={styles.retryButton}
-        onPress={() => fetchCourses(currentPage, ITEMS_PER_PAGE)}
-      >
-        <MaterialIcons name="refresh" size={20} color={colors.white} />
-        <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
-      </TouchableOpacity>
-    </View>
-  );
-
-  // Show total courses info
-  const renderCoursesInfo = () => {
-    if (coursesLoading || coursesError || total === 0) return null;
-
-    return (
-      <View>
-
-      </View>
-    );
-  };
+  }, [productsError]);
 
   return (
     <>
@@ -573,7 +529,6 @@ const AllCoursesScreen = () => {
       <View style={styles.container}>
         <MainBackground />
 
-        {/* Toast Component */}
         <Toast
           visible={toastVisible}
           message={toastMessage}
@@ -581,7 +536,6 @@ const AllCoursesScreen = () => {
           onHide={() => setToastVisible(false)}
         />
 
-        {/* Back Button */}
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -595,7 +549,20 @@ const AllCoursesScreen = () => {
           </View>
         </TouchableOpacity>
 
-        {/* Header */}
+        <TouchableOpacity
+          style={styles.addButton}
+          onPress={handleAddProduct}
+        >
+          <LinearGradient
+            colors={[modernColors.success, '#27ae60']}
+            style={styles.addButtonGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <MaterialIcons name="add" size={24} color="#ffffff" />
+          </LinearGradient>
+        </TouchableOpacity>
+
         <Animated.View
           style={[
             styles.headerContainer,
@@ -606,11 +573,10 @@ const AllCoursesScreen = () => {
           ]}
         >
           <View style={styles.titleWrapper}>
-            <AppText style={styles.headerTitle}>دوره‌های آموزشی</AppText>
+            <AppText style={styles.headerTitle}>محصولات من</AppText>
           </View>
         </Animated.View>
 
-        {/* Courses Info */}
         <Animated.View
           style={[
             styles.sectionTitleContainer,
@@ -620,7 +586,6 @@ const AllCoursesScreen = () => {
             },
           ]}
         >
-          {renderCoursesInfo()}
           <View style={styles.sparkleContainer}>
             <MaterialIcons
               name="star-half"
@@ -637,17 +602,13 @@ const AllCoursesScreen = () => {
           </View>
         </Animated.View>
 
-        {/* Decorative Elements */}
         <Animated.View
           style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
-        >
-        </Animated.View>
+        />
         <Animated.View
           style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]}
-        >
-        </Animated.View>
+        />
 
-        {/* Content */}
         <Animated.View
           style={[
             styles.contentContainer,
@@ -657,18 +618,23 @@ const AllCoursesScreen = () => {
             },
           ]}
         >
-          {coursesError ? (
+          {productsError ? (
             renderErrorComponent()
           ) : (
             <>
               <FlatList
-                data={coursesLoading ? createSkeletonData() : courses}
-                renderItem={renderCourseItem}
+                key="products-grid"
+                data={displayData}
+                renderItem={renderProductItem}
                 keyExtractor={(item, index) =>
-                  item.CourseId ? item.CourseId.toString() : `skeleton-${index}`
+                  item.isSkeleton
+                    ? item.id
+                    : (item.ProductId ? item.ProductId.toString() : `product-${index}`)
                 }
+                numColumns={2}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listContainer}
+                columnWrapperStyle={styles.row}
                 refreshControl={
                   <RefreshControl
                     refreshing={refreshing}
@@ -677,11 +643,11 @@ const AllCoursesScreen = () => {
                     tintColor={modernColors.primary}
                   />
                 }
-                ListEmptyComponent={renderEmptyComponent}
+                ListEmptyComponent={!productsLoading ? renderEmptyComponent : null}
+                ItemSeparatorComponent={() => <View style={{ height: 4 }} />}
               />
 
-              {/* Pagination */}
-              {!coursesLoading && !coursesError && totalPages > 1 && (
+              {!productsLoading && !productsError && totalPages > 1 && (
                 <PaginationComponent
                   currentPage={currentPage}
                   totalPages={totalPages}
@@ -693,7 +659,6 @@ const AllCoursesScreen = () => {
           )}
         </Animated.View>
 
-        {/* Decorative Elements */}
         <View style={styles.decorativeElements}>
           <View style={styles.floatingElements}>
             <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
@@ -757,17 +722,36 @@ const styles = StyleSheet.create({
     elevation: 5,
     marginTop: -12
   },
+  addButton: {
+    position: 'absolute',
+    top: StatusBar.currentHeight + 45,
+    left: 20,
+    zIndex: 1000,
+  },
+  addButtonGradient: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: modernColors.success,
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+    marginTop: -12
+  },
   titleWrapper: {
-    flexDirection: "row",
     alignItems: "center",
-    flexWrap: "wrap",
     justifyContent: "center",
   },
   headerTitle: {
     fontSize: 26,
     fontFamily: "Yekan_Bakh_ExtraBold",
     color: "#2c3e50",
-    marginHorizontal: 15,
     textAlign: "center",
   },
   sectionTitleContainer: {
@@ -778,23 +762,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     position: "relative",
     paddingHorizontal: 20,
-  },
-  coursesInfoContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  coursesInfoText: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#666',
-    textAlign: 'center',
   },
   sparkleContainer: {
     position: "absolute",
@@ -808,7 +775,7 @@ const styles = StyleSheet.create({
   },
   sparkle2: {
     position: "absolute",
-    top: 10,
+    top: 25,
     right: 25,
   },
   contentContainer: {
@@ -818,18 +785,250 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingBottom: 20,
     paddingTop: 10,
-    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  row: {
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+    marginBottom: 8,
     width: '100%',
   },
-  courseItemContainer: {
-    width: width - 40,
-    alignSelf: 'center',
-    marginBottom: 20,
+  productItemContainer: {
+    width: (width - 50) / 2,
+    marginBottom: 10,
+    marginHorizontal: 6,
+  },
+  productCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 0,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 0,
+    elevation: 0,
+  },
+  productImageContainer: {
+    position: 'relative',
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  discountBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#ff6b6b',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
+    zIndex: 2,
+  },
+  discountText: {
+    fontSize: 10,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#fff',
+  },
+  unavailableBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 3,
+  },
+  unavailableText: {
+    fontSize: 12,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#fff',
+  },
+  productContent: {
+    padding: 12,
+    height: 85,
+    justifyContent: 'space-between',
+  },
+  productTitle: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#333',
+    textAlign: 'center',
+    lineHeight: 18,
+    flex: 1,
+    minHeight: 32,
+  },
+  priceSection: {
+    alignItems: 'center',
+  },
+  priceContainer: {
+    alignItems: 'center',
+  },
+  productPrice: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: modernColors.primary,
+    textAlign: 'center',
+  },
+  originalPrice: {
+    fontSize: 11,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#999',
+    textAlign: 'center',
+    textDecorationLine: 'line-through',
+    marginBottom: 2,
+  },
+  specialPrice: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#ff6b6b',
+    textAlign: 'center',
+  },
+  // Skeleton Styles
+  skeletonTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  skeletonTitle: {
+    height: 14,
+    width: '80%',
+    borderRadius: 7,
+    marginBottom: 6,
+  },
+  skeletonTitleSecond: {
+    height: 12,
+    width: '60%',
+    borderRadius: 6,
+  },
+  skeletonPriceContainer: {
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  skeletonPrice: {
+    height: 16,
+    width: 80,
+    borderRadius: 8,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingVertical: 60,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#2c3e50',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#9e9e9e',
+    marginTop: 12,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingVertical: 60,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#2c3e50',
+    marginTop: 20,
+    textAlign: 'center',
+  },
+  errorSubtitle: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#9e9e9e',
+    marginTop: 12,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  retryButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: modernColors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 24,
+    shadowColor: modernColors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  retryButtonText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: colors.white,
+    marginRight: 8,
+  },
+  floatingDecoration1: {
+    position: 'absolute',
+    top: 200,
+    right: 30,
+    zIndex: -1,
+  },
+  floatingDecoration2: {
+    position: 'absolute',
+    top: 400,
+    left: 30,
+    zIndex: -1,
+  },
+  decorativeElements: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: -1,
+  },
+  floatingElements: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  star1: {
+    position: "absolute",
+    top: 300,
+    left: 50,
+  },
+  star2: {
+    position: "absolute",
+    top: 500,
+    right: 60,
+  },
+  star3: {
+    position: "absolute",
+    bottom: 200,
+    left: 40,
   },
   pagination: {
     marginBottom: 40,
   },
-  // Pagination Styles
   paginationContainer: {
     alignItems: 'center',
     paddingVertical: 20,
@@ -869,7 +1068,6 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   activePageButton: {
-    // Active page button styles handled by gradient
   },
   activePageButtonContent: {
     backgroundColor: modernColors.primary,
@@ -922,169 +1120,6 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: '#999',
   },
-  pageInfoContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  pageInfo: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#666',
-    textAlign: 'center',
-  },
-  // Skeleton styles
-  courseSkeletonContainer: {
-    width: "100%",
-    minHeight: 380,
-    maxHeight: 450,
-    flexDirection: "column",
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
-  courseImageSkeleton: {
-    position: 'relative',
-    height: 200,
-    width: "100%",
-  },
-  courseDetailsSkeleton: {
-    flex: 1,
-    padding: 16,
-  },
-  courseHeaderSkeleton: {
-    flexDirection: "row-reverse",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  locationSectionSkeleton: {
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 8,
-    marginBottom: 8,
-  },
-  additionalInfoSkeleton: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    marginTop: 'auto',
-  },
-  // Empty state styles
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 60,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#2c3e50',
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#9e9e9e',
-    marginTop: 12,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  // Error state styles
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 60,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#2c3e50',
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  errorSubtitle: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#9e9e9e',
-    marginTop: 12,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  retryButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    backgroundColor: modernColors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    marginTop: 24,
-    shadowColor: modernColors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: colors.white,
-    marginRight: 8,
-  },
-  // Decorative elements
-  floatingDecoration1: {
-    position: 'absolute',
-    top: 200,
-    right: 30,
-    zIndex: -1,
-  },
-  floatingDecoration2: {
-    position: 'absolute',
-    top: 400,
-    left: 30,
-    zIndex: -1,
-  },
-  decorativeElements: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: -1,
-  },
-  floatingElements: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  star1: {
-    position: "absolute",
-    top: 300,
-    left: 50,
-  },
-  star2: {
-    position: "absolute",
-    top: 500,
-    right: 60,
-  },
-  star3: {
-    position: "absolute",
-    bottom: 200,
-    left: 40,
-  },
 });
 
-export default AllCoursesScreen;
+export default MyProductScreen;

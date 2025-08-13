@@ -2,6 +2,7 @@ import React from "react";
 import { StyleSheet, Text, View, Platform, I18nManager } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LoginScreen from "./screens/LoginScreen";
+import OTPScreen from "./screens/OTPScreen";
 import SignupScreen from "./screens/SignupScreen";
 import ProfileScreeen from "./screens/ProfileScreeen";
 import HomeScreen from "./screens/HomeScreen";
@@ -17,13 +18,13 @@ import UserProfileScreen from "./screens/UserProfileScreen";
 import SubscriptionScreen from "./screens/SubscriptionScreen";
 import AddNewPostScreen from "./screens/AddNewPostScreen";
 import PortfolioListScreen from "./screens/PortfolioListScreen";
- 
+import MyProductScreen from "./screens/MyProductScreen";
+import AllPortfolioScreen from "./screens/AllPortfolioScreen";
+
 import CareerScreen from "./screens/CareerScreen";
 import WelcomeIntroScreen from "./screens/WelcomeIntroScreen";
 import WhyFrimodScreen from "./screens/WhyFrimodScreen";
 import EventsScreen from "./screens/EventsScreen";
-
-
 
 import styles from "./config/styles";
 import MagDetailesScreen from "./screens/MagDetailesScreen";
@@ -43,6 +44,9 @@ import ProductDetailsScreen from "./screens/ProductDetailsScreen";
 import portfolioDetailScreen from "./screens/PortfolioDetailScreen";
 import PortfolioDetailScreen from "./screens/PortfolioDetailScreen";
 import AllGalleriesScreen from "./screens/AllGalleriesScreen"
+import AddPortfolioScreen from "./screens/AddPortfolioScreen";
+import { useAuth } from "./contexts/AuthContext";
+import AddProductScreen from "./screens/AddNewProduct";
 
 export type RootStackParamList = {
   IntroFlow: undefined;
@@ -52,6 +56,7 @@ export type RootStackParamList = {
   CareerScreen: undefined;
   MainTabs: undefined;
   Login: undefined;
+  OTP: { mobileNumber: string };
   Signup: undefined;
   EditProfile: undefined;
   AboutMe: undefined;
@@ -60,20 +65,29 @@ export type RootStackParamList = {
   MyPosts: undefined;
   MyCourses: undefined;
   AddNewCourse: undefined;
-  MagDetailes: undefined;
+  MagDetailes: { title?: string; blogId?: number };
   MyTeachingCourses: undefined;
-  AllCoursesScreen: undefined;
-  AllProducts: undefined;
+
+  // استفاده از نام‌های موجود در Stack.Navigator:
+  AllCourses: { filteredMemberId?: number; filteredMemberName?: string; filterType?: string };
+  AllProducts: { filteredMemberId?: number; filteredMemberName?: string; filterType?: string };
   AllMembers: undefined;
   ProductDetails: undefined;
   AddNewPost: undefined;
-  PortfolioDetail: undefined;
+  PortfolioDetail: { title?: string; portfolioId?: number };
   PortfolioList: undefined;
-  AllGalleries: undefined;
+  AllGalleries: { filteredMemberId?: number; filteredMemberName?: string; filterType?: string };
+  AddPortfolio: undefined;
+  MyProduct: undefined;
+  AddProductScreen: undefined;
+  AllPortfolio: { filteredMemberId?: number; filteredMemberName?: string; filterType?: string };
 
-  GalleryItem: undefined;
+  // اضافه کردن MagScreen که در TabNavigator هست:
+  MagScreen: { filteredMemberId?: number; filteredMemberName?: string; filterType?: string };
+
+  GalleryItem: { title?: string; galleryId?: number };
   Subscription: undefined;
-  CourseDetails: { courseData?: any };
+  CourseDetails: { courseData?: any; courseId?: number };
   UserProfile: { userData?: any };
 };
 
@@ -82,6 +96,8 @@ export type AppNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator<RootStackParamList>();
 const IntroStack = createStackNavigator();
+const AuthStack = createStackNavigator();
+const AppStack = createStackNavigator();
 
 const customTransitionConfig = {
   animation: "spring",
@@ -156,6 +172,34 @@ function IntroFlowNavigator() {
   );
 }
 
+function AuthNavigator() {
+  return (
+    <AuthStack.Navigator
+      screenOptions={{
+        ...screenOptions,
+        headerShown: false,
+      }}
+      initialRouteName="Login"
+    >
+      <AuthStack.Screen
+        name="Login"
+        component={LoginScreen}
+      />
+      <AuthStack.Screen
+        name="OTP"
+        component={OTPScreen}
+        options={{
+          gestureEnabled: true,
+        }}
+      />
+      <AuthStack.Screen
+        name="Signup"
+        component={SignupScreen}
+      />
+    </AuthStack.Navigator>
+  );
+}
+
 function TabNavigator() {
   const navigation = useNavigation<AppNavigationProp>();
   const insets = useSafeAreaInsets();
@@ -164,7 +208,6 @@ function TabNavigator() {
     <Tab.Navigator
       initialRouteName="خانه"
       screenOptions={({ route }) => ({
-
         tabBarLabelStyle: {
           fontFamily: "Yekan_Bakh_Regular",
           fontSize: 13,
@@ -228,45 +271,49 @@ function TabNavigator() {
   );
 }
 
-// بروزرسانی StackNavigator برای دریافت وضعیت intro
-export function StackNavigator({ isIntroCompleted }) {
+function AppNavigator() {
   const navigation = useNavigation();
 
   return (
-    <Stack.Navigator
+    <AppStack.Navigator
       screenOptions={screenOptions}
-      // تعیین صفحه اولیه بر اساس وضعیت intro
-      initialRouteName={isIntroCompleted ? "Login" : "IntroFlow"}
+      initialRouteName="MainTabs"
     >
-      {/* صفحات intro فقط در صورت عدم تکمیل نمایش داده می‌شوند */}
-      {!isIntroCompleted && (
-        <Stack.Screen
-          name="IntroFlow"
-          component={IntroFlowNavigator}
-          options={{ headerShown: false }}
-        />
-      )}
-
-      <Stack.Screen
+      <AppStack.Screen
         name="MainTabs"
         component={TabNavigator}
         options={{ headerShown: false }}
       />
-      <Stack.Screen
-        name="Login"
-        component={LoginScreen}
+
+      <AppStack.Screen
+        name="AddPortfolio"
+        component={AddPortfolioScreen}
         options={{
           headerShown: false,
         }}
       />
-      <Stack.Screen
-        name="Signup"
-        component={SignupScreen}
+      <AppStack.Screen
+        name="AddProduct"
+        component={AddProductScreen}
         options={{
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
+        name="MyProduct"
+        component={MyProductScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <AppStack.Screen
+        name="AllPortfolio"
+        component={AllPortfolioScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      <AppStack.Screen
         name="EditProfile"
         component={EditProfileScreen}
         options={{
@@ -288,67 +335,65 @@ export function StackNavigator({ isIntroCompleted }) {
             ) : null,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="AboutMe"
         component={AboutMeScreen}
         options={{
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="MyResume"
         component={MyResumeScreen}
         options={{
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="MyGallery"
         component={MyGalleryScreen}
         options={{
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="AllGalleries"
         component={AllGalleriesScreen}
         options={{
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="MyPosts"
         component={MyPostsScreen}
         options={{
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="AddNewPost"
         component={AddNewPostScreen}
         options={{
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="PortfolioDetail"
         component={PortfolioDetailScreen}
         options={{
           headerShown: false,
           gestureEnabled: false,
-
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="PortfolioList"
         component={PortfolioListScreen}
         options={{
           headerShown: false,
           gestureEnabled: false,
-
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="MyCourses"
         component={MyCoursesScreen}
         options={{
@@ -361,7 +406,6 @@ export function StackNavigator({ isIntroCompleted }) {
               <Ionicons
                 name="arrow-forward"
                 size={24}
-
                 color={colors.primary}
                 style={{ marginRight: 15 }}
                 onPress={() => navigation.goBack()}
@@ -369,20 +413,19 @@ export function StackNavigator({ isIntroCompleted }) {
             ) : null,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="AddNewCourse"
         component={AddNewCourseScreen}
         options={{
           headerShown: false,
         }}
       />
-
-      <Stack.Screen
+      <AppStack.Screen
         name="AllCourses"
         component={AllCoursesScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="CourseDetails"
         component={CourseDetailsScreen}
         options={{
@@ -390,7 +433,7 @@ export function StackNavigator({ isIntroCompleted }) {
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="MyTeachingCourses"
         component={MyTeachingCoursesScreen}
         options={{
@@ -398,7 +441,7 @@ export function StackNavigator({ isIntroCompleted }) {
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="ProductDetails"
         component={ProductDetailsScreen}
         options={{
@@ -406,7 +449,7 @@ export function StackNavigator({ isIntroCompleted }) {
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="AllProducts"
         component={AllProductsScreen}
         options={{
@@ -414,7 +457,7 @@ export function StackNavigator({ isIntroCompleted }) {
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="AllMembers"
         component={AllMembersScreen}
         options={{
@@ -422,7 +465,7 @@ export function StackNavigator({ isIntroCompleted }) {
           headerShown: false,
         }}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="Subscription"
         component={SubscriptionScreen}
         options={{
@@ -430,8 +473,7 @@ export function StackNavigator({ isIntroCompleted }) {
           headerShown: false,
         }}
       />
-
-      <Stack.Screen
+      <AppStack.Screen
         name="UserProfile"
         component={UserProfileScreen}
         options={{
@@ -439,21 +481,62 @@ export function StackNavigator({ isIntroCompleted }) {
           headerShown: false,
         }}
       />
-
-      <Stack.Screen
+      <AppStack.Screen
         name="MagDetailes"
         component={MagDetailesScreen}
         options={({ route }) => ({
           headerShown: false,
         })}
       />
-      <Stack.Screen
+      <AppStack.Screen
         name="GalleryItem"
         component={GalleryItemScreen}
         options={({ route }) => ({
           headerShown: false,
         })}
       />
+    </AppStack.Navigator>
+  );
+}
+
+// تغییرات اصلی در StackNavigator
+export function StackNavigator() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // اگر در حال بارگذاری است، هیچ چیز نمایش نده (این در App.tsx مدیریت می‌شود)
+  if (isLoading) {
+    return null;
+  }
+
+  return (
+    <Stack.Navigator
+      screenOptions={{
+        ...screenOptions,
+        headerShown: false,
+      }}
+    >
+      {isAuthenticated ? (
+        // اگر کاربر وارد شده، صفحات اصلی را نمایش بده
+        <Stack.Screen
+          name="App"
+          component={AppNavigator}
+          options={{ headerShown: false }}
+        />
+      ) : (
+        // اگر کاربر وارد نشده، صفحات authentication را نمایش بده
+        <>
+          <Stack.Screen
+            name="IntroFlow"
+            component={IntroFlowNavigator}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Auth"
+            component={AuthNavigator}
+            options={{ headerShown: false }}
+          />
+        </>
+      )}
     </Stack.Navigator>
   );
 }

@@ -11,8 +11,10 @@ import {
   MemberGroup,
   MemberGroupResponse,
   UseApiState,
-  MemberProfile, // New interface for detailed member profile
+  MemberProfile, 
+
 } from "./type";
+
 
 // Generic API hook
 export const useApi = <T>(

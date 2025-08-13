@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const useToast = () => {
   const [toastVisible, setToastVisible] = useState<boolean>(false);
@@ -11,10 +11,20 @@ const useToast = () => {
     message: string,
     type: "success" | "error" | "warning" | "info" = "error"
   ) => {
+    console.log('🔥 showToast called with:', { message, type });
+    console.log('🔥 Current state before:', { toastVisible, toastMessage, toastType });
+
     setToastMessage(message);
     setToastType(type);
     setToastVisible(true);
+
+    console.log('🔥 State should be updated to:', { visible: true, message, type });
   };
+
+  // Log state changes
+  useEffect(() => {
+    console.log('🔥 Toast state changed:', { toastVisible, toastMessage, toastType });
+  }, [toastVisible, toastMessage, toastType]);
 
   return { toastVisible, setToastVisible, toastMessage, toastType, showToast };
 };

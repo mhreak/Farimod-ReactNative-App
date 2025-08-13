@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   FlatList,
   RefreshControl,
+  ActivityIndicator,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
@@ -19,6 +21,7 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import Toast from "../components/Toast";
 import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
+import { SafeAreaView } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -44,21 +47,23 @@ const modernColors = {
 };
 
 const ITEMS_PER_PAGE = 20;
-const MEMBER_ID = 1; // فعلا ثابت
+const MEMBER_ID = 1;
 
 const useUserPostsWithPagination = () => {
   const [data, setData] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchUserPosts = async (page = 1, pageSize = ITEMS_PER_PAGE) => {
+  const fetchUserPosts = async (newPage = 1, pageSize = ITEMS_PER_PAGE) => {
     try {
       setLoading(true);
       setError(null);
 
       const response = await fetch(
-        `${appConfig.mobileApi}BlogPost/GetAll?filterMemberId=${MEMBER_ID}&currentPage=${page}&pageSize=${pageSize}`
+        `${appConfig.mobileApi}BlogPost/GetAll?filterMemberId=${MEMBER_ID}&currentPage=${newPage}&pageSize=${pageSize}`
       );
 
       if (!response.ok) {
@@ -67,14 +72,30 @@ const useUserPostsWithPagination = () => {
 
       const result = await response.json();
 
-      setData(result.Data || []);
+      if (newPage === 1) {
+        setData(result.Data || []);
+      } else {
+        setData(prevData => [...prevData, ...(result.Data || [])]);
+      }
+
       setTotal(result.Total || 0);
+      setPage(newPage);
+
+      setHasMore((result.Data || []).length === pageSize && (result.Data || []).length > 0);
     } catch (err) {
       setError(err.message);
-      setData([]);
+      if (newPage === 1) {
+        setData([]);
+      }
       setTotal(0);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      fetchUserPosts(page + 1);
     }
   };
 
@@ -84,6 +105,9 @@ const useUserPostsWithPagination = () => {
     loading,
     error,
     fetchUserPosts,
+    loadMore,
+    hasMore,
+    page,
   };
 };
 
@@ -156,153 +180,44 @@ const BlogPostCardSkeleton = () => {
   );
 };
 
-const PaginationComponent = ({
-  currentPage,
-  totalPages,
-  onPageChange,
-  style = {}
-}) => {
-  const pageButtonAnim = useRef(new Animated.Value(1)).current;
-  const [animatingPage, setAnimatingPage] = useState(null);
+const BlogImageComponent = ({ item }) => {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
 
-  const animatePageChange = (page) => {
-    if (page === currentPage) return;
+  const hasValidImage = item.FeaturedImageFileName &&
+    item.FeaturedImageURL &&
+    !item.FeaturedImageURL.endsWith('/');
 
-    setAnimatingPage(page);
-    Animated.sequence([
-      Animated.timing(pageButtonAnim, {
-        toValue: 0.8,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(pageButtonAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setAnimatingPage(null);
-      onPageChange(page);
-    });
+  const handleImageError = () => {
+    setImageError(true);
+    setImageLoading(false);
   };
 
-  const renderPageButton = (page, isActive = false) => {
-    const isAnimating = animatingPage === page;
+  const handleImageLoad = () => {
+    setImageLoading(false);
+    setImageError(false);
+  };
 
+  if (!hasValidImage || imageError) {
     return (
-      <TouchableOpacity
-        key={page}
-        style={[
-          styles.pageButton,
-          isActive && styles.activePageButton,
-        ]}
-        onPress={() => animatePageChange(page)}
-        activeOpacity={0.7}
-      >
-        <Animated.View
-          style={[
-            styles.pageButtonContent,
-            isActive && styles.activePageButtonContent,
-            isAnimating && { transform: [{ scale: pageButtonAnim }] },
-          ]}
-        >
-          <AppText style={[
-            styles.pageButtonText,
-            isActive && styles.activePageButtonText,
-          ]}>
-            {page}
-          </AppText>
-        </Animated.View>
-      </TouchableOpacity>
+      <View style={styles.blogImagePlaceholder}>
+<Image
+          style={styles.postImage}
+          source={require("../../assets/blogPost_icon.jpg")}
+        />      </View>
     );
-  };
-
-  const renderPaginationItems = () => {
-    const items = [];
-    const maxVisiblePages = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-
-    if (currentPage > 1) {
-      items.push(
-        <TouchableOpacity
-          key="prev"
-          style={styles.navButton}
-          onPress={() => animatePageChange(currentPage - 1)}
-          activeOpacity={0.7}
-        >
-          <LinearGradient
-            colors={[modernColors.primary, modernColors.primaryDark]}
-            style={styles.navButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <MaterialIcons name="keyboard-arrow-right" size={20} color="#ffffff" />
-          </LinearGradient>
-        </TouchableOpacity>
-      );
-    }
-
-    if (startPage > 1) {
-      items.push(renderPageButton(1, currentPage === 1));
-      if (startPage > 2) {
-        items.push(
-          <View key="ellipsis-start" style={styles.ellipsis}>
-            <AppText style={styles.ellipsisText}>...</AppText>
-          </View>
-        );
-      }
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      items.push(renderPageButton(i, i === currentPage));
-    }
-
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) {
-        items.push(
-          <View key="ellipsis-end" style={styles.ellipsis}>
-            <AppText style={styles.ellipsisText}>...</AppText>
-          </View>
-        );
-      }
-      items.push(renderPageButton(totalPages, currentPage === totalPages));
-    }
-
-    if (currentPage < totalPages) {
-      items.push(
-        <TouchableOpacity
-          key="next"
-          style={styles.navButton}
-          onPress={() => animatePageChange(currentPage + 1)}
-          activeOpacity={0.7}
-        >
-          <LinearGradient
-            colors={[modernColors.primary, modernColors.primaryDark]}
-            style={styles.navButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <MaterialIcons name="keyboard-arrow-left" size={20} color="#ffffff" />
-          </LinearGradient>
-        </TouchableOpacity>
-      );
-    }
-
-    return items;
-  };
-
-  if (totalPages <= 1) return null;
+  }
 
   return (
-    <View style={[styles.paginationContainer, style]}>
-      <View style={styles.paginationWrapper}>
-        {renderPaginationItems()}
-      </View>
+    <View style={styles.blogImageContainer}>
+    
+      <Image
+        source={{ uri: item.FeaturedImageURL }}
+        style={styles.blogImage}
+        onError={handleImageError}
+        onLoad={handleImageLoad}
+        resizeMode="cover"
+      />
     </View>
   );
 };
@@ -314,10 +229,15 @@ const MyPostsScreen = () => {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  const { data: userPosts, total, loading: postsLoading, error: postsError, fetchUserPosts } = useUserPostsWithPagination();
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+  const {
+    data: userPosts,
+    total,
+    loading: postsLoading,
+    error: postsError,
+    fetchUserPosts,
+    loadMore,
+    hasMore
+  } = useUserPostsWithPagination();
 
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -325,16 +245,13 @@ const MyPostsScreen = () => {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  // استفاده از useFocusEffect برای refresh کردن داده‌ها هنگام بازگشت به صفحه
   useFocusEffect(
     useCallback(() => {
       fetchUserPosts(1, ITEMS_PER_PAGE);
-      setCurrentPage(1);
     }, [])
   );
 
   useEffect(() => {
-    // انیمیشن‌ها فقط در اولین بار
     Animated.parallel([
       Animated.parallel([
         Animated.timing(fadeAnim, {
@@ -349,22 +266,15 @@ const MyPostsScreen = () => {
         }),
       ]).start(),
 
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 8000,
-        useNativeDriver: true,
-      })
-    ).start(),
+      Animated.loop(
+        Animated.timing(rotateAnim, {
+          toValue: 1,
+          duration: 8000,
+          useNativeDriver: true,
+        })
+      ).start(),
     ]);
   }, []);
-
-  // useEffect جداگانه برای تغییر صفحه
-  useEffect(() => {
-    if (currentPage > 1) {
-      fetchUserPosts(currentPage, ITEMS_PER_PAGE);
-    }
-  }, [currentPage]);
 
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
@@ -391,29 +301,19 @@ const MyPostsScreen = () => {
   };
 
   const handleAddPost = () => {
-    // اینجا می‌تونید به صفحه ایجاد پست جدید بروید
-    navigation.navigate("AddNewPost"); // نام صفحه را تغییر دادم
-  };
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    Animated.timing(slideAnim, {
-      toValue: 20,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    });
+    navigation.navigate("AddNewPost");
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchUserPosts(currentPage, ITEMS_PER_PAGE);
+    await fetchUserPosts(1, ITEMS_PER_PAGE);
     setRefreshing(false);
+  };
+
+  const handleLoadMore = () => {
+    if (!postsLoading && hasMore) {
+      loadMore();
+    }
   };
 
   const createSkeletonData = () => {
@@ -437,11 +337,8 @@ const MyPostsScreen = () => {
           style={styles.blogCard}
         >
           <View style={styles.blogImageContainer}>
-            <View style={styles.blogImagePlaceholder}>
-              <MaterialIcons name="article" size={40} color="#ccc" />
-            </View>
+            <BlogImageComponent item={item} />
 
-            {/* نشانگر وضعیت پست */}
             <View style={[styles.statusBadge, { backgroundColor: item.Active ? modernColors.success : modernColors.warning }]}>
               <AppText style={styles.statusText}>
                 {item.Active ? 'منتشر شده' : 'پیش نویس'}
@@ -457,7 +354,7 @@ const MyPostsScreen = () => {
             <View style={styles.blogMeta}>
               <View style={styles.dateContainer}>
                 <MaterialIcons name="calendar-month" size={16} color="#666" />
-                <AppText style={styles.dateText}>{toPersianDigits(item.ShamsiInsertDateTime)}</AppText>
+                <AppText style={styles.dateText}>{toPersianDigits(item.ShamsiInsertDate)}</AppText>
               </View>
 
               <View style={styles.likeContainer}>
@@ -466,19 +363,21 @@ const MyPostsScreen = () => {
               </View>
             </View>
 
-            {/* نمایش وضعیت کامنت */}
-            <View style={styles.commentStatus}>
-              <MaterialIcons
-                name={item.CommentEnabled ? "comment" : "comments-disabled"}
-                size={16}
-                color={item.CommentEnabled ? modernColors.info : "#999"}
-              />
-              <AppText style={[styles.commentStatusText, { color: item.CommentEnabled ? modernColors.info : "#999" }]}>
-                {item.CommentEnabled ? 'کامنت فعال' : 'کامنت غیرفعال'}
-              </AppText>
-            </View>
+         
           </View>
         </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderFooter = () => {
+
+    if (!postsLoading) return null;
+
+    return (
+      <View style={styles.loadingFooter}>
+        <ActivityIndicator size="small" color={modernColors.primary} />
+        <AppText style={styles.loadingMoreText}>در حال بارگذاری...</AppText>
       </View>
     );
   };
@@ -513,7 +412,7 @@ const MyPostsScreen = () => {
       </AppText>
       <TouchableOpacity
         style={styles.retryButton}
-        onPress={() => fetchUserPosts(currentPage, ITEMS_PER_PAGE)}
+        onPress={() => fetchUserPosts(1, ITEMS_PER_PAGE)}
       >
         <MaterialIcons name="refresh" size={20} color={colors.white} />
         <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
@@ -534,7 +433,6 @@ const MyPostsScreen = () => {
           onHide={() => setToastVisible(false)}
         />
 
-        {/* دکمه بازگشت */}
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -548,7 +446,6 @@ const MyPostsScreen = () => {
           </View>
         </TouchableOpacity>
 
-        {/* دکمه افزودن پست جدید */}
         <TouchableOpacity
           style={styles.addButton}
           onPress={handleAddPost}
@@ -625,7 +522,7 @@ const MyPostsScreen = () => {
           ) : (
             <>
               <FlatList
-                data={postsLoading ? createSkeletonData() : userPosts}
+                data={postsLoading && userPosts.length === 0 ? createSkeletonData() : userPosts}
                 renderItem={renderPostItem}
                 keyExtractor={(item, index) =>
                   item.BlogPostId ? item.BlogPostId.toString() : `skeleton-${index}`
@@ -641,16 +538,10 @@ const MyPostsScreen = () => {
                   />
                 }
                 ListEmptyComponent={renderEmptyComponent}
+                ListFooterComponent={renderFooter}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.3}
               />
-
-              {!postsLoading && !postsError && totalPages > 1 && (
-                <PaginationComponent
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                  style={styles.pagination}
-                />
-              )}
             </>
           )}
         </Animated.View>
@@ -780,6 +671,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     alignItems: 'center',
+    paddingBottom: 20,
   },
   listContainer: {
     paddingBottom: 20,
@@ -810,11 +702,16 @@ const styles = StyleSheet.create({
     width: '100%',
     position: 'relative',
   },
+  blogImage: {
+    width: '100%',
+    height: '100%',
+  },
   blogImagePlaceholder: {
     flex: 1,
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
+    height: 200,
   },
   statusBadge: {
     position: 'absolute',
@@ -876,69 +773,25 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Regular",
     marginRight: 6,
   },
-  pagination: {
-    marginBottom: 40,
-  },
-  paginationContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-  },
-  paginationWrapper: {
-    flexDirection: 'row-reverse',
+  loadingFooter: {
+    padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    flexWrap: 'wrap',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 1,
-    marginBottom: 12,
+    flexDirection: 'row',
   },
-  pageButton: {
-    marginHorizontal: 4,
-    marginVertical: 4,
+  loadingMoreText: {
+    marginLeft: 10,
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#666',
   },
-  pageButtonContent: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
+  endListMessage: {
+    padding: 20,
     alignItems: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
   },
-  activePageButtonContent: {
-    backgroundColor: modernColors.primary,
-    borderColor: modernColors.primary,
-    shadowColor: modernColors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  ellipsis: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  ellipsisText: {
-    fontSize: 18,
-    fontFamily: "Yekan_Bakh_Bold",
+  endListText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
     color: '#999',
   },
   blogSkeletonContainer: {
@@ -1093,6 +946,10 @@ const styles = StyleSheet.create({
     bottom: 200,
     left: 40,
   },
+  postImage: {
+    height: "100%",
+    width: "100%",
+  },
 });
 
-export default MyPostsScreen; 
+export default MyPostsScreen;

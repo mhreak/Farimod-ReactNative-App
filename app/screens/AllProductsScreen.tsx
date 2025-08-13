@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
 import MainBackground from "../components/MainBackground";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation , useRoute } from "@react-navigation/native";
 import Toast from "../components/Toast";
 import FilterModal from "../components/FilterModal";
 import { toPersianDigits, safeNumber, formatPrice, safeString } from "../utils/converters";
@@ -69,6 +69,9 @@ const useProductsWithPagination = () => {
       }
       if (filters.sortBy && filters.sortBy !== 'newest') {
         queryParams += `&sortBy=${filters.sortBy}`;
+      }
+      if (filters.filterMemberId) {
+        queryParams += `&filterMemberId=${filters.filterMemberId}`;
       }
 
       const response = await fetch(
@@ -183,7 +186,7 @@ const ProductCard = ({ item, onPress }) => {
           source={
             item.ProductImageFileName
               ? { uri: `${appConfig.mobileApi}Product/GetProductImage/${item.ProductImageFileName}` }
-              : require("../../assets/sample_clothe.jpg")
+              : require("../../assets/Product_icon.jpg")
           }
           style={styles.productImage}
           resizeMode="cover"
@@ -383,6 +386,7 @@ const PaginationComponent = ({
 // Main Component
 const AllProductsScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -402,6 +406,28 @@ const AllProductsScreen = () => {
   const [toastType, setToastType] = useState('info');
 
   const [refreshing, setRefreshing] = useState(false);
+  const { filteredMemberId, filteredMemberName, filterType } = route.params || {};
+
+  useEffect(() => {
+    const initialFilters = {};
+
+    if (filteredMemberId && filterType === 'member') {
+      initialFilters.filterMemberId = filteredMemberId;
+      setAppliedFilters(initialFilters);
+      setHasActiveFilters(true);
+
+      showToast(`نمایش محصولات ${filteredMemberName}`, 'info');
+    }
+
+    fetchProducts(currentPage, ITEMS_PER_PAGE, initialFilters);
+  }, [filteredMemberId]);
+
+  const getHeaderTitle = () => {
+    if (filteredMemberId && filteredMemberName) {
+      return `محصولات ${filteredMemberName}`;
+    }
+    return 'محصولات';
+  };
 
   // Helper functions defined before use
   const showToast = (message, type = 'info') => {

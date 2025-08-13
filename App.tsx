@@ -1,9 +1,10 @@
 import { StatusBar } from "expo-status-bar";
 import * as Font from "expo-font";
 import { useEffect, useState } from "react";
-import { NavigationContainer, useNavigation } from "@react-navigation/native";
+import { NavigationContainer } from "@react-navigation/native";
 import { I18nManager, View, ActivityIndicator } from "react-native";
 import { IntroProvider, useIntro } from "./app/contexts/IntroContext";
+import { AuthProvider, useAuth } from "./app/contexts/AuthContext";
 
 import { StackNavigator } from "./app/Navigators";
 
@@ -23,7 +24,8 @@ forceLayoutDirection();
 // جداسازی منطق اصلی اپلیکیشن
 function AppContent() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
-  const { isIntroCompleted, isLoading } = useIntro();
+  const { isIntroCompleted, isLoading: introLoading } = useIntro();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
     async function loadFonts() {
@@ -40,10 +42,15 @@ function AppContent() {
     loadFonts();
   }, []);
 
-  // نمایش لودینگ تا فونت‌ها و وضعیت intro بارگذاری شوند
-  if (!fontsLoaded || isLoading) {
+  // نمایش لودینگ تا فونت‌ها و وضعیت‌های intro و auth بارگذاری شوند
+  if (!fontsLoaded || introLoading || authLoading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5'
+      }}>
         <ActivityIndicator size="large" color="#6366f1" />
       </View>
     );
@@ -51,7 +58,7 @@ function AppContent() {
 
   return (
     <NavigationContainer>
-      <StackNavigator isIntroCompleted={isIntroCompleted} />
+      <StackNavigator />
       <StatusBar style="light" />
     </NavigationContainer>
   );
@@ -59,9 +66,11 @@ function AppContent() {
 
 function App() {
   return (
-    <IntroProvider>
-      <AppContent />
-    </IntroProvider>
+    <AuthProvider>
+      <IntroProvider>
+        <AppContent />
+      </IntroProvider>
+    </AuthProvider>
   );
 }
 

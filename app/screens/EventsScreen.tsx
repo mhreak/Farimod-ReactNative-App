@@ -13,13 +13,15 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import colors from "../config/colors";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIntro } from '../contexts/IntroContext'; // اضافه کردن context
+import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useIntro } from '../contexts/IntroContext';
 
 const { width, height } = Dimensions.get("window");
 
-const EventsScreen = ({ navigation }) => {
+const EventsScreen = () => {
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { completeIntro } = useIntro(); // دسترسی به تابع تکمیل intro
+  const { completeIntro } = useIntro();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.9)).current;
@@ -66,13 +68,20 @@ const EventsScreen = ({ navigation }) => {
   };
 
   const handleGetStarted = async () => {
-    // علامت‌گذاری intro به عنوان کامل شده
-    await completeIntro();
-    // هدایت به صفحه لاگین
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Login' }],
-    });
+    try {
+      // علامت‌گذاری intro به عنوان کامل شده
+      await completeIntro();
+
+      // هدایت به صفحه authentication
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Auth' }],
+        })
+      );
+    } catch (error) {
+      console.error('Error completing intro:', error);
+    }
   };
 
   return (
@@ -219,9 +228,14 @@ const EventsScreen = ({ navigation }) => {
                 },
               ]}
             >
-              <TouchableOpacity style={styles.primaryButton} onPress={handleGetStarted}>
+              {/* دکمه شروع - اضافه شده */}
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={handleGetStarted}
+                activeOpacity={0.8}
+              >
                 <LinearGradient
-                  colors={['#E91E63', '#AD1457', '#880E4F']}
+                  colors={['#E91E63', '#AD1457']}
                   style={styles.buttonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -231,9 +245,10 @@ const EventsScreen = ({ navigation }) => {
                     size={22}
                     color="white"
                   />
-                  <Text style={styles.primaryButtonText}>شروع کنید</Text>
+                  <Text style={styles.primaryButtonText}>شروع کنیم</Text>
                 </LinearGradient>
               </TouchableOpacity>
+
 
               <TouchableOpacity
                 style={styles.secondaryButton}

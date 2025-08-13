@@ -221,12 +221,7 @@ const ImageInput: React.FC<IProps> = ({
               </TouchableOpacity>
 
               {/* Share Image */}
-              <TouchableOpacity style={styles.actionItem} onPress={() => console.log('Share')}>
-                <View style={[styles.actionIcon, { backgroundColor: '#10B981' }]}>
-                  <MaterialIcons name="share" size={24} color="white" />
-                </View>
-                <AppText style={styles.actionText}>اشتراک</AppText>
-              </TouchableOpacity>
+      
 
               {/* Delete Image */}
               <TouchableOpacity style={styles.actionItem} onPress={handleDeleteImage}>

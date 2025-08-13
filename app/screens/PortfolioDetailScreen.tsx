@@ -11,6 +11,7 @@ import {
   RefreshControl,
   Modal,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
@@ -19,7 +20,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import Toast from "../components/Toast";
 import { toPersianDigits } from "../utils/converters";
-import RatingComponent, { StarDisplay } from "../components/RatingComponent";
+import MultiOptionRatingComponent, { StarDisplay } from "../components/RatingComponent";
 import appConfig from "../config/config";
 
 const { width, height } = Dimensions.get('window');
@@ -50,40 +51,6 @@ const modernColors = {
   likeIcon: "#e91e63",
 };
 
-const portfolioData = {
-  PortfolioId: 1,
-  Title: "کالکشن پاییز و زمستان 1403",
-  Description: "مجموعه‌ای از طراحی‌های مدرن و شیک برای فصل سرد سال، ترکیبی از سنت و مدرنیته در قالب پوشاک روزمره و مجلسی. این کالکشن شامل پیراهن‌های زنانه، کت و شلوارهای مردانه و لباس‌های کودکانه است که با استفاده از بهترین پارچه‌ها و تکنیک‌های خیاطی مدرن طراحی شده‌اند.",
-  Category: "لایک",
-  Tags: ["مدرن", "شیک", "پاییزه", "کژوال", "مجلسی"],
-  Designer: "سارا احمدی",
-  CreatedDate: "1403/05/15",
-  ViewCount: 234,
-  LikeCount: 89,
-  Images: [
-    "https://example.com/portfolio1.jpg",
-    "https://example.com/portfolio2.jpg",
-    "https://example.com/portfolio3.jpg"
-  ],
-  Materials: ["پنبه", "ابریشم", "کتان", "ساتن"],
-  Colors: ["مشکی", "سفید", "طوسی", "سرمه‌ای"],
-  Sizes: ["S", "M", "L", "XL"],
-  Price: "درخواست قیمت",
-  IsAvailable: true,
-  MemberId: 1,
-  Status: "منتشر شده",
-  AverageRating: 4.2,
-  RatingCount: 127,
-  UserRating: 0,
-  UserDetailedRatings: {},
-  DetailedRatingsAverages: {
-    quality: 4.7,
-    creativity: 4.9,
-    materials: 4.6,
-    style: 4.8
-  }
-};
-
 const transformContentReviewToRatingOptions = (contentReviewList) => {
   if (!contentReviewList || contentReviewList.length === 0) {
     return [
@@ -110,28 +77,21 @@ const transformContentReviewToRatingOptions = (contentReviewList) => {
     ];
   }
 
-  return contentReviewList
+  const transformedOptions = contentReviewList
     .filter(item => item.Active)
     .sort((a, b) => a.ShowOrder - b.ShowOrder)
     .map(item => {
-      const avgText = item.CalculatedAverageRating ?
-        `⭐ ${toPersianDigits(item.CalculatedAverageRating.toFixed(1))}` :
-        'بدون امتیاز';
-
-      const maxTitleLength = 30;
-      const currentTitleLength = item.Text.length;
-      const spacingNeeded = Math.max(0, maxTitleLength - currentTitleLength);
-      const spacing = ' '.repeat(spacingNeeded + 5);
-
       return {
         id: `review_${item.ContentReviewItemId}`,
-        title: `${item.Text}`,
+        title: item.Text || `مورد ${item.ShowOrder}`,
         subtitle: '',
         contentReviewItemId: item.ContentReviewItemId,
         showOrder: item.ShowOrder,
         averageRating: item.CalculatedAverageRating || 0
       };
     });
+
+  return transformedOptions;
 };
 
 const portfolioRatingOptions = [
@@ -162,58 +122,49 @@ const usePortfolioDetail = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchPortfolio = async (portfolioId) => {
+  const fetchPortfolio = useCallback(async (portfolioId) => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching portfolio details for ID:', portfolioId);
-
       const response = await fetch(
         `${appConfig.mobileApi}Portfolio/Get?portfolioId=${portfolioId}`
       );
-
-      console.log('API Response Status:', response.status);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('API Response Data:', result);
+
+      const images = [
+        result.Portfolio.FeaturedImageURL,
+        result.Portfolio.FirstImageURL,
+        result.Portfolio.SecondImageURL,
+        result.Portfolio.ThirdImageURL,
+        result.Portfolio.FourthImageURL,
+        result.Portfolio.FifthImageURL
+      ].filter(url => url && url.trim() !== '');
 
       const transformedData = {
-        PortfolioId: result.Portfolio.PotfolioId || result.Portfolio.PortfolioId,
+        PortfolioId: result.Portfolio.PortfolioId,
         Title: result.Portfolio.Title || "نام نامشخص",
         Description: result.Portfolio.Description || "توضیحات موجود نیست",
         Category: "نمونه کار",
-        Designer: "طراح",
+        MemberName: result.Portfolio.MemberName || "نام طراح نامشخص",
         CreatedDate: result.Portfolio.InsertDate ?
           new Date(result.Portfolio.InsertDate).toLocaleDateString('fa-IR') :
           "تاریخ نامشخص",
         ViewCount: 0,
         LikeCount: result.Portfolio.LikeCount || 0,
-        Images: [
-          result.Portfolio.FeaturedImageFileName &&
-          `${appConfig.mobileApi}Portfolio/GetPortfolioImage/${result.Portfolio.FeaturedImageFileName}`,
-          result.Portfolio.FirstImageFileName &&
-          `${appConfig.mobileApi}Portfolio/GetPortfolioImage/${result.Portfolio.FirstImageFileName}`,
-          result.Portfolio.SecondImageFileName &&
-          `${appConfig.mobileApi}olioImage/${result.Portfolio.SecondImageFileName}`,
-          result.Portfolio.ThirdImageFileName &&
-          `${appConfig.mobileApi}olioImage/${result.Portfolio.ThirdImageFileName}`,
-          result.Portfolio.FourthImageFileName &&
-          `${appConfig.mobileApi}Portfolio/GetPortfolioImage/${result.Portfolio.FourthImageFileName}`,
-          result.Portfolio.FifthImageFileName &&
-          `${appConfig.mobileApi}Portfolio/GetPortfolioImage/${result.Portfolio.FifthImageFileName}`
-        ].filter(Boolean),
+        Images: images,
         IsAvailable: result.Portfolio.Active,
         MemberId: result.Portfolio.MemberId,
         Status: result.Portfolio.Active ? "منتشر شده" : "غیرفعال",
         AverageRating: result.Portfolio.Rating || 0,
-        RatingCount: 0,
-        UserRating: 0,
-        UserDetailedRatings: {},
+        RatingCount: result.Portfolio.RatingCount || 0,
+        UserRating: result.UserRating || 0,
+        UserDetailedRatings: result.UserDetailedRatings || {},
         DetailedRatingsAverages: {},
         IsMemberLiked: result.IsMemberLiked || false,
         ContentReviewItemList: result.ContentReviewItemList || []
@@ -221,13 +172,12 @@ const usePortfolioDetail = () => {
 
       setData(transformedData);
     } catch (err) {
-      console.error('Portfolio Details API Error:', err);
       setError(err.message);
       setData(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   return {
     data,
@@ -236,6 +186,51 @@ const usePortfolioDetail = () => {
     fetchPortfolio,
     setData,
   };
+};
+
+// Component بهبود یافته برای نمایش تصاویر با fallback
+const PortfolioImage = ({ source, style, resizeMode = "contain", onError, onLoad }) => {
+  const [imageError, setImageError] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const handleImageError = (error) => {
+    console.log('Portfolio image error:', error.nativeEvent?.error);
+    setImageError(true);
+    setIsLoading(false);
+    if (onError) {
+      onError(error);
+    }
+  };
+
+  const handleImageLoad = () => {
+    setIsLoading(false);
+    setImageError(false);
+    if (onLoad) {
+      onLoad();
+    }
+  };
+
+  if (imageError || !source) {
+    return null; // تصویر ارور شده نمایش داده نمی‌شود
+  }
+
+  return (
+    <>
+      <Image
+        source={typeof source === 'string' ? { uri: source } : source}
+        style={[style, { borderRadius: 50, borderWidth: 0 }]}
+        resizeMode={resizeMode}
+        onError={handleImageError}
+        onLoad={handleImageLoad}
+        onLoadStart={() => setIsLoading(true)}
+      />
+      {isLoading && (
+        <View style={[style, { position: 'absolute', justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5', borderRadius: 12 }]}>
+          <ActivityIndicator size="small" color="#ccc" />
+        </View>
+      )}
+    </>
+  );
 };
 
 const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
@@ -283,32 +278,26 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
 const PortfolioDetailSkeleton = () => {
   return (
     <View style={styles.skeletonContainer}>
-      <View style={styles.imageSkeletonContainer}>
-        <SkeletonLoader width="100%" height="100%" borderRadius={0} />
-      </View>
-
       <View style={styles.contentSkeletonContainer}>
-        <SkeletonLoader width="90%" height={28} style={{ marginBottom: 20, alignSelf: 'flex-end' }} />
-
-        <View style={styles.infoSkeletonRow}>
-          <SkeletonLoader width={80} height={20} borderRadius={10} />
-          <SkeletonLoader width={100} height={20} borderRadius={10} />
+        <View style={styles.skeletonCard}>
+          <SkeletonLoader width="100%" height={300} style={{ marginBottom: 15 }} borderRadius={12} />
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 8 }}>
+            {[1, 2, 3].map((item) => (
+              <SkeletonLoader key={item} width={20} height={8} borderRadius={4} />
+            ))}
+          </View>
         </View>
 
-        <SkeletonLoader width="95%" height={18} style={{ marginBottom: 12, alignSelf: 'flex-end' }} />
-        <SkeletonLoader width="85%" height={18} style={{ marginBottom: 12, alignSelf: 'flex-end' }} />
-        <SkeletonLoader width="92%" height={18} style={{ marginBottom: 12, alignSelf: 'flex-end' }} />
-        <SkeletonLoader width="75%" height={18} style={{ marginBottom: 20, alignSelf: 'flex-end' }} />
-
-        <View style={styles.tagsSkeletonContainer}>
-          <SkeletonLoader width={60} height={25} borderRadius={12} />
-          <SkeletonLoader width={80} height={25} borderRadius={12} />
-          <SkeletonLoader width={70} height={25} borderRadius={12} />
+        <View style={styles.skeletonCard}>
+          <SkeletonLoader width="80%" height={28} style={{ marginBottom: 15, alignSelf: 'flex-end' }} />
+          <SkeletonLoader width="100%" height={18} style={{ marginBottom: 8, alignSelf: 'flex-end' }} />
+          <SkeletonLoader width="95%" height={18} style={{ marginBottom: 8, alignSelf: 'flex-end' }} />
+          <SkeletonLoader width="90%" height={18} style={{ alignSelf: 'flex-end' }} />
         </View>
 
-        <View style={styles.statsSkeletonContainer}>
-          <SkeletonLoader width={80} height={20} />
-          <SkeletonLoader width={80} height={20} />
+        <View style={styles.skeletonCard}>
+          <SkeletonLoader width="40%" height={22} style={{ marginBottom: 15, alignSelf: 'flex-end' }} />
+          <SkeletonLoader width={150} height={30} style={{ alignSelf: 'flex-end' }} borderRadius={15} />
         </View>
       </View>
     </View>
@@ -321,20 +310,24 @@ const PortfolioDetailScreen = ({ route }) => {
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const { data: portfolio, loading, error, fetchPortfolio, setData } = usePortfolioDetail();
 
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('info');
-
   const [refreshing, setRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showActionModal, setShowActionModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
+  // State برای مدیریت تصاویر معتبر
+  const [validImages, setValidImages] = useState([]);
+  const [loadedImages, setLoadedImages] = useState(new Set());
+  const [errorImages, setErrorImages] = useState(new Set());
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const modalSlideAnim = useRef(new Animated.Value(0)).current;
   const modalBackdropAnim = useRef(new Animated.Value(0)).current;
@@ -349,12 +342,23 @@ const PortfolioDetailScreen = ({ route }) => {
   const likeAnim = useRef(new Animated.Value(1)).current;
   const heartAnim = useRef(new Animated.Value(0)).current;
 
+  const scrollY = useRef(new Animated.Value(0)).current;
+
   useFocusEffect(
     useCallback(() => {
+      setData(null);
+      setUserDetailedRatings({});
+      setDynamicRatingOptions([]);
+      setLikeCount(0);
+      setIsLiked(false);
+      setValidImages([]);
+      setLoadedImages(new Set());
+      setErrorImages(new Set());
+      setCurrentImageIndex(0);
+
       if (portfolioId) {
         fetchPortfolio(portfolioId);
       } else {
-        console.warn('No portfolioId provided, using default ID 1');
         fetchPortfolio(1);
       }
     }, [portfolioId])
@@ -365,9 +369,22 @@ const PortfolioDetailScreen = ({ route }) => {
       setLikeCount(portfolio.LikeCount || 0);
       setIsLiked(portfolio.IsMemberLiked || false);
 
+      // تنظیم تصاویر معتبر
+      if (portfolio.Images && portfolio.Images.length > 0) {
+        setValidImages(portfolio.Images);
+        setLoadedImages(new Set());
+        setErrorImages(new Set());
+        setCurrentImageIndex(0);
+      } else {
+        setValidImages([]);
+      }
+
       const ratingOptions = transformContentReviewToRatingOptions(portfolio.ContentReviewItemList);
       setDynamicRatingOptions(ratingOptions);
-      console.log('Dynamic Rating Options:', ratingOptions);
+
+      if (portfolio.UserDetailedRatings) {
+        setUserDetailedRatings(portfolio.UserDetailedRatings);
+      }
     }
   }, [portfolio]);
 
@@ -375,29 +392,16 @@ const PortfolioDetailScreen = ({ route }) => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
-        duration: 1000,
+        duration: 1200,
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
-        duration: 800,
+        duration: 1000,
         useNativeDriver: true,
       }),
     ]).start();
-
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 8000,
-        useNativeDriver: true,
-      })
-    ).start();
   }, []);
-
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   const showToast = (message, type = 'info') => {
     setToastMessage(message);
@@ -416,10 +420,46 @@ const PortfolioDetailScreen = ({ route }) => {
     if (portfolioId) {
       await fetchPortfolio(portfolioId);
     } else {
-      console.warn('No portfolioId for refresh, using default ID 1');
       await fetchPortfolio(1);
     }
     setRefreshing(false);
+  };
+
+  // Handle image load success
+  const handleImageLoad = (imageIndex) => {
+    setLoadedImages(prev => new Set([...prev, imageIndex]));
+  };
+
+  // Handle image load error
+  const handleImageError = (imageIndex) => {
+    setErrorImages(prev => new Set([...prev, imageIndex]));
+  };
+
+  // محاسبه تصاویر نهایی برای نمایش
+  const getDisplayImages = () => {
+    if (!validImages || validImages.length === 0) {
+      return [];
+    }
+
+    // فیلتر تصاویری که ارور نداشته‌اند
+    const workingImages = validImages.filter((_, index) => !errorImages.has(index));
+
+    // اگر هیچ تصویر معتبری نداریم، تصویر پیش‌فرض را برگردان
+    if (workingImages.length === 0) {
+      return [require('../../assets/portfolio_icon.jpg')];
+    }
+
+    return workingImages;
+  };
+
+  // Handle scroll for image gallery
+  const handleImageScroll = (event) => {
+    const slideIndex = Math.round(event.nativeEvent.contentOffset.x / (width - 40));
+    const displayImages = getDisplayImages();
+
+    if (slideIndex >= 0 && slideIndex < displayImages.length) {
+      setCurrentImageIndex(slideIndex);
+    }
   };
 
   const isOwnPortfolio = portfolio && portfolio.MemberId === CURRENT_MEMBER_ID;
@@ -514,11 +554,9 @@ const PortfolioDetailScreen = ({ route }) => {
     const countChange = newIsLiked ? 1 : -1;
     const newLikeCount = likeCount + countChange;
 
-    // Optimistic update
     setIsLiked(newIsLiked);
     setLikeCount(newLikeCount);
 
-    // Like animation
     Animated.sequence([
       Animated.parallel([
         Animated.timing(likeAnim, {
@@ -577,9 +615,7 @@ const PortfolioDetailScreen = ({ route }) => {
     }
 
     try {
-      // Call the like API
       const currentPortfolioId = portfolioId || portfolio.PortfolioId || 1;
-      console.log('Sending like request for portfolio ID:', currentPortfolioId);
 
       const response = await fetch(
         `${appConfig.mobileApi}Portfolio/Like?id=${currentPortfolioId}`,
@@ -591,74 +627,17 @@ const PortfolioDetailScreen = ({ route }) => {
         }
       );
 
-      console.log('Like API Response Status:', response.status);
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('Like API Response:', result);
-
-
 
     } catch (error) {
-      console.error('Like API Error:', error);
-
-      // Revert optimistic update on error
       setIsLiked(isLiked);
       setLikeCount(likeCount);
-
     } finally {
       setIsLiking(false);
-    }
-  };
-
-  const handleRatingChange = (newRating, detailedRatings = null) => {
-    if (portfolio) {
-      const updatedPortfolio = {
-        ...portfolio,
-        UserRating: newRating
-      };
-
-      if (detailedRatings) {
-        updatedPortfolio.UserDetailedRatings = detailedRatings;
-        setUserDetailedRatings(detailedRatings);
-      }
-
-      setData(updatedPortfolio);
-    }
-
-    if (detailedRatings) {
-      const ratingTexts = Object.entries(detailedRatings).map(([key, value]) => {
-        const option = (dynamicRatingOptions.length > 0 ? dynamicRatingOptions : portfolioRatingOptions)
-          .find(opt => opt.id === key);
-        return `${option?.title}: ${toPersianDigits(value.toString())}`;
-      }).join('، ');
-
-      showToast(`امتیازها ثبت شد - ${ratingTexts}`, 'success');
-    } else {
-      showToast(`امتیاز ${toPersianDigits(newRating.toString())} ستاره ثبت شد`, 'success');
-    }
-  };
-
-  const handleRatingSubmit = async (rating, detailedRatings = null) => {
-    try {
-      console.log('Submitting rating:', rating);
-      if (detailedRatings) {
-        console.log('Detailed ratings:', detailedRatings);
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      if (detailedRatings) {
-        const totalCategories = Object.keys(detailedRatings).length;
-        showToast(`امتیاز شما در ${toPersianDigits(totalCategories.toString())} بخش با موفقیت ثبت شد`, 'success');
-      } else {
-        showToast('امتیاز شما با موفقیت ثبت شد', 'success');
-      }
-    } catch (error) {
-      showToast('خطا در ثبت امتیاز', 'error');
     }
   };
 
@@ -675,16 +654,185 @@ const PortfolioDetailScreen = ({ route }) => {
         navigation.goBack();
       }, 2000);
     } catch (error) {
-      console.error('Error deleting portfolio:', error);
       showToast(error.message || 'خطا در حذف نمونه کار', 'error');
     } finally {
       setIsDeleting(false);
     }
   };
 
+  const renderRatingSection = () => {
+    return (
+      <Animated.View
+        style={[
+          styles.card,
+          styles.simpleRatingCard,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <View style={styles.simpleCardContent}>
+          <AppText style={styles.simpleCardTitle}>امتیازدهی</AppText>
+
+          <View style={styles.simpleRatingContainer}>
+            <MultiOptionRatingComponent
+              contentId={portfolio.PortfolioId}
+              averageRating={portfolio.AverageRating || 0}
+              ratingCount={portfolio.RatingCount || 0}
+              initialRating={portfolio.UserRating || 0}
+              initialDetailedRatings={userDetailedRatings}
+              maxStars={5}
+              size={24}
+              starColor="#ffb300"
+              enableMultipleOptions={true}
+              ratingOptions={dynamicRatingOptions.length > 0 ? dynamicRatingOptions : portfolioRatingOptions}
+              modalTitle="امتیازدهی نمونه کار"
+              submitButtonText="ثبت امتیاز"
+              cancelButtonText="لغو"
+              showRatingCount={true}
+              showRatingText={true}
+              animated={true}
+              allowHalfStars={false}
+              onRatingSubmitted={(result) => {
+                console.log('Portfolio rating submitted successfully:', result);
+
+                if (result.ratings) {
+                  setUserDetailedRatings(result.ratings);
+                  const averageRating = result.averageRating;
+
+                  setData(prevData => ({
+                    ...prevData,
+                    UserRating: averageRating,
+                    UserDetailedRatings: result.ratings
+                  }));
+
+                  showToast(`امتیاز شما در ${Object.keys(result.ratings).length} بخش با موفقیت ثبت شد`, 'success');
+                } else {
+                  setData(prevData => ({
+                    ...prevData,
+                    UserRating: result.rating
+                  }));
+
+                  showToast(`امتیاز ${toPersianDigits(result.rating.toString())} ستاره ثبت شد`, 'success');
+                }
+              }}
+              onRatingError={(errorMessage) => {
+                console.error('Portfolio rating submission failed:', errorMessage);
+                showToast(errorMessage || 'خطا در ثبت امتیاز', 'error');
+              }}
+              onRatingChange={(rating, detailedRatings) => {
+                if (detailedRatings) {
+                  setUserDetailedRatings(detailedRatings);
+                }
+              }}
+              style={styles.simpleRating}
+            />
+
+            {dynamicRatingOptions.length > 0 && Object.keys(userDetailedRatings).length > 0 && (
+              <View style={styles.userDetailedRatingsContainer}>
+                <AppText style={styles.userDetailedRatingsTitle}>امتیازات شما:</AppText>
+                {dynamicRatingOptions
+                  .filter(option => userDetailedRatings[option.id])
+                  .map((option) => (
+                    <View key={option.id} style={styles.userRatingRow}>
+                      <View style={styles.userRatingRowContent}>
+                        <View style={styles.userRatingRowText}>
+                          <AppText style={styles.userRatingRowTitle}>{option.title}</AppText>
+                        </View>
+                        <View style={styles.userRatingRowStars}>
+                          <StarDisplay
+                            rating={userDetailedRatings[option.id]}
+                            maxStars={5}
+                            size={16}
+                            color="#ffb300"
+                            emptyColor="#e0e0e0"
+                            showHalfStars={false}
+                            animated={false}
+                          />
+                          <AppText style={styles.userRatingScore}>
+                            {toPersianDigits(userDetailedRatings[option.id].toString())}
+                          </AppText>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+              </View>
+            )}
+          </View>
+        </View>
+      </Animated.View>
+    );
+  };
+
+  const renderContentReview = () => {
+    if (!portfolio || !portfolio.ContentReviewItemList || portfolio.ContentReviewItemList.length === 0) {
+      return null;
+    }
+
+    const itemsWithRating = portfolio.ContentReviewItemList
+      .filter(item => item.Active && item.CalculatedAverageRating && item.CalculatedAverageRating > 0)
+      .sort((a, b) => a.ShowOrder - b.ShowOrder);
+
+    if (itemsWithRating.length === 0) {
+      return null;
+    }
+
+    return (
+      <Animated.View
+        style={[
+          styles.card,
+          styles.contentReviewCard,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <View style={styles.simpleCardContent}>
+          <View style={styles.contentReviewHeader}>
+            <AppText style={styles.contentReviewTitle}>میانگین امتیاز در هر بخش</AppText>
+          </View>
+
+          <View style={styles.contentReviewList}>
+            {itemsWithRating.map((item, index) => (
+              <View key={item.ContentReviewItemId} style={styles.reviewItem}>
+                <View style={styles.reviewItemHeader}>
+                  <View style={styles.reviewItemLeft}>
+                    <StarDisplay
+                      rating={item.CalculatedAverageRating}
+                      size={16}
+                      starColor="#ffb300"
+                      showHalfStars={true}
+                    />
+                    <AppText style={styles.reviewRatingText}>
+                      {toPersianDigits(item.CalculatedAverageRating.toFixed(1))}
+                    </AppText>
+                  </View>
+                  <View style={styles.reviewItemRight}>
+                    <AppText style={styles.reviewItemTitle}>
+                      {item.Text || `مورد ${item.ShowOrder}`}
+                    </AppText>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      </Animated.View>
+    );
+  };
+
   const renderErrorComponent = () => (
     <View style={styles.errorContainer}>
-      <MaterialIcons name="design-services" size={80} color="#9e9e9e" />
+      <View style={styles.errorIconContainer}>
+        <LinearGradient
+          colors={['#ff6b6b', '#ee5a52']}
+          style={styles.errorIconGradient}
+        >
+          <MaterialIcons name="error-outline" size={60} color="#ffffff" />
+        </LinearGradient>
+      </View>
       <AppText style={styles.errorTitle}>خطا در دریافت اطلاعات</AppText>
       <AppText style={styles.errorSubtitle}>
         اتصال اینترنت خود را بررسی کنید
@@ -695,13 +843,17 @@ const PortfolioDetailScreen = ({ route }) => {
           if (portfolioId) {
             fetchPortfolio(portfolioId);
           } else {
-            console.warn('No portfolioId for retry, using default ID 1');
             fetchPortfolio(1);
           }
         }}
       >
-        <MaterialIcons name="refresh" size={20} color={colors.white} />
-        <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
+        <LinearGradient
+          colors={[modernColors.primary, modernColors.primaryDark]}
+          style={styles.retryButtonGradient}
+        >
+          <MaterialIcons name="refresh" size={22} color={colors.white} />
+          <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
+        </LinearGradient>
       </TouchableOpacity>
     </View>
   );
@@ -718,7 +870,14 @@ const PortfolioDetailScreen = ({ route }) => {
     if (!portfolio) {
       return (
         <View style={styles.emptyContainer}>
-          <MaterialIcons name="design-services" size={80} color="#9e9e9e" />
+          <View style={styles.emptyIconContainer}>
+            <LinearGradient
+              colors={['#9e9e9e', '#757575']}
+              style={styles.emptyIconGradient}
+            >
+              <MaterialIcons name="brush" size={60} color="#ffffff" />
+            </LinearGradient>
+          </View>
           <AppText style={styles.emptyTitle}>نمونه کار یافت نشد</AppText>
           <AppText style={styles.emptySubtitle}>
             نمونه کار مورد نظر موجود نیست
@@ -727,120 +886,215 @@ const PortfolioDetailScreen = ({ route }) => {
       );
     }
 
+    const displayImages = getDisplayImages();
+    const isDefaultImage = displayImages.length === 1 && displayImages[0] === require('../../assets/portfolio_icon.jpg');
+
     return (
       <View style={styles.contentWrapper}>
-        <View style={styles.imageContainer}>
-          <TouchableOpacity
-            style={styles.imagePlaceholder}
-            onPress={() => handleShowImages(0)}
-          >
-            <MaterialIcons name="design-services" size={60} color="#ccc" />
-            <AppText style={styles.imageText}>گالری تصاویر</AppText>
-          </TouchableOpacity>
-
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.3)']}
-            style={styles.imageGradient}
-          />
-
-
-
-          <TouchableOpacity
+        <View style={styles.contentCards}>
+          <Animated.View
             style={[
-              styles.topLikeBadge,
-              { backgroundColor: isLiked ? 'rgba(233, 30, 99, 0.8)' : 'rgba(255, 255, 255, 0.8)' }
+              styles.card,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
             ]}
-            onPress={handleLike}
-            disabled={isLiking}
-            activeOpacity={0.7}
           >
-            <View style={styles.topLikeContent}>
-              <MaterialIcons
-                name={isLiked ? "favorite" : "favorite-border"}
-                size={18}
-                color={isLiked ? "#ffffff" : "#e91e63"}
-              />
-              <AppText style={[
-                styles.topLikeCount,
-                { color: isLiked ? "#ffffff" : "#e91e63" }
-              ]}>
-                {toPersianDigits(likeCount.toString())}
-              </AppText>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.contentContainer}>
-          <AppText style={styles.titleText}>
-            {toPersianDigits(portfolio.Title)}
-          </AppText>
-
-          <AppText style={styles.descriptionText}>
-            {toPersianDigits(portfolio.Description)}
-          </AppText>
-
-          <View style={styles.ratingSection}>
-            <RatingComponent
-              initialRating={portfolio.UserRating}
-              averageRating={portfolio.AverageRating}
-              ratingCount={portfolio.RatingCount}
-              onRatingChange={handleRatingChange}
-              onSubmit={handleRatingSubmit}
-              maxStars={5}
-              size={24}
-              showRatingText={true}
-              showRatingCount={true}
-              animated={true}
-              allowHalfStars={false}
-              starColor={modernColors.fashionGold}
-              style={styles.ratingComponent}
-              enableMultipleOptions={true}
-              ratingOptions={dynamicRatingOptions.length > 0 ? dynamicRatingOptions : portfolioRatingOptions}
-              modalTitle="امتیاز دهی نمونه کار"
-              submitButtonText="ثبت امتیاز"
-              cancelButtonText="لغو"
-            />
-
-            {dynamicRatingOptions.length > 0 && (
-              <View style={styles.detailedRatingsContainer}>
-                <AppText style={styles.detailedRatingsTitle}>میانگین امتیاز در هر بخش:</AppText>
-                {dynamicRatingOptions.map((option) => {
-                  return (
-                    <View key={option.id} style={styles.detailedRatingRow}>
-                      <View style={styles.ratingRowContent}>
-                        <View style={styles.ratingRowText}>
-                          <AppText style={styles.ratingRowTitle}>{option.title}</AppText>
-                        </View>
-
-                        <View style={styles.ratingRowStars}>
-                          <StarDisplay
-                            rating={option.averageRating}
-                            maxStars={5}
-                            size={16}
-                            color={modernColors.fashionGold}
-                            emptyColor="#e0e0e0"
-                            showHalfStars={true}
-                            animated={false}
-                          />
-                        </View>
+            <View style={styles.imageGalleryContainer}>
+              {displayImages.length > 0 ? (
+                <>
+                  {isDefaultImage ? (
+                    // نمایش تصویر پیش‌فرض (بدون اسکرول)
+                    <View style={styles.singleImageContainer}>
+                      <View style={styles.imageContainer}>
+                        <Image
+                          source={require('../../assets/portfolio_icon.jpg')}
+                          style={[styles.portfolioImage, styles.defaultImageStyle]}
+                          resizeMode="contain"
+                        />
                       </View>
                     </View>
-                  );
-                })}
-              </View>
-            )}
-          </View>
+                  ) : (
+                    // نمایش تصاویر معتبر (با قابلیت اسکرول)
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      pagingEnabled
+                      style={styles.imageScrollView}
+                      onMomentumScrollEnd={handleImageScroll}
+                      scrollEventThrottle={16}
+                    >
+                      {validImages.map((image, index) => {
+                        // فقط تصاویری که ارور نداشته‌اند را نمایش بده
+                        if (errorImages.has(index)) {
+                          return null;
+                        }
 
-          <View style={styles.metaContainer}>
-            <View style={styles.leftSection}>
-              <View style={styles.dateContainer}>
-                <MaterialIcons name="calendar-month" size={17} color="#666" />
+                        return (
+                          <TouchableOpacity
+                            key={index}
+                            style={styles.imageItem}
+                            onPress={() => handleShowImages(index)}
+                            activeOpacity={0.9}
+                          >
+                            <View style={styles.imageContainer}>
+                              <PortfolioImage
+                                source={image}
+                                style={styles.portfolioImage}
+                                resizeMode="contain"
+                                onLoad={() => handleImageLoad(index)}
+                                onError={() => handleImageError(index)}
+                              />
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  )}
+
+                  <View
+                    style={[
+                      styles.imageLikeBadge,
+                      {
+                        backgroundColor: isLiked ? 'rgba(233, 30, 99, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                      }
+                    ]}
+                  >
+                    <TouchableOpacity
+                      style={styles.imageLikeContent}
+                      onPress={handleLike}
+                      disabled={isLiking}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialIcons
+                        name={isLiked ? "favorite" : "favorite-border"}
+                        size={18}
+                        color={isLiked ? "#ffffff" : "#e91e63"}
+                      />
+                      <AppText style={[
+                        styles.imageLikeCount,
+                        { color: isLiked ? "#ffffff" : "#e91e63" }
+                      ]}>
+                        {toPersianDigits(likeCount.toString())}
+                      </AppText>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* نمایش dots فقط برای تصاویر معتبر */}
+                  {!isDefaultImage && displayImages.length > 1 && (
+                    <View style={styles.imageDots}>
+                      {displayImages.map((_, index) => (
+                        <View
+                          key={index}
+                          style={[
+                            styles.imageDot,
+                            index === currentImageIndex && styles.imageDotActive
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </>
+              ) : (
+                <View style={styles.noImageContainer}>
+                  <View style={styles.singleImageContainer}>
+                    <View style={styles.imageContainer}>
+                      <Image
+                        source={require('../../assets/portfolio_icon.jpg')}
+                        style={[styles.portfolioImage, styles.defaultImageStyle]}
+                        resizeMode="contain"
+                      />
+                    </View>
+                  </View>
+
+                  <View
+                    style={[
+                      styles.imageLikeBadge,
+                      {
+                        backgroundColor: isLiked ? 'rgba(233, 30, 99, 0.8)' : 'rgba(255, 255, 255, 0.8)',
+                      }
+                    ]}
+                  >
+                    <TouchableOpacity
+                      style={styles.imageLikeContent}
+                      onPress={handleLike}
+                      disabled={isLiking}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialIcons
+                        name={isLiked ? "favorite" : "favorite-border"}
+                        size={18}
+                        color={isLiked ? "#ffffff" : "#e91e63"}
+                      />
+                      <AppText style={[
+                        styles.imageLikeCount,
+                        { color: isLiked ? "#ffffff" : "#e91e63" }
+                      ]}>
+                        {toPersianDigits(likeCount.toString())}
+                      </AppText>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.card,
+              styles.designerCard,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <View style={styles.simpleCardContent}>
+              <View style={styles.designerSection}>
+                <View style={styles.designerIconContainer}>
+                  <MaterialIcons name="person" size={24} color="#77B2D2" />
+                </View>
+                <AppText style={styles.designerName}>
+                  {portfolio.MemberName}
+                </AppText>
+              </View>
+            </View>
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.card,
+              styles.mainCard,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateY: slideAnim }],
+              },
+            ]}
+          >
+            <View style={styles.simpleCardContent}>
+              <AppText style={styles.simpleTitle}>
+                {toPersianDigits(portfolio.Title)}
+              </AppText>
+
+              <AppText style={styles.simpleDescription}>
+                {toPersianDigits(portfolio.Description)}
+              </AppText>
+
+              <View style={styles.dateSection}>
+                <MaterialIcons name="calendar-today" size={16} color="#9e9e9e" />
                 <AppText style={styles.dateText}>
                   {toPersianDigits(portfolio.CreatedDate)}
                 </AppText>
               </View>
             </View>
-          </View>
+          </Animated.View>
+
+          {renderRatingSection()}
+
+          {renderContentReview()}
+
+          <View style={styles.bottomSpacing} />
         </View>
       </View>
     );
@@ -868,39 +1122,43 @@ const PortfolioDetailScreen = ({ route }) => {
                 {
                   translateY: heartAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0, -150],
+                    outputRange: [0, -200],
                   }),
                 },
                 {
                   scale: heartAnim.interpolate({
                     inputRange: [0, 0.3, 0.7, 1],
-                    outputRange: [0.5, 1.8, 1.5, 0.3],
+                    outputRange: [0.5, 2.0, 1.8, 0.3],
                   }),
                 },
                 {
                   rotate: heartAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: ['0deg', '15deg'],
+                    outputRange: ['0deg', '25deg'],
                   }),
                 },
               ],
             },
           ]}
         >
-          <MaterialIcons name="favorite" size={50} color={modernColors.likeIcon} />
+          <LinearGradient
+            colors={['#ff69b4', '#e91e63']}
+            style={styles.floatingHeartGradient}
+          >
+            <MaterialIcons name="favorite" size={40} color="#ffffff" />
+          </LinearGradient>
         </Animated.View>
 
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <View style={styles.backButtonContainer}>
-            <MaterialIcons
-              name="arrow-forward"
-              size={24}
-              color="#6366f1"
-            />
-          </View>
+          <LinearGradient
+            colors={['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.9)']}
+            style={styles.backButtonGradient}
+          >
+            <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
+          </LinearGradient>
         </TouchableOpacity>
 
         {isOwnPortfolio && !loading && (
@@ -909,9 +1167,12 @@ const PortfolioDetailScreen = ({ route }) => {
             onPress={handleShowActions}
             disabled={isDeleting}
           >
-            <View style={styles.menuButtonContainer}>
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.9)']}
+              style={styles.menuButtonGradient}
+            >
               <MaterialIcons name="more-vert" size={24} color="#6366f1" />
-            </View>
+            </LinearGradient>
           </TouchableOpacity>
         )}
 
@@ -929,18 +1190,7 @@ const PortfolioDetailScreen = ({ route }) => {
           </View>
         </Animated.View>
 
-        <Animated.View
-          style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
-        >
-          <MaterialIcons name="brush" size={30} color="rgba(255, 105, 180, 0.3)" />
-        </Animated.View>
-        <Animated.View
-          style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]}
-        >
-          <MaterialIcons name="palette" size={25} color="rgba(255, 215, 0, 0.3)" />
-        </Animated.View>
-
-        <ScrollView
+        <Animated.ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -951,45 +1201,14 @@ const PortfolioDetailScreen = ({ route }) => {
               tintColor={modernColors.primary}
             />
           }
+          onScroll={Animated.event(
+            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+            { useNativeDriver: false }
+          )}
+          scrollEventThrottle={16}
         >
-          <Animated.View
-            style={[
-              styles.animatedContent,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            {renderContent()}
-          </Animated.View>
-        </ScrollView>
-
-        <View style={styles.decorativeElements}>
-          <View style={styles.floatingElements}>
-            <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="auto-awesome"
-                size={22}
-                color="rgba(147, 112, 219, 0.4)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star2, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="diamond"
-                size={18}
-                color="rgba(255, 105, 180, 0.4)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star3, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="star"
-                size={20}
-                color="rgba(255, 215, 0, 0.4)"
-              />
-            </Animated.View>
-          </View>
-        </View>
+          {renderContent()}
+        </Animated.ScrollView>
 
         <Modal
           visible={showActionModal}
@@ -1035,23 +1254,6 @@ const PortfolioDetailScreen = ({ route }) => {
               </View>
 
               <View style={styles.modalActions}>
-                {dynamicRatingOptions.length > 0 && (
-                  <View style={styles.drawerRatingsSection}>
-                    <AppText style={styles.drawerRatingsTitle}>امتیازات بخش‌ها:</AppText>
-                    {dynamicRatingOptions.map((option) => (
-                      <View key={option.id} style={styles.drawerRatingItem}>
-                        <AppText style={styles.drawerRatingText}>{option.title}</AppText>
-                        <View style={styles.drawerRatingRight}>
-                          <AppText style={styles.drawerRatingScore}>
-                            {toPersianDigits(option.averageRating.toFixed(1))}
-                          </AppText>
-                          <MaterialIcons name="star" size={16} color={modernColors.fashionGold} />
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
                 <TouchableOpacity
                   style={styles.modalActionItem}
                   onPress={() => {
@@ -1068,26 +1270,6 @@ const PortfolioDetailScreen = ({ route }) => {
                     <View style={styles.modalActionText}>
                       <AppText style={styles.modalActionTitle}>ویرایش نمونه کار</AppText>
                       <AppText style={styles.modalActionSubtitle}>ویرایش اطلاعات و تصاویر</AppText>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.modalActionItem}
-                  onPress={() => {
-                    handleCloseModal();
-                    setTimeout(() => {
-                      handleShowImages();
-                    }, 300);
-                  }}
-                >
-                  <View style={styles.modalActionContent}>
-                    <View style={[styles.modalActionIcon, { backgroundColor: modernColors.fashionPink }]}>
-                      <MaterialIcons name="photo-library" size={22} color="#ffffff" />
-                    </View>
-                    <View style={styles.modalActionText}>
-                      <AppText style={styles.modalActionTitle}>مشاهده گالری</AppText>
-                      <AppText style={styles.modalActionSubtitle}>نمایش تمام تصاویر</AppText>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -1230,35 +1412,59 @@ const PortfolioDetailScreen = ({ route }) => {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                style={styles.imageScrollView}
-              >
-                {portfolio?.Images?.map((image, index) => (
-                  <View key={index} style={styles.imageSlide}>
+              {(() => {
+                const modalDisplayImages = getDisplayImages();
+                const isModalDefaultImage = modalDisplayImages.length === 1 && modalDisplayImages[0] === require('../../assets/portfolio_icon.jpg');
+
+                return modalDisplayImages.length > 0 && !isModalDefaultImage ? (
+                  <>
+                    <ScrollView
+                      horizontal
+                      pagingEnabled
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.imageScrollView}
+                      onMomentumScrollEnd={(event) => {
+                        const slideIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+                        setSelectedImageIndex(slideIndex);
+                      }}
+                    >
+                      {modalDisplayImages.map((image, index) => (
+                        <View key={index} style={styles.imageSlide}>
+                          <View style={styles.imagePlaceholderModal}>
+                            <PortfolioImage
+                              source={image}
+                              style={styles.fullModalImage}
+                              resizeMode="contain"
+                            />
+                          </View>
+                        </View>
+                      ))}
+                    </ScrollView>
+
+                    <View style={styles.imageIndicators}>
+                      {modalDisplayImages.map((_, index) => (
+                        <View
+                          key={index}
+                          style={[
+                            styles.imageIndicator,
+                            index === selectedImageIndex && styles.activeIndicator
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.imageSlide}>
                     <View style={styles.imagePlaceholderModal}>
-                      <MaterialIcons name="image" size={80} color="#ccc" />
-                      <AppText style={styles.imageIndexText}>
-                        تصویر {toPersianDigits((index + 1).toString())}
-                      </AppText>
+                      <Image
+                        source={require('../../assets/portfolio_icon.jpg')}
+                        style={[styles.fullModalImage, styles.defaultImageStyle]}
+                        resizeMode="contain"
+                      />
                     </View>
                   </View>
-                ))}
-              </ScrollView>
-
-              <View style={styles.imageIndicators}>
-                {portfolio?.Images?.map((_, index) => (
-                  <View
-                    key={index}
-                    style={[
-                      styles.imageIndicator,
-                      index === selectedImageIndex && styles.activeIndicator
-                    ]}
-                  />
-                ))}
-              </View>
+                );
+              })()}
             </View>
           </View>
         </Modal>
@@ -1272,57 +1478,72 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
+  portfolioImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  defaultImageStyle: {
+    // borderRadius: 200,
+    // borderWidth: 2,
+    // borderColor: '#e9ecef',
+    // backgroundColor: '#f8f9fa',
+  },
+  singleImageContainer: {
+    height: width - 40,
+    marginBottom: 0,
+  },
+  fullModalImage: {
+    width: '100%',
+    height: '100%',
+  },
   headerContainer: {
     alignItems: "center",
-    paddingTop: StatusBar.currentHeight + 35,
+    paddingTop: StatusBar.currentHeight + 38,
     paddingHorizontal: 20,
     marginBottom: 20,
   },
   backButton: {
     position: 'absolute',
-    top: StatusBar.currentHeight + 45,
+    top: StatusBar.currentHeight + 38,
     right: 20,
     zIndex: 1000,
   },
-  backButtonContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  backButtonGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-    marginTop: -12
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
   },
   menuButton: {
     position: 'absolute',
-    top: StatusBar.currentHeight + 45,
+    top: StatusBar.currentHeight + 38,
     left: 20,
     zIndex: 1000,
   },
-  menuButtonContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  menuButtonGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-    marginTop: -12
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
   },
   titleWrapper: {
     flexDirection: "row",
@@ -1340,58 +1561,59 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  animatedContent: {
-    flex: 1,
-  },
   contentWrapper: {
     flex: 1,
+    paddingTop: 20,
   },
-  imageContainer: {
-    height: 280,
-    width: '100%',
+  imageGalleryContainer: {
     position: 'relative',
   },
-  imagePlaceholder: {
+  imageScrollView: {
+    height: width - 40,
+  },
+  imageItem: {
+    width: width - 40,
+    height: width - 40,
+    marginRight: 0,
+  },
+  imageContainer: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    overflow: 'hidden',
   },
   imageText: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
-    color: '#999',
+    color: '#9e9e9e',
     marginTop: 10,
+    textAlign: 'center',
   },
-  imageGradient: {
+  imageDots: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 15,
     left: 0,
     right: 0,
-    height: 60,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
   },
-  statusBadge: {
-    position: 'absolute',
-    top: 15,
-    right: 15,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+  imageDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
-  statusText: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#ffffff',
+  imageDotActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 20,
   },
-  topLikeBadge: {
+  imageLikeBadge: {
     position: 'absolute',
     top: 15,
     left: 15,
@@ -1409,295 +1631,279 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  topLikeContent: {
+  noImageContainer: {
+    height: width - 40,
+    position: 'relative',
+  },
+  noImageContent: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+    paddingHorizontal: 20,
+    overflow: 'hidden',
+  },
+  defaultPortfolioImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  noImageText: {
+    fontSize: 18,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#9e9e9e',
+    marginTop: 15,
+    textAlign: 'center',
+  },
+  noImageSubtext: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#bdbdbd',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  imageLikeContent: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
   },
-  topLikeCount: {
+  imageLikeCount: {
     fontSize: 15,
     fontFamily: "Yekan_Bakh_Bold",
-    color: '#ffffff',
     marginRight: 6,
   },
-  contentContainer: {
-    backgroundColor: '#ffffff',
-    marginTop: -30,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingHorizontal: 25,
-    paddingTop: 30,
-    paddingBottom: 40,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
+  designerCard: {
+    marginBottom: 15,
   },
-  titleText: {
-    fontSize: 24,
+  designerSection: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  designerIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(119, 178, 210,0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(119, 178, 210, 0.2)',
+  },
+  designerName: {
+    fontSize: 18,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+  },
+  mainCard: {
+    marginBottom: 15,
+  },
+  simpleCardContent: {
+    padding: 20,
+  },
+  simpleTitle: {
+    fontSize: 22,
     fontFamily: "Yekan_Bakh_ExtraBold",
     color: "#2c3e50",
-    marginBottom: 15,
+    marginBottom: 12,
     textAlign: "right",
-    lineHeight: 36,
+    lineHeight: 32,
   },
-  designerContainer: {
+  simpleDescription: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "#6c757d",
+    textAlign: "justify",
+    lineHeight: 26,
+    marginBottom: 15,
+    direction: "rtl",
+  },
+  dateSection: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginTop: 10,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  dateText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "#9e9e9e",
+    marginRight: 6,
+  },
+  contentReviewCard: {
+    marginBottom: 15,
+  },
+  contentReviewHeader: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     marginBottom: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    backgroundColor: '#fff5f5',
-    borderRadius: 15,
-    borderRightWidth: 4,
-    borderColor: modernColors.fashionPink,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
-  designerText: {
+  contentReviewTitle: {
+    fontSize: 18,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    marginRight: 0,
+  },
+  contentReviewList: {
+    marginBottom: 20,
+  },
+  reviewItem: {
+    marginBottom: 15,
+    padding: 15,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 12,
+    borderRightWidth: 4,
+    borderRightColor: modernColors.fashionPink,
+  },
+  reviewItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  reviewItemRight: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  reviewItemLeft: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reviewItemTitle: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.fashionPink,
-    marginRight: 10,
+    color: "#2c3e50",
+    marginBottom: 4,
   },
-  descriptionText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#34495e",
-    textAlign: "justify",
-    lineHeight: 28,
-    marginBottom: 25,
-    textAlignVertical: "top",
-    direction: "rtl",
+  reviewRatingText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#ffb300",
   },
-  sectionTitle: {
+  simpleRatingCard: {
+    marginBottom: 15,
+  },
+  simpleCardTitle: {
     fontSize: 18,
     fontFamily: "Yekan_Bakh_Bold",
     color: "#2c3e50",
     marginBottom: 15,
-    textAlign: "right",
+    textAlign: 'right',
   },
-  ratingSection: {
-    marginBottom: 25,
-    backgroundColor: colors.white,
-    padding: 20,
+  simpleRatingContainer: {
+    alignItems: 'flex-end',
+  },
+  userDetailedRatingsContainer: {
+    marginTop: 20,
+    backgroundColor: '#e8f5e8',
+    borderRadius: 15,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+  },
+  userDetailedRatingsTitle: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    textAlign: 'right',
+    marginBottom: 15,
+  },
+  userRatingRow: {
+    marginBottom: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e8f5e8',
+  },
+  userRatingRowContent: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  userRatingRowText: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  userRatingRowTitle: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    marginBottom: 4,
+  },
+  userRatingRowStars: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    marginLeft: 15,
+    gap: 8,
+  },
+  userRatingScore: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: modernColors.success,
+  },
+  contentCards: {
+    paddingHorizontal: 20,
+    paddingBottom: 60,
+  },
+  card: {
+    marginBottom: 20,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#dfdfdf',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  ratingComponent: {
-    alignItems: 'flex-end',
-  },
-  averageRatingsContainer: {
-    marginTop: 20,
-    backgroundColor: '#f0f4ff',
-    borderRadius: 15,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: '#e0e7ff',
-  },
-  averageRatingsTitle: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    textAlign: 'right',
-    marginBottom: 15,
-  },
-  averageRatingRow: {
-    marginBottom: 12,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#e0e7ff',
-  },
-  averageRatingContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  averageRatingText: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  averageRatingTitle: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    marginBottom: 4,
-  },
-  averageRatingScore: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#667eea",
-  },
-  averageRatingStars: {
-    marginLeft: 15,
-  },
-  detailedRatingsContainer: {
-    marginTop: 20,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 15,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  detailedRatingsTitle: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    textAlign: 'right',
-    marginBottom: 15,
-  },
-  detailedRatingRow: {
-    marginBottom: 12,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  ratingRowContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  ratingRowText: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  ratingRowTitle: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    marginBottom: 4,
-  },
-  ratingRowScores: {
-    flexDirection: 'row-reverse',
-    gap: 15,
-  },
-  userScore: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: modernColors.primary,
-  },
-  avgScore: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#666',
-  },
-  ratingRowStars: {
-    marginLeft: 15,
-  },
-  metaContainer: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  leftSection: {
-    alignItems: 'flex-end',
-  },
-  dateContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  dateText: {
-    fontSize: 15,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#666',
-    marginRight: 10,
-  },
-  viewContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-  },
-  viewText: {
-    fontSize: 15,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#666',
-    marginRight: 10,
-  },
-  likeSectionContainer: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  likeButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-  },
-  likeButtonContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  likeText: {
-    fontSize: 15,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#666',
-    marginTop: 4,
-    textAlign: 'center',
+    overflow: 'hidden',
+    backgroundColor: "rgba(255,255,255,0.8)"
   },
   floatingHeart: {
     position: 'absolute',
     top: height * 0.4,
-    left: width * 0.5 - 25,
+    left: width * 0.5 - 30,
     zIndex: 1000,
     pointerEvents: 'none',
+  },
+  floatingHeartGradient: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#ff69b4',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
   },
   skeletonContainer: {
     flex: 1,
   },
-  imageSkeletonContainer: {
-    height: 280,
-    width: '100%',
-  },
   contentSkeletonContainer: {
-    backgroundColor: '#ffffff',
-    marginTop: -30,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingHorizontal: 25,
-    paddingTop: 30,
+    paddingHorizontal: 20,
     paddingBottom: 40,
+  },
+  skeletonCard: {
+    backgroundColor: '#ffffff',
+    marginBottom: 20,
+    borderRadius: 20,
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: -4,
+      height: 4,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  infoSkeletonRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  tagsSkeletonContainer: {
-    flexDirection: 'row-reverse',
-    gap: 10,
-    marginBottom: 20,
-  },
-  statsSkeletonContainer: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 6,
   },
   errorContainer: {
     flex: 1,
@@ -1706,40 +1912,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     paddingVertical: 60,
   },
+  errorIconContainer: {
+    marginBottom: 25,
+  },
+  errorIconGradient: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#ff6b6b',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 12,
+  },
   errorTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: "Yekan_Bakh_Bold",
     color: '#2c3e50',
-    marginTop: 20,
+    marginBottom: 12,
     textAlign: 'center',
   },
   errorSubtitle: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
     color: '#9e9e9e',
-    marginTop: 12,
+    marginBottom: 30,
     textAlign: 'center',
     lineHeight: 24,
   },
   retryButton: {
+    borderRadius: 25,
+    overflow: 'hidden',
+    shadowColor: modernColors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 6
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  retryButtonGradient: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: modernColors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    marginTop: 24,
-    shadowColor: modernColors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    paddingHorizontal: 25,
+    paddingVertical: 15,
+    gap: 10,
   },
   retryButtonText: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
     color: colors.white,
-    marginRight: 8,
   },
   emptyContainer: {
     flex: 1,
@@ -1748,62 +1976,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     paddingVertical: 60,
   },
+  emptyIconContainer: {
+    marginBottom: 25,
+  },
+  emptyIconGradient: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#9e9e9e',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: "Yekan_Bakh_Bold",
     color: '#2c3e50',
-    marginTop: 20,
+    marginBottom: 12,
     textAlign: 'center',
   },
   emptySubtitle: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
     color: '#9e9e9e',
-    marginTop: 12,
     textAlign: 'center',
     lineHeight: 24,
-  },
-  floatingDecoration1: {
-    position: 'absolute',
-    top: 200,
-    right: 30,
-    zIndex: -1,
-  },
-  floatingDecoration2: {
-    position: 'absolute',
-    top: 400,
-    left: 30,
-    zIndex: -1,
-  },
-  decorativeElements: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: -1,
-  },
-  floatingElements: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  star1: {
-    position: "absolute",
-    top: 300,
-    left: 50,
-  },
-  star2: {
-    position: "absolute",
-    top: 500,
-    right: 60,
-  },
-  star3: {
-    position: "absolute",
-    bottom: 200,
-    left: 40,
   },
   modalContainer: {
     flex: 1,
@@ -1856,52 +2059,6 @@ const styles = StyleSheet.create({
   modalActions: {
     marginBottom: 20,
   },
-  drawerRatingsSection: {
-    backgroundColor: '#f8f9ff',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#e3e7ff',
-  },
-  drawerRatingsTitle: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    textAlign: 'right',
-    marginBottom: 12,
-  },
-  drawerRatingItem: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  drawerRatingText: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#2c3e50",
-    flex: 1,
-    textAlign: 'right',
-  },
-  drawerRatingRight: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 4,
-  },
-  drawerRatingScore: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.fashionGold,
-    minWidth: 25,
-    textAlign: 'center',
-  },
   modalActionItem: {
     paddingVertical: 15,
     paddingHorizontal: 10,
@@ -1939,17 +2096,17 @@ const styles = StyleSheet.create({
     color: "#6c757d",
   },
   modalCancelButton: {
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#ffcdcd",
     paddingVertical: 15,
     borderRadius: 15,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: colors.danger,
   },
   modalCancelText: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
-    color: '#6c757d',
+    color: colors.danger,
   },
   deleteModalContent: {
     backgroundColor: '#ffffff',
@@ -2084,9 +2241,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  imageScrollView: {
-    flex: 1,
-  },
   imageSlide: {
     width: width,
     justifyContent: 'center',
@@ -2100,6 +2254,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   imageIndexText: {
     fontSize: 16,
@@ -2121,6 +2276,9 @@ const styles = StyleSheet.create({
   },
   activeIndicator: {
     backgroundColor: '#ffffff',
+  },
+  bottomSpacing: {
+    height: 40,
   },
 });
 

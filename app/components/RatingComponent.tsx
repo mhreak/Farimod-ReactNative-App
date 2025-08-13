@@ -7,10 +7,13 @@ import {
   Animated,
   Modal,
   ScrollView,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { toPersianDigits } from '../utils/converters';
+import appConfig from '../config/config';
 
 const colors = {
   primary: "#667eea",
@@ -109,6 +112,7 @@ const StarDisplay = ({
 };
 
 const MultiOptionRatingComponent = ({
+  contentId, // شماره محتوا
   initialRating = 0,
   initialDetailedRatings = {},
   maxStars = 5,
@@ -118,6 +122,8 @@ const MultiOptionRatingComponent = ({
   ratingCount = 0,
   averageRating = 0,
   onRatingChange = null,
+  onRatingSubmitted = null, // callback برای موفقیت
+  onRatingError = null, // callback برای خطا
   readonly = false,
   style = {},
   starColor = colors.gold,
@@ -140,6 +146,7 @@ const MultiOptionRatingComponent = ({
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [tempRating, setTempRating] = useState(0);
   const [tempDetailedRatings, setTempDetailedRatings] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false); // وضعیت ارسال
 
   const modalBackdropAnim = useRef(new Animated.Value(0)).current;
   const modalSlideAnim = useRef(new Animated.Value(0)).current;
@@ -218,19 +225,115 @@ const MultiOptionRatingComponent = ({
     return sum / ratings.length;
   };
 
-  const handleSubmitRating = () => {
+  const buildReviewItemRatings = (detailedRatings) => {
+    return ratingOptions
+      .filter(option => detailedRatings[option.id] && detailedRatings[option.id] > 0)
+      .map(option => ({
+        ContentReviewItemId: option.contentReviewItemId || option.id,
+        Rating: detailedRatings[option.id]
+      }));
+  };
+
+  const validateRatings = () => {
     if (enableMultipleOptions) {
-      const averageFromDetailed = calculateAverageFromDetailedRatings(tempDetailedRatings);
-      setCurrentRating(averageFromDetailed);
-      setCurrentDetailedRatings(tempDetailedRatings);
-      onRatingChange && onRatingChange(averageFromDetailed, tempDetailedRatings);
-      onSubmit && onSubmit(averageFromDetailed, tempDetailedRatings);
-    } else {
-      setCurrentRating(tempRating);
-      onRatingChange && onRatingChange(tempRating);
-      onSubmit && onSubmit(tempRating);
+      return Object.values(tempDetailedRatings).some(rating => rating > 0);
     }
-    hideModalAnimation();
+    return tempRating > 0;
+  };
+
+  const submitRatingToAPI = async () => {
+    try {
+      let reviewData;
+
+      if (enableMultipleOptions) {
+        reviewData = {
+          ContnetId: contentId,
+          reviewItemRatings: buildReviewItemRatings(tempDetailedRatings)
+        };
+      } else {
+        // برای امتیاز ساده، یک آیتم پیش‌فرض ایجاد می‌کنیم
+        reviewData = {
+          ContnetId: contentId,
+          reviewItemRatings: [{
+            ContentReviewItemId: 0, // شماره پیش‌فرض
+            Rating: tempRating
+          }]
+        };
+      }
+
+      console.log('Submitting review data:', reviewData);
+
+      const response = await fetch(`${appConfig.mobileApi}MemberReview/SendReview`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reviewData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.Message || `HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Review API Response:', result);
+
+      return result;
+    } catch (error) {
+      console.error('Review submission error:', error);
+      throw error;
+    }
+  };
+
+  const handleSubmitRating = async () => {
+    if (!validateRatings()) {
+      Alert.alert('خطا', 'لطفاً حداقل یک امتیاز انتخاب کنید');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // ارسال به API
+      const apiResult = await submitRatingToAPI();
+
+      // به‌روزرسانی state های محلی
+      if (enableMultipleOptions) {
+        const averageFromDetailed = calculateAverageFromDetailedRatings(tempDetailedRatings);
+        setCurrentRating(averageFromDetailed);
+        setCurrentDetailedRatings(tempDetailedRatings);
+        onRatingChange && onRatingChange(averageFromDetailed, tempDetailedRatings);
+        onSubmit && onSubmit(averageFromDetailed, tempDetailedRatings);
+
+        // فراخوانی callback موفقیت
+        onRatingSubmitted && onRatingSubmitted({
+          ratings: tempDetailedRatings,
+          averageRating: averageFromDetailed,
+          reviewItemRatings: buildReviewItemRatings(tempDetailedRatings),
+          response: apiResult
+        });
+      } else {
+        setCurrentRating(tempRating);
+        onRatingChange && onRatingChange(tempRating);
+        onSubmit && onSubmit(tempRating);
+
+        // فراخوانی callback موفقیت
+        onRatingSubmitted && onRatingSubmitted({
+          rating: tempRating,
+          response: apiResult
+        });
+      }
+
+      // بستن مودال
+      hideModalAnimation();
+
+    } catch (error) {
+      onRatingError && onRatingError(error.message || 'خطا در ثبت امتیاز');
+      Alert.alert('خطا', error.message || 'خطا در ثبت امتیاز');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getRatingText = (rating) => {
@@ -250,10 +353,8 @@ const MultiOptionRatingComponent = ({
   };
 
   const isSubmitEnabled = () => {
-    if (enableMultipleOptions) {
-      return Object.keys(tempDetailedRatings).length > 0;
-    }
-    return tempRating > 0;
+    if (isSubmitting) return false;
+    return validateRatings();
   };
 
   const getCurrentDisplayRating = () => {
@@ -267,6 +368,9 @@ const MultiOptionRatingComponent = ({
     <View style={[styles.container, style]}>
       {averageRating > 0 && (
         <View style={styles.averageRatingContainer}>
+          <Text style={[styles.userRatingLabel, { color: textColor }]}>
+            میانگین امتیازات
+          </Text>
           <StarDisplay
             rating={averageRating}
             maxStars={maxStars}
@@ -291,21 +395,32 @@ const MultiOptionRatingComponent = ({
 
       {!readonly && (
         <View style={styles.userRatingContainer}>
-          <Text style={[styles.userRatingLabel, { color: textColor }]}>
-            {enableMultipleOptions ? 'امتیاز کلی شما' : 'امتیاز شما:'}
-          </Text>
-          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-            <StarDisplay
-              rating={getCurrentDisplayRating()}
-              maxStars={maxStars}
-              size={size}
-              color={starColor}
-              emptyColor={emptyStarColor}
-              showHalfStars={allowHalfStars}
-              onPress={handleStarPress}
-              animated={animated}
-            />
-          </Animated.View>
+
+
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+
+            ]}
+            onPress={handleStarPress}
+
+          >
+            <LinearGradient
+              colors={[colors.primaryButton, colors.primaryDarkButton]}
+              style={styles.submitButtonGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              {isSubmitting ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <MaterialIcons name="star" size={20} color={colors.white} />
+              )}
+              <Text style={styles.submitButtonText}>
+                {isSubmitting ? 'در حال ثبت...' : "امتیاز خود را ثبت کنید !"}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -324,7 +439,7 @@ const MultiOptionRatingComponent = ({
           >
             <TouchableOpacity
               style={styles.backdropTouchable}
-              onPress={hideModalAnimation}
+              onPress={!isSubmitting ? hideModalAnimation : null}
               activeOpacity={1}
             />
           </Animated.View>
@@ -383,7 +498,7 @@ const MultiOptionRatingComponent = ({
                           color={starColor}
                           emptyColor={emptyStarColor}
                           showHalfStars={allowHalfStars}
-                          onPress={(rating) => handleDetailedRatingChange(option.id, rating)}
+                          onPress={!isSubmitting ? (rating) => handleDetailedRatingChange(option.id, rating) : null}
                           animated={false}
                           style={styles.optionStars}
                         />
@@ -426,7 +541,7 @@ const MultiOptionRatingComponent = ({
                     color={starColor}
                     emptyColor={emptyStarColor}
                     showHalfStars={allowHalfStars}
-                    onPress={setTempRating}
+                    onPress={!isSubmitting ? setTempRating : null}
                     animated={false}
                     style={styles.modalStars}
                   />
@@ -448,6 +563,7 @@ const MultiOptionRatingComponent = ({
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={hideModalAnimation}
+                disabled={isSubmitting}
               >
                 <Text style={styles.cancelButtonText}>{cancelButtonText}</Text>
               </TouchableOpacity>
@@ -466,8 +582,14 @@ const MultiOptionRatingComponent = ({
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <MaterialIcons name="star" size={20} color={colors.white} />
-                  <Text style={styles.submitButtonText}>{submitButtonText}</Text>
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <MaterialIcons name="star" size={20} color={colors.white} />
+                  )}
+                  <Text style={styles.submitButtonText}>
+                    {isSubmitting ? 'در حال ثبت...' : submitButtonText}
+                  </Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -637,9 +759,8 @@ const styles = StyleSheet.create({
   optionAverageSection: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-
     borderRadius: 12,
-    marginTop:-25 ,
+    marginTop: -25,
     gap: 4,
   },
   optionAverageScore: {
@@ -716,7 +837,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 15,
-    paddingHorizontal: 20,
+    paddingHorizontal: 30,
     gap: 8,
   },
   submitButtonText: {
@@ -728,4 +849,3 @@ const styles = StyleSheet.create({
 
 export default MultiOptionRatingComponent;
 export { StarDisplay };
-

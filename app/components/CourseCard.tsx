@@ -56,7 +56,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onPress }) => {
           source={
             course.CourseImageFileName
               ? { uri: `${appConfig.mobileApi}Course/GetCourseImage/${course.CourseImageFileName}` }
-              : require("../../assets/sample_clothe2.jpg")
+              : require("../../assets/new_course.jpg")
           }
           resizeMode="cover"
         />
@@ -189,6 +189,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     zIndex: 2,
   },
+
   discountText: {
     fontSize: 11,
     fontFamily: "Yekan_Bakh_Bold",

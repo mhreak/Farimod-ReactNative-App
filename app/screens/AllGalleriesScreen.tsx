@@ -13,7 +13,7 @@ import {
   Text,
 } from "react-native";
 import colors from "../config/colors";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation,useRoute } from "@react-navigation/native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MainBackground from "../components/MainBackground";
 import { LinearGradient } from "expo-linear-gradient";
@@ -311,6 +311,71 @@ const PaginationComponent = ({
 
 const AllGalleriesScreen = () => {
   const navigation = useNavigation();
+  const route = useRoute();
+
+  const { filteredMemberId, filteredMemberName, filterType } = route.params || {};
+
+  // بروزرسانی custom hook
+  const useGalleriesWithPagination = () => {
+    const [data, setData] = useState([]);
+    const [total, setTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    const fetchGalleries = async (page = 1, pageSize = ITEMS_PER_PAGE, filters = {}) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        let queryParams = `currentPage=${page}&pageSize=${pageSize}`;
+
+        if (filters.filterMemberId) {
+          queryParams += `&filterMemberId=${filters.filterMemberId}`;
+        }
+
+        const response = await fetch(
+          `${appConfig.mobileApi}ImageGallery/GetAll?${queryParams}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        setData(result.Items || []);
+        setTotal(result.TotalCount || 0);
+        setTotalPages(result.TotalPages || 0);
+      } catch (err) {
+        setError(err.message);
+        setData([]);
+        setTotal(0);
+        setTotalPages(0);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return { data, total, totalPages, loading, error, fetchGalleries };
+  };
+
+  useEffect(() => {
+    const initialFilters = {};
+
+    if (filteredMemberId && filterType === 'member') {
+      initialFilters.filterMemberId = filteredMemberId;
+      showToast(`نمایش گالری ${filteredMemberName}`, 'info');
+    }
+
+    fetchGalleries(currentPage, ITEMS_PER_PAGE, initialFilters);
+  }, [currentPage, filteredMemberId]);
+
+  const getHeaderTitle = () => {
+    if (filteredMemberId && filteredMemberName) {
+      return `گالری ${filteredMemberName}`;
+    }
+    return 'همه گالری‌ها';
+  };
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;

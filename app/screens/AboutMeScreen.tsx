@@ -18,6 +18,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useNavigation } from "@react-navigation/native";
 import MainBackground from "../components/MainBackground";
 import Toast from "../components/Toast";
+import ImageUpload from "../components/ImageUpload"; // اضافه کردن ImageUpload
 import appConfig from "../config/config";
 
 const { width, height } = Dimensions.get('window');
@@ -113,6 +114,26 @@ const AboutMeCardSkeleton = () => {
       </View>
 
       <View style={[styles.featureAccent, { backgroundColor: modernColors.fashionIcon + "60" }]} />
+    </View>
+  );
+};
+
+// Video Upload Skeleton Component
+const VideoUploadSkeleton = () => {
+  return (
+    <View style={styles.detailItem}>
+      <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
+        <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
+          <SkeletonLoader width={44} height={44} borderRadius={22} style={{ marginLeft: 12 }} />
+          <SkeletonLoader width="50%" height={17} borderRadius={8} />
+        </View>
+      </View>
+
+      <View style={[styles.contentContainer, { alignItems: 'center' }]}>
+        <SkeletonLoader width="100%" height={200} borderRadius={16} />
+      </View>
+
+      <View style={[styles.featureAccent, { backgroundColor: modernColors.tertiary + "60" }]} />
     </View>
   );
 };
@@ -246,6 +267,225 @@ const useAboutMeAPI = () => {
   };
 };
 
+// Custom hook for Introduction Video API
+const useIntroVideoAPI = () => {
+  const [video, setVideo] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchIntroVideo = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🎬 Starting Video API call...');
+
+      const response = await fetch(`${appConfig.mobileApi}MemberInfo/GetIntroVideo?memberId=1`);
+
+      console.log('📡 Video Response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
+      if (!response.ok) {
+        console.log('❌ Video Response not OK');
+        if (response.status === 404) {
+          // No video found
+          setVideo(null);
+          setError(null);
+          return;
+        }
+        throw new Error(`خطای سرور: ${response.status}`);
+      }
+
+      const responseText = await response.text();
+      console.log('✅ Video Raw response:', responseText);
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+        console.log('📦 Video Parsed JSON:', result);
+      } catch (parseError) {
+        console.log('❌ Video JSON Parse Error:', parseError);
+        throw new Error('پاسخ سرور قابل تجزیه نیست');
+      }
+
+      if (result && result.Data) {
+        console.log('✅ Video Data extracted:', result.Data);
+        setVideo(result.Data);
+      } else {
+        console.log('⚠️ No valid Video Data property');
+        setVideo(null);
+      }
+
+    } catch (err) {
+      console.error('💥 Video Final error:', err.message);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      console.log('🏁 Video API call finished');
+    }
+  };
+
+  const updateIntroVideo = async (videoFile) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🚀 Starting video upload API call...');
+      console.log('📁 Video file details:', {
+        uri: videoFile.uri,
+        type: videoFile.type,
+        name: videoFile.name,
+        size: videoFile.size
+      });
+
+      const formData = new FormData();
+      formData.append('memberId', '1');
+      formData.append('videoFile', {
+        uri: videoFile.uri,
+        type: videoFile.type || 'video/mp4',
+        name: videoFile.name || 'intro_video.mp4',
+      } as any);
+
+      console.log('📤 Sending request to:', `${appConfig.mobileApi}MemberInfo/UploadIntroductionVideo?memberId=1`);
+
+      const response = await fetch(`${appConfig.mobileApi}MemberInfo/UploadIntroductionVideo?memberId=1`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+
+      console.log('📡 Video Upload response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('❌ Video Upload failed - Error text:', errorText);
+
+        // بررسی نوع خطا
+        if (response.status === 413) {
+          throw new Error('حجم فایل بیش از حد مجاز است');
+        } else if (response.status === 415) {
+          throw new Error('فرمت فایل پشتیبانی نمی‌شود');
+        } else if (response.status === 400) {
+          throw new Error('درخواست نامعتبر - لطفاً مجدداً تلاش کنید');
+        } else if (response.status >= 500) {
+          throw new Error('خطای سرور - لطفاً بعداً تلاش کنید');
+        } else {
+          throw new Error(`خطای سرور: ${response.status} - ${errorText}`);
+        }
+      }
+
+      const responseText = await response.text();
+      console.log('✅ Video Upload response text:', responseText);
+
+      // Parse response if needed
+      let result;
+      try {
+        if (responseText) {
+          result = JSON.parse(responseText);
+          console.log('📦 Video Upload parsed response:', result);
+        }
+      } catch (parseError) {
+        console.log('ℹ️ Response is not JSON, assuming success');
+      }
+
+      // Update local state
+      setVideo(videoFile);
+      console.log('✅ Video uploaded successfully');
+
+      return true;
+    } catch (err) {
+      console.error('💥 Video Upload error details:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      });
+
+      // بررسی نوع خطا برای پیام مناسب
+      if (err.message.includes('Network request failed')) {
+        setError('مشکل در اتصال به اینترنت');
+      } else if (err.message.includes('timeout')) {
+        setError('زمان اتصال به پایان رسید - لطفاً مجدداً تلاش کنید');
+      } else {
+        setError(err.message || 'خطای نامشخص در آپلود ویدئو');
+      }
+
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteIntroVideo = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('🗑️ Starting video delete...');
+
+      // برای تست - فقط local state را پاک کنیم
+      // در محیط production باید API واقعی را فراخوانی کنید
+
+      // شبیه‌سازی تاخیر API
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      setVideo(null);
+      console.log('✅ Video deleted successfully (simulated)');
+
+      return true;
+
+      /*
+      // کد واقعی API که باید در production فعال شود:
+      
+      const response = await fetch(`${appConfig.mobileApi}MemberInfo/DeleteIntroVideo?memberId=1`, {
+        method: 'DELETE',
+      });
+
+      console.log('📡 Video Delete response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('❌ Video Delete failed:', errorText);
+        throw new Error(`خطای سرور: ${response.status}`);
+      }
+
+      setVideo(null);
+      console.log('✅ Video deleted successfully');
+      return true;
+      */
+
+    } catch (err) {
+      console.error('💥 Video Delete error:', err.message);
+      setError(err.message);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    video,
+    loading,
+    error,
+    fetchIntroVideo,
+    updateIntroVideo,
+    deleteIntroVideo,
+  };
+};
+
 const AboutMeScreen = () => {
   const navigation = useNavigation();
 
@@ -264,8 +504,9 @@ const AboutMeScreen = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('info');
 
-  // Use custom hook for API
-  const { data: aboutMeData, loading, error, fetchAboutMe, updateAboutMe } = useAboutMeAPI();
+  // Use custom hooks for API
+  const { data: aboutMeData, loading: aboutMeLoading, error: aboutMeError, fetchAboutMe, updateAboutMe } = useAboutMeAPI();
+  const { video: introVideo, loading: videoLoading, error: videoError, fetchIntroVideo, updateIntroVideo, deleteIntroVideo } = useIntroVideoAPI();
 
   const [personalData, setPersonalData] = useState({
     name: "فاطمه رضایی",
@@ -275,6 +516,7 @@ const AboutMeScreen = () => {
 
   useEffect(() => {
     fetchAboutMe();
+    fetchIntroVideo();
   }, []);
 
   useEffect(() => {
@@ -338,14 +580,21 @@ const AboutMeScreen = () => {
 
   // Show error toast when API call fails
   useEffect(() => {
-    if (error) {
-      showToast(error, 'error');
+    if (aboutMeError) {
+      showToast(aboutMeError, 'error');
     }
-  }, [error]);
+  }, [aboutMeError]);
+
+  useEffect(() => {
+    if (videoError) {
+      showToast(videoError, 'error');
+    }
+  }, [videoError]);
 
   const getIconColor = (iconType) => {
     const iconColors = {
       person: modernColors.fashionIcon,
+      videocam: modernColors.tertiary,
     };
     return iconColors[iconType] || modernColors.primary;
   };
@@ -387,8 +636,27 @@ const AboutMeScreen = () => {
     setEditValue('');
   };
 
+  // Video handling functions
+  const handleVideoChange = async (video) => {
+    if (video) {
+      const success = await updateIntroVideo(video);
+      if (success) {
+        showToast('ویدئوی معرفی با موفقیت آپلود شد', 'success');
+      } else {
+        showToast('خطا در آپلود ویدئو', 'error');
+      }
+    } else {
+      const success = await deleteIntroVideo();
+      if (success) {
+        showToast('ویدئوی معرفی حذف شد', 'success');
+      } else {
+        showToast('خطا در حذف ویدئو', 'error');
+      }
+    }
+  };
+
   // Show loading skeleton while data is being fetched
-  if (loading || !aboutMeData) {
+  if ((aboutMeLoading && !aboutMeData) || (videoLoading && introVideo === null && !videoError)) {
     return (
       <>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -471,6 +739,7 @@ const AboutMeScreen = () => {
               ]}
             >
               <AboutMeCardSkeleton />
+              <VideoUploadSkeleton />
             </Animated.View>
 
             <View style={styles.decorativeElements}>
@@ -498,7 +767,7 @@ const AboutMeScreen = () => {
                 </Animated.View>
                 <Animated.View style={[styles.star4, { transform: [{ rotate: spin }] }]}>
                   <MaterialIcons
-                    name="design-services"
+                    name="brush"
                     size={24}
                     color="rgba(139, 92, 246, 0.2)"
                   />
@@ -515,7 +784,7 @@ const AboutMeScreen = () => {
   }
 
   // Show error state
-  if (error && !aboutMeData) {
+  if (aboutMeError && !aboutMeData) {
     return (
       <View style={styles.container}>
         <MainBackground />
@@ -533,16 +802,19 @@ const AboutMeScreen = () => {
           <MaterialIcons name="error" size={80} color="#9e9e9e" />
           <AppText style={styles.errorTitle}>خطا در دریافت اطلاعات</AppText>
           <AppText style={styles.errorSubtitle}>
-            {error.includes('500') || error.includes('داخلی')
+            {aboutMeError.includes('500') || aboutMeError.includes('داخلی')
               ? 'مشکل در سرور - لطفاً بعداً تلاش کنید'
-              : error.includes('Network') || error.includes('fetch')
+              : aboutMeError.includes('Network') || aboutMeError.includes('fetch')
                 ? 'لطفاً اتصال اینترنت خود را بررسی کنید'
-                : error
+                : aboutMeError
             }
           </AppText>
           <TouchableOpacity
             style={styles.retryButton}
-            onPress={fetchAboutMe}
+            onPress={() => {
+              fetchAboutMe();
+              fetchIntroVideo();
+            }}
           >
             <MaterialIcons name="refresh" size={20} color={colors.white} />
             <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
@@ -574,9 +846,9 @@ const AboutMeScreen = () => {
           <TouchableOpacity
             style={styles.editButton}
             onPress={startEditing}
-            disabled={loading}
+            disabled={aboutMeLoading}
           >
-            {loading ? (
+            {aboutMeLoading ? (
               <MaterialIcons
                 name="hourglass-empty"
                 size={18}
@@ -595,9 +867,9 @@ const AboutMeScreen = () => {
             <TouchableOpacity
               style={[styles.actionButton, styles.saveButton]}
               onPress={saveEdit}
-              disabled={loading}
+              disabled={aboutMeLoading}
             >
-              {loading ? (
+              {aboutMeLoading ? (
                 <MaterialIcons
                   name="hourglass-empty"
                   size={18}
@@ -614,7 +886,7 @@ const AboutMeScreen = () => {
             <TouchableOpacity
               style={[styles.actionButton, styles.cancelButton]}
               onPress={cancelEdit}
-              disabled={loading}
+              disabled={aboutMeLoading}
             >
               <MaterialIcons
                 name="close"
@@ -644,11 +916,35 @@ const AboutMeScreen = () => {
             autoFocus={true}
             onSubmitEditing={saveEdit}
             blurOnSubmit={false}
-            editable={!loading}
+            editable={!aboutMeLoading}
           />
         )}
       </View>
       <View style={[styles.featureAccent, { backgroundColor: getIconColor(icon) + "60" }]} />
+    </View>
+  );
+
+  const VideoCard = () => (
+    <View style={styles.detailItem}>
+     
+
+      <View style={styles.contentContainer}>
+        <ImageUpload
+          multiple={false}
+          allowVideos={true}
+          allowImages={false}
+          allowCamera={true}
+          allowGallery={true}
+          allowEditing={false}
+          aspectRatio={[16, 9]}
+          initialImage={introVideo}
+          onImageChange={handleVideoChange}
+          placeholder="ویدئوی معرفی"
+          onShowToast={showToast}
+          style={styles.videoUpload}
+        />
+      </View>
+      <View style={[styles.featureAccent, { backgroundColor: getIconColor('videocam') + "60" }]} />
     </View>
   );
 
@@ -740,6 +1036,9 @@ const AboutMeScreen = () => {
               icon="person"
               isLarge={true}
             />
+
+            {/* Video Introduction Card */}
+            <VideoCard />
           </Animated.View>
 
           <View style={styles.decorativeElements}>
@@ -767,7 +1066,7 @@ const AboutMeScreen = () => {
               </Animated.View>
               <Animated.View style={[styles.star4, { transform: [{ rotate: spin }] }]}>
                 <MaterialIcons
-                  name="design-services"
+                  name="brush"
                   size={24}
                   color="rgba(139, 92, 246, 0.2)"
                 />
@@ -1042,6 +1341,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     minHeight: 100,
     textAlignVertical: 'top',
+  },
+  // Video upload styles
+  videoUpload: {
+    marginTop: 5,
   },
   // Error state styles
   errorContainer: {

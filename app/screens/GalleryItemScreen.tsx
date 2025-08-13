@@ -10,7 +10,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as ImagePicker from "expo-image-picker";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import RatingComponent, { StarDisplay } from "../components/RatingComponent";
+import MultiOptionRatingComponent, { StarDisplay } from "../components/RatingComponent";
 import Toast from "../components/Toast";
 import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
@@ -130,6 +130,9 @@ const GalleryItemScreen = () => {
   const [fullScreenImageUri, setFullScreenImageUri] = useState(null);
   const [fullScreenModalVisible, setFullScreenModalVisible] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
@@ -144,6 +147,10 @@ const GalleryItemScreen = () => {
   const modalOpacityAnim = useRef(new Animated.Value(0)).current;
   const reviewModalSlideAnim = useRef(new Animated.Value(0)).current;
   const reviewModalBackdropAnim = useRef(new Animated.Value(0)).current;
+  const actionModalSlideAnim = useRef(new Animated.Value(0)).current;
+  const actionModalBackdropAnim = useRef(new Animated.Value(0)).current;
+  const deleteModalSlideAnim = useRef(new Animated.Value(0)).current;
+  const deleteModalBackdropAnim = useRef(new Animated.Value(0)).current;
 
   const { data: galleryData, loading, error, fetchGallery, setData } = useGalleryDetail();
 
@@ -159,7 +166,6 @@ const GalleryItemScreen = () => {
   const [isLiking, setIsLiking] = useState(false);
   const likeAnim = useRef(new Animated.Value(1)).current;
 
-  // Check if this is user's own gallery
   const isOwnGallery = galleryData && galleryData.MemberId === CURRENT_MEMBER_ID;
 
   useFocusEffect(
@@ -178,7 +184,6 @@ const GalleryItemScreen = () => {
       const ratingOptions = transformContentReviewToRatingOptions(galleryData.ContentReviewItemList);
       setDynamicRatingOptions(ratingOptions);
 
-      // Set existing images from API
       if (galleryData.ImageGalleryItemList) {
         const existingImages = galleryData.ImageGalleryItemList.map(item => item.ImageURL);
         setImageUri(existingImages);
@@ -347,6 +352,109 @@ const GalleryItemScreen = () => {
     });
   };
 
+  const handleShowActions = () => {
+    setShowActionModal(true);
+    Animated.parallel([
+      Animated.timing(actionModalBackdropAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(actionModalSlideAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const handleCloseActionModal = () => {
+    Animated.parallel([
+      Animated.timing(actionModalBackdropAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(actionModalSlideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowActionModal(false);
+    });
+  };
+
+  const handleDeleteGallery = () => {
+    handleCloseActionModal();
+    setTimeout(() => {
+      setShowDeleteConfirmModal(true);
+      Animated.parallel([
+        Animated.timing(deleteModalBackdropAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(deleteModalSlideAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, 300);
+  };
+
+  const handleCloseDeleteModal = () => {
+    Animated.parallel([
+      Animated.timing(deleteModalBackdropAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(deleteModalSlideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowDeleteConfirmModal(false);
+    });
+  };
+
+  const confirmDeleteGallery = async () => {
+    handleCloseDeleteModal();
+
+    try {
+      setIsDeleting(true);
+
+      const response = await fetch(`${appConfig.mobileApi}ImageGallery/Delete?id=${galleryData.ImageGalleryId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        showToast('گالری با موفقیت حذف شد', 'success');
+        setTimeout(() => {
+          navigation.goBack();
+        }, 2000);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.Message || 'خطا در حذف گالری');
+      }
+    } catch (error) {
+      console.error('Error deleting gallery:', error);
+      showToast(error.message || 'خطا در حذف گالری', 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleEditGallery = () => {
+    navigation.navigate("AddNewGallery", {
+      isEdit: true,
+      galleryData: galleryData
+    });
+  };
+
   const handleLike = async () => {
     if (isLiking || !galleryData) return;
 
@@ -480,6 +588,18 @@ const GalleryItemScreen = () => {
           </View>
         </TouchableOpacity>
 
+        {isOwnGallery && !loading && (
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={handleShowActions}
+            disabled={isDeleting}
+          >
+            <View style={styles.menuButtonContainer}>
+              <MaterialIcons name="more-vert" size={24} color="#6366f1" />
+            </View>
+          </TouchableOpacity>
+        )}
+
         <Animated.View
           style={[
             styles.headerContainer,
@@ -604,26 +724,89 @@ const GalleryItemScreen = () => {
                 </View>
 
                 <View style={styles.ratingSection}>
-                  <RatingComponent
-                    initialRating={galleryData.UserRating || 0}
+                  <MultiOptionRatingComponent
+                    contentId={galleryData.ImageGalleryId}
                     averageRating={galleryData.Rating || 0}
                     ratingCount={galleryData.RatingCount || 0}
-                    onRatingChange={handleRatingChange}
-                    onSubmit={handleRatingSubmit}
+                    initialRating={galleryData.UserRating || 0}
+                    initialDetailedRatings={userDetailedRatings}
                     maxStars={5}
                     size={24}
-                    showRatingText={true}
-                    showRatingCount={true}
-                    animated={true}
-                    allowHalfStars={false}
                     starColor={modernColors.fashionGold}
-                    style={styles.ratingComponent}
                     enableMultipleOptions={true}
                     ratingOptions={dynamicRatingOptions}
-                    modalTitle="امتیاز دهی گالری"
+                    modalTitle="امتیازدهی گالری"
                     submitButtonText="ثبت امتیاز"
                     cancelButtonText="لغو"
+                    showRatingCount={true}
+                    showRatingText={true}
+                    animated={true}
+                    allowHalfStars={false}
+                    onRatingSubmitted={(result) => {
+                      console.log('Rating submitted successfully:', result);
+
+                      if (result.ratings) {
+                        setUserDetailedRatings(result.ratings);
+                        const averageRating = result.averageRating;
+
+                        setData(prevData => ({
+                          ...prevData,
+                          UserRating: averageRating,
+                          UserDetailedRatings: result.ratings
+                        }));
+
+                        showToast(`امتیاز شما در ${Object.keys(result.ratings).length} بخش با موفقیت ثبت شد`, 'success');
+                      } else {
+                        setData(prevData => ({
+                          ...prevData,
+                          UserRating: result.rating
+                        }));
+
+                        showToast(`امتیاز ${toPersianDigits(result.rating.toString())} ستاره ثبت شد`, 'success');
+                      }
+                    }}
+                    onRatingError={(errorMessage) => {
+                      console.error('Rating submission failed:', errorMessage);
+                      showToast(errorMessage || 'خطا در ثبت امتیاز', 'error');
+                    }}
+                    onRatingChange={(rating, detailedRatings) => {
+                      if (detailedRatings) {
+                        setUserDetailedRatings(detailedRatings);
+                      }
+                    }}
+                    style={styles.ratingComponent}
                   />
+
+                  {dynamicRatingOptions.length > 0 && Object.keys(userDetailedRatings).length > 0 && (
+                    <View style={styles.userDetailedRatingsContainer}>
+                      <AppText style={styles.userDetailedRatingsTitle}>امتیازات شما:</AppText>
+                      {dynamicRatingOptions
+                        .filter(option => userDetailedRatings[option.id])
+                        .map((option) => (
+                          <View key={option.id} style={styles.userRatingRow}>
+                            <View style={styles.userRatingRowContent}>
+                              <View style={styles.userRatingRowText}>
+                                <AppText style={styles.userRatingRowTitle}>{option.title}</AppText>
+                              </View>
+                              <View style={styles.userRatingRowStars}>
+                                <StarDisplay
+                                  rating={userDetailedRatings[option.id]}
+                                  maxStars={5}
+                                  size={16}
+                                  color={modernColors.fashionGold}
+                                  emptyColor="#e0e0e0"
+                                  showHalfStars={false}
+                                  animated={false}
+                                />
+                                <AppText style={styles.userRatingScore}>
+                                  {toPersianDigits(userDetailedRatings[option.id].toString())}
+                                </AppText>
+                              </View>
+                            </View>
+                          </View>
+                        ))}
+                    </View>
+                  )}
 
                   {dynamicRatingOptions.length > 0 && dynamicRatingOptions.some(option => option.averageRating && option.averageRating > 0) && (
                     <View style={styles.detailedRatingsContainer}>
@@ -647,7 +830,9 @@ const GalleryItemScreen = () => {
                                   showHalfStars={true}
                                   animated={false}
                                 />
-                               
+                                <AppText style={styles.averageRatingScore}>
+                                  {toPersianDigits(option.averageRating.toFixed(1))}
+                                </AppText>
                               </View>
                             </View>
                           </View>
@@ -660,7 +845,6 @@ const GalleryItemScreen = () => {
           </Animated.View>
         </ScrollView>
 
-        {/* مدال انتخاب عکس - فقط برای گالری خودی */}
         {isOwnGallery && (
           <Modal
             visible={modalVisible}
@@ -705,7 +889,7 @@ const GalleryItemScreen = () => {
                     activeOpacity={0.8}
                   >
                     <View style={[styles.pickerIcon, { backgroundColor: '#10B981' }]}>
-                      <MaterialIcons name="camera-alt" size={32} color="white" />
+                     <MaterialIcons name="camera-alt" size={32} color="white" />
                     </View>
                     <AppText style={styles.pickerLabel}>دوربین</AppText>
                     <AppText style={styles.pickerDescription}>گرفتن عکس جدید</AppText>
@@ -725,9 +909,204 @@ const GalleryItemScreen = () => {
           </Modal>
         )}
 
+        <Modal
+          visible={showActionModal}
+          transparent={true}
+          animationType="none"
+          onRequestClose={handleCloseActionModal}
+        >
+          <View style={styles.actionModalContainer}>
+            <Animated.View
+              style={[
+                styles.actionModalBackdrop,
+                {
+                  opacity: actionModalBackdropAnim,
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.backdropTouchable}
+                onPress={handleCloseActionModal}
+                activeOpacity={1}
+              />
+            </Animated.View>
 
+            <Animated.View
+              style={[
+                styles.actionModalContent,
+                {
+                  transform: [
+                    {
+                      translateY: actionModalSlideAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [300, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <View style={styles.modalHandle} />
 
-        {/* مدال نمایش عکس در full screen */}
+              <View style={styles.actionModalHeader}>
+                <AppText style={styles.actionModalTitle}>عملیات گالری</AppText>
+              </View>
+
+              <View style={styles.actionModalActions}>
+                <TouchableOpacity
+                  style={styles.actionModalActionItem}
+                  onPress={() => {
+                    handleCloseActionModal();
+                    setTimeout(() => {
+                      selectImageSource();
+                    }, 300);
+                  }}
+                >
+                  <View style={styles.actionModalActionContent}>
+                    <View style={[styles.actionModalActionIcon, { backgroundColor: modernColors.success }]}>
+                      <MaterialIcons name="add-a-photo" size={22} color="#ffffff" />
+                    </View>
+                    <View style={styles.actionModalActionText}>
+                      <AppText style={styles.actionModalActionTitle}>افزودن تصویر</AppText>
+                      <AppText style={styles.actionModalActionSubtitle}>افزودن تصویر جدید به گالری</AppText>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionModalActionItem}
+                  onPress={() => {
+                    handleCloseActionModal();
+                    setTimeout(() => {
+                      handleEditGallery();
+                    }, 300);
+                  }}
+                >
+                  <View style={styles.actionModalActionContent}>
+                    <View style={[styles.actionModalActionIcon, { backgroundColor: modernColors.info }]}>
+                      <MaterialIcons name="edit" size={22} color="#ffffff" />
+                    </View>
+                    <View style={styles.actionModalActionText}>
+                      <AppText style={styles.actionModalActionTitle}>ویرایش گالری</AppText>
+                      <AppText style={styles.actionModalActionSubtitle}>ویرایش عنوان و تنظیمات گالری</AppText>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.actionModalActionItem}
+                  onPress={handleDeleteGallery}
+                  disabled={isDeleting}
+                >
+                  <View style={styles.actionModalActionContent}>
+                    <View style={[styles.actionModalActionIcon, { backgroundColor: modernColors.error }]}>
+                      <MaterialIcons name="delete" size={22} color="#ffffff" />
+                    </View>
+                    <View style={styles.actionModalActionText}>
+                      <AppText style={styles.actionModalActionTitle}>حذف گالری</AppText>
+                      <AppText style={styles.actionModalActionSubtitle}>حذف کامل گالری از سیستم</AppText>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.actionModalCancelButton}
+                onPress={handleCloseActionModal}
+              >
+                <AppText style={styles.actionModalCancelText}>لغو</AppText>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={showDeleteConfirmModal}
+          transparent={true}
+          animationType="none"
+          onRequestClose={handleCloseDeleteModal}
+        >
+          <View style={styles.deleteModalContainer}>
+            <Animated.View
+              style={[
+                styles.deleteModalBackdrop,
+                {
+                  opacity: deleteModalBackdropAnim,
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.backdropTouchable}
+                onPress={handleCloseDeleteModal}
+                activeOpacity={1}
+              />
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.deleteModalContent,
+                {
+                  transform: [
+                    {
+                      translateY: deleteModalSlideAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [300, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <View style={styles.modalHandle} />
+
+              <View style={styles.deleteModalHeader}>
+                <View style={styles.deleteWarningIcon}>
+                  <MaterialIcons name="warning" size={32} color="#ffffff" />
+                </View>
+                <AppText style={styles.deleteModalTitle}>تأیید حذف</AppText>
+                <AppText style={styles.deleteModalMessage}>
+                  آیا از حذف این گالری اطمینان دارید؟{'\n'}
+                  این عمل قابل بازگشت نیست.
+                </AppText>
+              </View>
+
+              <View style={styles.deleteModalActions}>
+                <View style={styles.deleteButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.deleteModalCancelButton}
+                    onPress={handleCloseDeleteModal}
+                    disabled={isDeleting}
+                  >
+                    <AppText style={styles.deleteModalCancelText}>لغو</AppText>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.confirmDeleteButton}
+                    onPress={confirmDeleteGallery}
+                    disabled={isDeleting}
+                  >
+                    <LinearGradient
+                      colors={[modernColors.error, '#c0392b']}
+                      style={styles.confirmDeleteGradient}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                    >
+                      {isDeleting ? (
+                        <MaterialIcons name="hourglass-empty" size={20} color="#ffffff" />
+                      ) : (
+                        <MaterialIcons name="delete-forever" size={20} color="#ffffff" />
+                      )}
+                      <AppText style={styles.confirmDeleteText}>
+                        {isDeleting ? 'در حال حذف...' : 'بله، حذف کن'}
+                      </AppText>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </Animated.View>
+          </View>
+        </Modal>
+
         <Modal
           animationType="fade"
           transparent={true}
@@ -803,6 +1182,29 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   backButtonContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    marginTop: -12
+  },
+  menuButton: {
+    position: 'absolute',
+    top: StatusBar.currentHeight + 45,
+    left: 20,
+    zIndex: 1000,
+  },
+  menuButtonContainer: {
     width: 50,
     height: 50,
     borderRadius: 25,
@@ -1062,11 +1464,11 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     textAlign: 'center',
   },
-  reviewModalContainer: {
+  actionModalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
   },
-  reviewModalBackdrop: {
+  actionModalBackdrop: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -1077,14 +1479,13 @@ const styles = StyleSheet.create({
   backdropTouchable: {
     flex: 1,
   },
-  reviewModalContent: {
+  actionModalContent: {
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     paddingTop: 15,
     paddingBottom: 35,
     paddingHorizontal: 20,
-    maxHeight: '80%',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -1094,141 +1495,172 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 10,
   },
-  reviewModalHeader: {
+  actionModalHeader: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 25,
   },
-  reviewModalTitle: {
+  actionModalTitle: {
     fontSize: 18,
     fontFamily: "Yekan_Bakh_Bold",
     color: "#2c3e50",
   },
-  reviewModalScroll: {
-    maxHeight: 400,
-  },
-  galleryInfoInModal: {
-    backgroundColor: '#f8f9ff',
-    borderRadius: 15,
-    padding: 15,
+  actionModalActions: {
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#e3e7ff',
   },
-  galleryTitleInModal: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  quickStatsRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-around',
-    marginBottom: 15,
-  },
-  quickStat: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-  },
-  quickStatText: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#666",
-    marginRight: 6,
-  },
-  likeButtonInModal: {
-    alignItems: 'center',
-  },
-  fullLikeButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 25,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  fullLikeText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    marginRight: 8,
-  },
-  ratingInModal: {
-    backgroundColor: '#ffffff',
+  actionModalActionItem: {
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+    marginBottom: 10,
     borderRadius: 15,
-    padding: 15,
+    backgroundColor: '#f8f9fa',
     borderWidth: 1,
     borderColor: '#e9ecef',
   },
-  ratingComponentInModal: {
-    alignItems: 'flex-end',
-  },
-  detailedRatingsInModal: {
-    marginTop: 15,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  detailedRatingsTitleInModal: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    textAlign: 'right',
-    marginBottom: 10,
-  },
-  detailedRatingRowInModal: {
-    marginBottom: 8,
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  ratingRowContentInModal: {
+  actionModalActionContent: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  ratingRowTextInModal: {
+  actionModalActionIcon: {
+    width: 45,
+    height: 45,
+    borderRadius: 22.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 15,
+  },
+  actionModalActionText: {
     flex: 1,
     alignItems: 'flex-end',
   },
-  ratingRowTitleInModal: {
-    fontSize: 13,
+  actionModalActionTitle: {
+    fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
     color: "#2c3e50",
+    marginBottom: 2,
   },
-  ratingRowStarsInModal: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginLeft: 10,
-  },
-  ratingScoreInModal: {
+  actionModalActionSubtitle: {
     fontSize: 13,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.fashionGold,
-    marginRight: 4,
-    minWidth: 25,
-    textAlign: 'center',
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "#6c757d",
   },
-  reviewModalCloseButton: {
+  actionModalCancelButton: {
     backgroundColor: '#f8f9fa',
     paddingVertical: 15,
     borderRadius: 15,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e9ecef',
-    marginTop: 15,
   },
-  reviewModalCloseText: {
+  actionModalCancelText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#6c757d',
+  },
+  deleteModalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  deleteModalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  deleteModalContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    paddingTop: 15,
+    paddingBottom: 35,
+    paddingHorizontal: 25,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -5,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  deleteModalHeader: {
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  deleteWarningIcon: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: modernColors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    shadowColor: modernColors.error,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  deleteModalTitle: {
+    fontSize: 20,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    marginBottom: 15,
+  },
+  deleteModalMessage: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "#6c757d",
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  deleteModalActions: {
+    marginTop: 10,
+  },
+  deleteButtonsRow: {
+    flexDirection: 'row-reverse',
+    gap: 15,
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    borderRadius: 15,
+    overflow: 'hidden',
+    shadowColor: modernColors.error,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  confirmDeleteGradient: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  confirmDeleteText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#ffffff',
+  },
+  deleteModalCancelButton: {
+    flex: 1,
+    backgroundColor: '#f8f9fa',
+    paddingVertical: 16,
+    borderRadius: 15,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e9ecef',
+  },
+  deleteModalCancelText: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
     color: '#6c757d',
@@ -1251,6 +1683,60 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 25,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  userDetailedRatingsContainer: {
+    marginTop: 20,
+    backgroundColor: '#e8f5e8',
+    borderRadius: 15,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+  },
+  userDetailedRatingsTitle: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    textAlign: 'right',
+    marginBottom: 15,
+  },
+  userRatingRow: {
+    marginBottom: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e8f5e8',
+  },
+  userRatingRowContent: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  userRatingRowText: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  userRatingRowTitle: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    marginBottom: 4,
+  },
+  userRatingRowStars: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    marginLeft: 15,
+    gap: 8,
+  },
+  userRatingScore: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: modernColors.success,
+  },
+  averageRatingScore: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#666",
   },
 });
 

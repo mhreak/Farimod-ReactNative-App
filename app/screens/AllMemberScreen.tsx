@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   FlatList,
   RefreshControl,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
@@ -87,7 +88,6 @@ const useMembersWithPagination = () => {
   };
 };
 
-// Skeleton Component
 const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
 
@@ -130,36 +130,30 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   );
 };
 
-// Member Card Skeleton
 const MemberCardSkeleton = () => {
   return (
     <View style={styles.memberSkeletonContainer}>
       <View style={styles.memberContentSkeleton}>
-        {/* Avatar */}
         <SkeletonLoader width={80} height={80} borderRadius={40} style={{ marginBottom: 12 }} />
-        {/* Name */}
         <SkeletonLoader width="70%" height={16} style={{ marginBottom: 8, alignSelf: 'center' }} />
-        {/* Member Groups */}
         <SkeletonLoader width="80%" height={14} style={{ alignSelf: 'center' }} />
       </View>
     </View>
   );
 };
 
-// Avatar Component for Members
 const Avatar = ({ name, size = 80, onPress, member }) => {
   const scaleValue = new Animated.Value(1);
 
-  // آرایه رنگ‌های گرادیان زیبا
   const gradientColors = [
-    ['#fa709a', '#fee140'], // صورتی به زرد
-    ['#667eea', '#764ba2'], // بنفش آبی
-    ['#f093fb', '#f5576c'], // صورتی قرمز
-    ['#4facfe', '#00f2fe'], // آبی فیروزه‌ای
-    ['#43e97b', '#38f9d7'], // سبز آبی
-    ['#ff9a56', '#ffad56'], // نارنجی
-    ['#a8edea', '#fed6e3'], // آبی روشن
-    ['#fbc2eb', '#a6c1ee'], // صورتی آبی
+    ['#fa709a', '#fee140'],
+    ['#667eea', '#764ba2'],
+    ['#f093fb', '#f5576c'],
+    ['#4facfe', '#00f2fe'],
+    ['#43e97b', '#38f9d7'],
+    ['#ff9a56', '#ffad56'],
+    ['#a8edea', '#fed6e3'],
+    ['#fbc2eb', '#a6c1ee'],
   ];
 
   const getGradientForName = (name) => {
@@ -188,6 +182,7 @@ const Avatar = ({ name, size = 80, onPress, member }) => {
   };
 
   const selectedGradient = getGradientForName(name);
+  const hasProfileImage = member?.AvatarImageURL && member.AvatarImageURL.trim() !== '';
 
   return (
     <TouchableOpacity
@@ -206,31 +201,73 @@ const Avatar = ({ name, size = 80, onPress, member }) => {
           },
         ]}
       >
-        <LinearGradient
-          colors={selectedGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[
-            styles.avatarGradient,
+        {hasProfileImage ? (
+          <View style={[
+            styles.avatarImageContainer,
             {
               width: size,
               height: size,
               borderRadius: size / 2,
             },
-          ]}
-        >
-          <MaterialCommunityIcons
-            name={member?.Gender ? "face-man" : "face-woman"}
-            size={size * 0.6}
-            color="white"
-          />
-        </LinearGradient>
+          ]}>
+            <Image
+              source={{ uri: member.AvatarImageURL }}
+              style={[
+                styles.avatarImage,
+                {
+                  width: size,
+                  height: size,
+                  borderRadius: size / 2,
+                },
+              ]}
+              resizeMode="cover"
+            />
+          </View>
+        ) : (
+          <LinearGradient
+            colors={selectedGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[
+              styles.avatarGradient,
+              {
+                width: size,
+                height: size,
+                borderRadius: size / 2,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={member?.Gender ? "face-man" : "face-woman"}
+              size={size * 0.6}
+              color="white"
+            />
+          </LinearGradient>
+        )}
+
+        {member?.ShowBlueTick && (
+          <View style={[
+            styles.blueTickContainer,
+            {
+              width: size * 0.28,
+              height: size * 0.28,
+              borderRadius: (size * 0.28) / 2,
+              bottom: size * 0.05,
+              right: size * 0.05,
+            }
+          ]}>
+            <MaterialIcons
+              name="verified"
+              size={size * 0.22}
+              color="#1DA1F2"
+            />
+          </View>
+        )}
       </Animated.View>
     </TouchableOpacity>
   );
 };
 
-// Member Card Component
 const MemberCard = ({ member, onPress }) => {
   return (
     <TouchableOpacity
@@ -238,11 +275,9 @@ const MemberCard = ({ member, onPress }) => {
       onPress={() => onPress(member)}
       activeOpacity={0.8}
     >
-      {/* Glass overlay for Android */}
       <View style={styles.memberCardOverlay} />
 
       <View style={styles.memberContent}>
-        {/* Avatar */}
         <Avatar
           name={member.Name}
           size={80}
@@ -250,7 +285,6 @@ const MemberCard = ({ member, onPress }) => {
           onPress={() => onPress(member)}
         />
 
-        {/* Member Info */}
         <View style={styles.memberInfo}>
           <AppText style={styles.memberName} numberOfLines={1}>
             {safeString(member.Name, 'نام کاربر')}
@@ -278,7 +312,6 @@ const MemberCard = ({ member, onPress }) => {
   );
 };
 
-// Beautiful Pagination Component
 const PaginationComponent = ({
   currentPage,
   totalPages,
@@ -350,7 +383,6 @@ const PaginationComponent = ({
       startPage = Math.max(1, endPage - maxVisiblePages + 1);
     }
 
-    // Previous button
     if (currentPage > 1) {
       items.push(
         <TouchableOpacity
@@ -371,7 +403,6 @@ const PaginationComponent = ({
       );
     }
 
-    // First page + ellipsis
     if (startPage > 1) {
       items.push(renderPageButton(1, currentPage === 1));
       if (startPage > 2) {
@@ -383,12 +414,10 @@ const PaginationComponent = ({
       }
     }
 
-    // Page numbers
     for (let i = startPage; i <= endPage; i++) {
       items.push(renderPageButton(i, i === currentPage));
     }
 
-    // Last page + ellipsis
     if (endPage < totalPages) {
       if (endPage < totalPages - 1) {
         items.push(
@@ -400,7 +429,6 @@ const PaginationComponent = ({
       items.push(renderPageButton(totalPages, currentPage === totalPages));
     }
 
-    // Next button
     if (currentPage < totalPages) {
       items.push(
         <TouchableOpacity
@@ -435,7 +463,6 @@ const PaginationComponent = ({
   );
 };
 
-// تابع برای تقسیم داده‌ها به دو ستون
 const chunkData = (data, chunkSize) => {
   const chunks = [];
   for (let i = 0; i < data.length; i += chunkSize) {
@@ -451,22 +478,17 @@ const AllMembersScreen = () => {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  // Use custom hook for API with pagination
   const { data: members, total, loading: membersLoading, error: membersError, fetchMembers } = useMembersWithPagination();
 
-  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
-  // Toast states
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('info');
 
-  // Refreshing state
   const [refreshing, setRefreshing] = useState(false);
 
-  // Initial load and page changes
   useEffect(() => {
     fetchMembers(currentPage, ITEMS_PER_PAGE);
   }, [currentPage]);
@@ -499,14 +521,12 @@ const AllMembersScreen = () => {
     outputRange: ['0deg', '360deg'],
   });
 
-  // Toast helper function
   const showToast = (message, type = 'info') => {
     setToastMessage(message);
     setToastType(type);
     setToastVisible(true);
   };
 
-  // Show error toasts when API calls fail
   useEffect(() => {
     if (membersError) {
       showToast('خطا در دریافت اطلاعات اعضا. لطفاً دوباره تلاش کنید.', 'error');
@@ -521,7 +541,6 @@ const AllMembersScreen = () => {
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
-    // Add smooth scroll to top effect
     Animated.timing(slideAnim, {
       toValue: 20,
       duration: 200,
@@ -541,12 +560,10 @@ const AllMembersScreen = () => {
     setRefreshing(false);
   };
 
-  // Create skeleton data for loading state
   const createSkeletonData = () => {
     return Array.from({ length: ITEMS_PER_PAGE }, (_, index) => ({ id: `skeleton-${index}` }));
   };
 
-  // تغییر در renderMemberItem برای نمایش دو آیتم در هر ردیف
   const renderRowItem = ({ item: rowData, index }) => {
     return (
       <View style={styles.rowContainer}>
@@ -568,7 +585,6 @@ const AllMembersScreen = () => {
           );
         })}
 
-        {/* اگر تعداد آیتم‌ها فرد باشد، فضای خالی اضافه کن */}
         {rowData.length === 1 && (
           <View style={styles.memberItemContainer} />
         )}
@@ -607,7 +623,6 @@ const AllMembersScreen = () => {
     </View>
   );
 
-  // Show total members info
   const renderMembersInfo = () => {
     if (membersLoading || membersError || total === 0) return null;
 
@@ -624,7 +639,6 @@ const AllMembersScreen = () => {
       <View style={styles.container}>
         <MainBackground />
 
-        {/* Toast Component */}
         <Toast
           visible={toastVisible}
           message={toastMessage}
@@ -632,7 +646,6 @@ const AllMembersScreen = () => {
           onHide={() => setToastVisible(false)}
         />
 
-        {/* Back Button */}
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -646,7 +659,6 @@ const AllMembersScreen = () => {
           </View>
         </TouchableOpacity>
 
-        {/* Header */}
         <Animated.View
           style={[
             styles.headerContainer,
@@ -661,7 +673,6 @@ const AllMembersScreen = () => {
           </View>
         </Animated.View>
 
-        {/* Members Info */}
         <Animated.View
           style={[
             styles.sectionTitleContainer,
@@ -688,7 +699,6 @@ const AllMembersScreen = () => {
           </View>
         </Animated.View>
 
-        {/* Decorative Elements */}
         <Animated.View
           style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
         >
@@ -698,7 +708,6 @@ const AllMembersScreen = () => {
         >
         </Animated.View>
 
-        {/* Content */}
         <Animated.View
           style={[
             styles.contentContainer,
@@ -713,7 +722,7 @@ const AllMembersScreen = () => {
           ) : (
             <>
               <FlatList
-                key="members-list" // اضافه کردن key ثابت
+                key="members-list"
                 data={chunkData(membersLoading ? createSkeletonData() : members, 2)}
                 renderItem={renderRowItem}
                 keyExtractor={(item, index) => `row-${index}`}
@@ -728,10 +737,9 @@ const AllMembersScreen = () => {
                   />
                 }
                 ListEmptyComponent={renderEmptyComponent}
-                numColumns={1} // تنظیم صریح numColumns
+                numColumns={1}
               />
 
-              {/* Pagination */}
               {!membersLoading && !membersError && totalPages > 1 && (
                 <PaginationComponent
                   currentPage={currentPage}
@@ -744,7 +752,6 @@ const AllMembersScreen = () => {
           )}
         </Animated.View>
 
-        {/* Decorative Elements */}
         <View style={styles.decorativeElements}>
           <View style={styles.floatingElements}>
             <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
@@ -869,23 +876,21 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingBottom: 20,
     paddingTop: 10,
-    paddingHorizontal: 12, // کاهش padding برای فضای بیشتر
+    paddingHorizontal: 12,
   },
-  // استایل جدید برای چینش بهتر
   rowContainer: {
-    flexDirection: 'row-reverse', // برای چینش راست به چپ
+    flexDirection: 'row-reverse',
     justifyContent: 'space-between',
-    marginBottom: 20, // افزایش فاصله عمودی بین ردیف‌ها
-    paddingHorizontal: 8, // اضافه کردن padding جانبی
+    marginBottom: 20,
+    paddingHorizontal: 8,
   },
   memberItemContainer: {
-    width: (width - 64) / 2, // کاهش عرض برای فاصله بیشتر
-    marginHorizontal: 8, // افزایش فاصله افقی بین کارت‌ها
+    width: (width - 64) / 2,
+    marginHorizontal: 8,
   },
   pagination: {
     marginBottom: 40,
   },
-  // Member Card Styles
   memberCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 16,
@@ -896,18 +901,55 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 1)',
     backdropFilter: 'blur(10px)',
     overflow: 'hidden',
- 
   },
   memberContent: {
     alignItems: 'center',
     justifyContent: 'space-between',
     flex: 1,
   },
+  avatarImageContainer: {
+    borderWidth: 3,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  avatarImage: {
+    borderWidth: 3,
+    borderColor: '#fff',
+  },
   avatarGradient: {
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
     borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  blueTickContainer: {
+    position: 'absolute',
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
   },
   memberInfo: {
     alignItems: 'center',
@@ -980,7 +1022,6 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: '#fff',
   },
-  // Pagination Styles
   paginationContainer: {
     alignItems: 'center',
     paddingVertical: 20,
@@ -1020,7 +1061,6 @@ const styles = StyleSheet.create({
     borderColor: '#e0e0e0',
   },
   activePageButton: {
-    // Active page button styles handled by gradient
   },
   activePageButtonContent: {
     backgroundColor: modernColors.primary,
@@ -1107,7 +1147,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
-  // Error state styles
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1150,7 +1189,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     marginRight: 8,
   },
-  // Decorative elements
   floatingDecoration1: {
     position: 'absolute',
     top: 200,

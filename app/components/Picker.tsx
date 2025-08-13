@@ -29,11 +29,14 @@ interface IProps {
   PickerItemComponent?: React.ReactNode;
   placeholder: string;
   selectedItem?: any;
+  selectedItems?: any[]; // برای حالت multi-select
   width?: string;
   error?: string;
   disabled?: boolean;
   onPress?: () => void;
-  theme?: 'default' | 'subscription'; // تم جدید اضافه شده
+  theme?: 'default' | 'subscription';
+  multiSelect?: boolean; // پراپ جدید برای فعال کردن multi-select
+  onMultiSelectChange?: (items: any[]) => void; // callback برای multi-select
 }
 
 const { width, height } = Dimensions.get('window');
@@ -54,7 +57,6 @@ const modernColors = {
   info: "#3498db",
 };
 
-// رنگ‌های تم سبز برای صفحه اشتراک‌ها
 const subscriptionColors = {
   primary: "#2ecc71",
   primaryDark: "#27ae60",
@@ -70,14 +72,18 @@ const AppPicker: React.FC<IProps> = ({
   PickerItemComponent,
   placeholder,
   selectedItem,
+  selectedItems = [],
   width = "100%",
   error,
   disabled = false,
   onPress,
-  theme = 'default', // مقدار پیش‌فرض
+  theme = 'default',
+  multiSelect = false,
+  onMultiSelectChange,
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [tempSelectedItem, setTempSelectedItem] = useState(selectedItem);
+  const [tempSelectedItems, setTempSelectedItems] = useState<any[]>(selectedItems);
 
   const modalSlideAnim = useRef(new Animated.Value(300)).current;
   const modalOpacityAnim = useRef(new Animated.Value(0)).current;
@@ -88,7 +94,6 @@ const AppPicker: React.FC<IProps> = ({
     default: 0,
   });
 
-  // انتخاب رنگ‌ها بر اساس تم
   const getThemeColors = () => {
     if (theme === 'subscription') {
       return {
@@ -118,6 +123,7 @@ const AppPicker: React.FC<IProps> = ({
 
     setModalVisible(true);
     setTempSelectedItem(selectedItem);
+    setTempSelectedItems([...selectedItems]);
 
     Animated.parallel([
       Animated.timing(modalSlideAnim, {
@@ -151,23 +157,78 @@ const AppPicker: React.FC<IProps> = ({
   };
 
   const handleConfirm = () => {
-    if (tempSelectedItem) {
-      onSelectItem(tempSelectedItem);
+    if (multiSelect) {
+      if (onMultiSelectChange) {
+        onMultiSelectChange(tempSelectedItems);
+      }
+    } else {
+      if (tempSelectedItem) {
+        onSelectItem(tempSelectedItem);
+      }
     }
     closeModal();
   };
 
   const handleItemSelect = (item: { value: string | number; label: string; price?: number; icon?: string }) => {
-    setTempSelectedItem(item);
+    if (multiSelect) {
+      const isSelected = tempSelectedItems.some(selected => selected.value === item.value);
+      if (isSelected) {
+        setTempSelectedItems(tempSelectedItems.filter(selected => selected.value !== item.value));
+      } else {
+        setTempSelectedItems([...tempSelectedItems, item]);
+      }
+    } else {
+      setTempSelectedItem(item);
+    }
   };
 
   const clearSelection = () => {
-    setTempSelectedItem(null);
+    if (multiSelect) {
+      setTempSelectedItems([]);
+    } else {
+      setTempSelectedItem(null);
+    }
+  };
+
+  const isItemSelected = (item: any) => {
+    if (multiSelect) {
+      return tempSelectedItems.some(selected => selected.value === item.value);
+    } else {
+      return tempSelectedItem && tempSelectedItem.value === item.value;
+    }
+  };
+
+  // تابع برای نمایش متن انتخاب شده
+  const getDisplayText = () => {
+    if (multiSelect) {
+      if (selectedItems.length === 0) {
+        return placeholder;
+      } else if (selectedItems.length === 1) {
+        return selectedItems[0].label;
+      } else {
+        // نمایش تعداد آیتم‌های انتخاب شده یا لیست آنها با کاما
+        const labels = selectedItems.map(item => item.label).join('، ');
+        if (labels.length > 40) { // اگر متن خیلی طولانی شد، فقط تعداد نمایش دهید
+          return `${selectedItems.length} مورد انتخاب شده`;
+        }
+        return labels;
+      }
+    } else {
+      return selectedItem?.label || placeholder;
+    }
+  };
+
+  const isSelected = () => {
+    if (multiSelect) {
+      return selectedItems.length > 0;
+    } else {
+      return selectedItem && selectedItem.label;
+    }
   };
 
   return (
     <>
-      <View style={{ marginBottom: 16 }}>
+      <View >
         <TouchableWithoutFeedback onPress={openModal}>
           <View style={[
             styles.container,
@@ -182,21 +243,13 @@ const AppPicker: React.FC<IProps> = ({
                 style={styles.icon}
               />
             )}
-            {selectedItem && selectedItem.label ? (
-              <Text style={[
-                styles.text,
-                disabled && styles.disabledText
-              ]}>
-                {selectedItem.label}
-              </Text>
-            ) : (
-              <Text style={[
-                styles.placeholder,
-                disabled && styles.disabledPlaceholder
-              ]}>
-                {placeholder}
-              </Text>
-            )}
+
+            <Text style={[
+              isSelected() ? styles.text : styles.placeholder,
+              disabled && (isSelected() ? styles.disabledText : styles.disabledPlaceholder)
+            ]}>
+              {getDisplayText()}
+            </Text>
 
             <MaterialIcons
               name="arrow-drop-down"
@@ -229,8 +282,23 @@ const AppPicker: React.FC<IProps> = ({
               <View style={styles.headerRow}>
                 <View style={styles.headerTitleContainer}>
                   <MaterialIcons name={icon} size={24} color={themeColors.primary} />
-                  <AppText style={styles.modalTitle}>{placeholder}</AppText>
+                  <AppText style={styles.modalTitle}>
+                    {placeholder}
+                  
+                  </AppText>
                 </View>
+
+                {/* دکمه پاک کردن همه انتخاب‌ها */}
+                {multiSelect && tempSelectedItems.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.clearAllButton}
+                    onPress={clearSelection}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialIcons name="clear-all" size={18} color={modernColors.medium} />
+                    <AppText style={styles.clearAllButtonText}>پاک کردن همه</AppText>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
 
@@ -245,7 +313,7 @@ const AppPicker: React.FC<IProps> = ({
                     key={index}
                     style={[
                       styles.selectionOption,
-                      tempSelectedItem && tempSelectedItem.value === item.value && [
+                      isItemSelected(item) && [
                         styles.selectedOption,
                         { backgroundColor: themeColors.primary, borderColor: themeColors.primary }
                       ],
@@ -259,28 +327,28 @@ const AppPicker: React.FC<IProps> = ({
                           <View style={[
                             styles.optionIconContainer,
                             { backgroundColor: themeColors.iconBackground },
-                            tempSelectedItem && tempSelectedItem.value === item.value && {
+                            isItemSelected(item) && {
                               backgroundColor: themeColors.selectedIconBackground
                             }
                           ]}>
                             <MaterialIcons
                               name={item.icon as any}
                               size={20}
-                              color={tempSelectedItem && tempSelectedItem.value === item.value ? "#ffffff" : themeColors.primary}
+                              color={isItemSelected(item) ? "#ffffff" : themeColors.primary}
                             />
                           </View>
                         )}
                         <View style={styles.optionTextContainer}>
                           <AppText style={[
                             styles.selectionOptionText,
-                            tempSelectedItem && tempSelectedItem.value === item.value && styles.selectedOptionText,
+                            isItemSelected(item) && styles.selectedOptionText,
                           ]}>
                             {item.label}
                           </AppText>
                           {item.price !== undefined && (
                             <AppText style={[
                               styles.priceText,
-                              tempSelectedItem && tempSelectedItem.value === item.value && styles.selectedPriceText,
+                              isItemSelected(item) && styles.selectedPriceText,
                             ]}>
                               {toPersianDigits(item.price.toString())} تومان
                             </AppText>
@@ -288,8 +356,10 @@ const AppPicker: React.FC<IProps> = ({
                         </View>
                       </View>
 
-                      {tempSelectedItem && tempSelectedItem.value === item.value && (
-                        <MaterialIcons name="check" size={18} color="#ffffff" />
+                      {isItemSelected(item) && (
+                        <View style={styles.checkmarkContainer}>
+                          <MaterialIcons name="check" size={18} color="#ffffff" />
+                        </View>
                       )}
                     </View>
                   </TouchableOpacity>
@@ -311,16 +381,22 @@ const AppPicker: React.FC<IProps> = ({
                 style={styles.applyButton}
                 onPress={handleConfirm}
                 activeOpacity={0.8}
-                disabled={!tempSelectedItem}
+                disabled={multiSelect ? tempSelectedItems.length === 0 : !tempSelectedItem}
               >
                 <LinearGradient
-                  colors={tempSelectedItem ? [themeColors.primary, themeColors.primaryDark] : ['#9ca3af', '#6b7280']}
+                  colors={
+                    (multiSelect ? tempSelectedItems.length > 0 : tempSelectedItem)
+                      ? [themeColors.primary, themeColors.primaryDark]
+                      : ['#9ca3af', '#6b7280']
+                  }
                   style={styles.applyButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
                   <MaterialIcons name="check" size={20} color="#ffffff" />
-                  <AppText style={styles.applyButtonText}>تأیید انتخاب</AppText>
+                  <AppText style={styles.applyButtonText}>
+                    {multiSelect ? 'تأیید انتخاب‌ها' : 'تأیید انتخاب'}
+                  </AppText>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
@@ -395,7 +471,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
-    height: '70%',
+    height: '85%',
   },
   modalSafeArea: {
     backgroundColor: '#FFFFFF',
@@ -424,6 +500,7 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
+    flex: 1,
   },
   modalTitle: {
     fontSize: 20,
@@ -431,23 +508,23 @@ const styles = StyleSheet.create({
     color: "#1F2937",
     marginRight: 8,
   },
-  clearButton: {
+  selectedCount: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: modernColors.primary,
+  },
+  clearAllButton: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#f8fafc',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
-  clearButtonContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  clearButtonText: {
+  clearAllButtonText: {
     fontSize: 12,
     fontFamily: "Yekan_Bakh_Bold",
     color: modernColors.medium,
@@ -518,6 +595,14 @@ const styles = StyleSheet.create({
   },
   selectedPriceText: {
     color: 'rgba(255, 255, 255, 0.8)',
+  },
+  checkmarkContainer: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   actionButtons: {
     flexDirection: 'row-reverse',

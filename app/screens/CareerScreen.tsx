@@ -12,15 +12,17 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useIntro } from '../contexts/IntroContext'; // اضافه کردن context
+import { useNavigation, CommonActions } from '@react-navigation/native';
+import { useIntro } from '../contexts/IntroContext';
 
 import colors from "../config/colors";
 
 const { width, height } = Dimensions.get("window");
 
-const CareerScreen = ({ navigation }) => {
+const CareerScreen = () => {
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { completeIntro } = useIntro(); // دسترسی به تابع تکمیل intro
+  const { completeIntro } = useIntro();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -67,13 +69,20 @@ const CareerScreen = ({ navigation }) => {
   }, []);
 
   const handleGetStarted = async () => {
-    // علامت‌گذاری intro به عنوان کامل شده
-    await completeIntro();
-    // هدایت به صفحه لاگین
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'Login' }],
-    });
+    try {
+      // علامت‌گذاری intro به عنوان کامل شده
+      await completeIntro();
+
+      // هدایت به صفحه authentication
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'Auth' }],
+        })
+      );
+    } catch (error) {
+      console.error('Error completing intro:', error);
+    }
   };
 
   return (
@@ -85,8 +94,7 @@ const CareerScreen = ({ navigation }) => {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <ScrollView contentContainerStyle={[styles.scrollContainer, { paddingBottom: insets.bottom + 20 }]}
-        >
+        <ScrollView contentContainerStyle={[styles.scrollContainer, { paddingBottom: insets.bottom + 20 }]}>
           <View style={styles.container}>
             <Animated.View
               style={[
@@ -109,7 +117,6 @@ const CareerScreen = ({ navigation }) => {
                   />
                 </LinearGradient>
                 <Text style={styles.headerTitle}>پروژه‌گیری و کاریابی فشن</Text>
-
               </View>
             </Animated.View>
 
@@ -231,8 +238,7 @@ const CareerScreen = ({ navigation }) => {
                 },
               ]}
             >
-
-
+    
               <TouchableOpacity
                 style={styles.continueButton}
                 onPress={handleContinue}

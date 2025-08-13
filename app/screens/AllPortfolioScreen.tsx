@@ -17,11 +17,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
 import MainBackground from "../components/MainBackground";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import Toast from "../components/Toast";
 import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
-import { AppNavigationProp, RootStackParamList } from "../Navigators";
+import FilterModal from "../components/FilterModal";
 
 const { width, height } = Dimensions.get('window');
 
@@ -56,21 +56,34 @@ const usePortfoliosWithInfiniteLoading = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({});
 
-  const fetchPortfolios = async (newPage = 1, pageSize = ITEMS_PER_PAGE) => {
+  const fetchPortfolios = async (newPage = 1, pageSize = ITEMS_PER_PAGE, filterParams = {}) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `${appConfig.mobileApi}Portfolio/GetAll?currentPage=${newPage}&pageSize=${pageSize}`
-      );
+      let filterQuery = "";
+
+      // فقط فیلتر بر اساس نام
+      if (filterParams.filterTitle) {
+        console.log('Adding filterTitle to query:', filterParams.filterTitle);
+        filterQuery += `filterTitle=${encodeURIComponent(filterParams.filterTitle)}&`;
+      }
+      if (filterParams.filterMemberId) {
+        filterQuery += `filterMemberId=${filterParams.filterMemberId}&`;
+      }
+      const finalUrl = `${appConfig.mobileApi}Portfolio/GetAll?${filterQuery}currentPage=${newPage}&pageSize=${pageSize}`;
+      console.log('Final API URL:', finalUrl);
+
+      const response = await fetch(finalUrl);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
+      console.log('API Response:', result);
 
       if (newPage === 1) {
         setData(result.Data || []);
@@ -80,10 +93,12 @@ const usePortfoliosWithInfiniteLoading = () => {
 
       setTotal(result.Total || 0);
       setPage(newPage);
+      setFilters(filterParams);
 
       // تشخیص اینکه آیا صفحات بیشتری وجود دارد یا نه
       setHasMore((result.Data || []).length === pageSize && (result.Data || []).length > 0);
     } catch (err) {
+      console.error('API Error:', err);
       setError(err.message);
       if (newPage === 1) {
         setData([]);
@@ -96,7 +111,7 @@ const usePortfoliosWithInfiniteLoading = () => {
 
   const loadMore = () => {
     if (!loading && hasMore) {
-      fetchPortfolios(page + 1, ITEMS_PER_PAGE);
+      fetchPortfolios(page + 1, ITEMS_PER_PAGE, filters);
     }
   };
 
@@ -109,6 +124,7 @@ const usePortfoliosWithInfiniteLoading = () => {
     loadMore,
     hasMore,
     page,
+    filters,
   };
 };
 
@@ -226,8 +242,9 @@ const PortfolioCardSkeleton = () => {
   );
 };
 
-const PortfolioListScreen = () => {
-  const navigation = useNavigation<AppNavigationProp>();
+const AllPortfolioScreen = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -240,8 +257,13 @@ const PortfolioListScreen = () => {
     error: portfolioError,
     fetchPortfolios,
     loadMore,
-    hasMore
+    hasMore,
+    filters
   } = usePortfoliosWithInfiniteLoading();
+
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState({});
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -249,14 +271,33 @@ const PortfolioListScreen = () => {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  // انتقال handleAddPost به داخل کامپوننت
-  const handleAddPost = () => {
-    navigation.navigate("AddPortfolio");
-  };
-
   useEffect(() => {
     fetchPortfolios(1, ITEMS_PER_PAGE);
   }, []);
+  const { filteredMemberId, filteredMemberName, filterType } = route.params || {};
+
+  useEffect(() => {
+    // اگر از پروفایل کاربر آمده، فیلتر کاربر را اعمال کن
+    if (filteredMemberId && filterType === 'member') {
+      const memberFilter = {
+        filterMemberId: filteredMemberId
+      };
+      setAppliedFilters(memberFilter);
+      setHasActiveFilters(true);
+      fetchPortfolios(1, ITEMS_PER_PAGE, memberFilter);
+
+      showToast(`نمایش نمونه کارهای ${filteredMemberName}`, 'info');
+    } else {
+      fetchPortfolios(1, ITEMS_PER_PAGE);
+    }
+  }, [filteredMemberId]);
+
+  const getHeaderTitle = () => {
+    if (filteredMemberId && filteredMemberName) {
+      return `نمونه کارهای ${filteredMemberName}`;
+    }
+    return 'همه نمونه کارها';
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -323,7 +364,7 @@ const PortfolioListScreen = () => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchPortfolios(1, ITEMS_PER_PAGE);
+    await fetchPortfolios(1, ITEMS_PER_PAGE, appliedFilters);
     setRefreshing(false);
   };
 
@@ -333,11 +374,55 @@ const PortfolioListScreen = () => {
     }
   };
 
+  const handleApplyFilters = (newFilters) => {
+    console.log('Received filters in AllPortfolioScreen:', newFilters);
+
+    setAppliedFilters(newFilters);
+
+    const hasFilters = Object.keys(newFilters).some(key => {
+      const value = newFilters[key];
+      return value !== false && value !== '' && value !== 'all' && value !== undefined && value !== null;
+    });
+
+    console.log('Has active filters:', hasFilters);
+    setHasActiveFilters(hasFilters);
+
+    if (hasFilters) {
+      showToast('فیلترها اعمال شد', 'success');
+    }
+
+    console.log('Calling fetchPortfolios with filters:', newFilters);
+    fetchPortfolios(1, ITEMS_PER_PAGE, newFilters);
+  };
+
+  const clearAllFilters = () => {
+    setAppliedFilters({});
+    setHasActiveFilters(false);
+    fetchPortfolios(1, ITEMS_PER_PAGE, {});
+    showToast('فیلترها پاک شد', 'info');
+  };
+
   const createSkeletonData = () => {
     return Array.from({ length: ITEMS_PER_PAGE }, (_, index) => ({
       id: `skeleton-${index}`,
       isSkeleton: true
     }));
+  };
+
+  const prepareFilterOptions = () => {
+    return {
+      title: 'فیلتر نمونه کارها',
+      icon: 'brush',
+      sections: [
+        {
+          title: 'جستجو بر اساس نام',
+          type: 'text',
+          key: 'title',
+          icon: 'search',
+          placeholder: 'نام نمونه کار را وارد کنید...',
+        }
+      ],
+    };
   };
 
   const renderPortfolioItem = ({ item, index }) => {
@@ -358,11 +443,7 @@ const PortfolioListScreen = () => {
         >
           <PortfolioImageComponent item={item} />
 
-          <View style={[styles.statusBadge, { backgroundColor: item.Active ? modernColors.success : modernColors.warning }]}>
-            <AppText style={styles.statusText}>
-              {item.Active ? 'منتشر شده' : 'پیش نویس'}
-            </AppText>
-          </View>
+
           <View style={styles.likeBadge}>
             <MaterialIcons name="favorite" size={14} color="#ffffff" />
             <AppText style={styles.likeText}>{toPersianDigits((item.LikeCount || 0).toString())}</AppText>
@@ -400,6 +481,8 @@ const PortfolioListScreen = () => {
                 </View>
               )}
             </View>
+
+     
           </View>
         </TouchableOpacity>
       </View>
@@ -440,7 +523,7 @@ const PortfolioListScreen = () => {
       </AppText>
       <TouchableOpacity
         style={styles.retryButton}
-        onPress={() => fetchPortfolios(1, ITEMS_PER_PAGE)}
+        onPress={() => fetchPortfolios(1, ITEMS_PER_PAGE, appliedFilters)}
       >
         <MaterialIcons name="refresh" size={20} color={colors.white} />
         <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
@@ -459,6 +542,15 @@ const PortfolioListScreen = () => {
           message={toastMessage}
           type={toastType}
           onHide={() => setToastVisible(false)}
+        />
+
+        <FilterModal
+          visible={filterModalVisible}
+          onClose={() => setFilterModalVisible(false)}
+          onApplyFilters={handleApplyFilters}
+          filterType="portfolio"
+          initialFilters={appliedFilters}
+          customFilterOptions={prepareFilterOptions()}
         />
 
         <TouchableOpacity
@@ -483,47 +575,33 @@ const PortfolioListScreen = () => {
             },
           ]}
         >
-          <View style={styles.titleWrapper}>
-            <AppText style={styles.headerTitle}>نمونه کارها</AppText>
-          </View>
-        </Animated.View>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={() => setFilterModalVisible(true)}
+            >
+              <View style={[styles.filterIconContainer, hasActiveFilters && styles.activeFilterIcon]}>
+                <MaterialIcons
+                  name="filter-list"
+                  size={24}
+                  color={hasActiveFilters ? "#ffffff" : "#6366f1"}
+                />
+                {hasActiveFilters && <View style={styles.filterBadge} />}
+              </View>
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleAddPost}
-        >
-          <LinearGradient
-            colors={[modernColors.success, '#27ae60']}
-            style={styles.addButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <MaterialIcons name="add" size={24} color="#ffffff" />
-          </LinearGradient>
-        </TouchableOpacity>
+            <View style={styles.titleWrapper}>
+              <AppText style={styles.headerTitle}>همه نمونه کارها</AppText>
+            </View>
 
-        <Animated.View
-          style={[
-            styles.sectionTitleContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <View style={styles.sparkleContainer}>
-            <MaterialIcons
-              name="star-half"
-              size={16}
-              color={modernColors.fashionGold}
-              style={styles.sparkle1}
-            />
-            <MaterialIcons
-              name="auto-awesome"
-              size={12}
-              color={modernColors.fashionPink}
-              style={styles.sparkle2}
-            />
+            {hasActiveFilters && (
+              <TouchableOpacity
+                style={styles.clearFiltersButton}
+                onPress={clearAllFilters}
+              >
+                <MaterialIcons name="clear" size={20} color="#ff6b6b" />
+              </TouchableOpacity>
+            )}
           </View>
         </Animated.View>
 
@@ -623,6 +701,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: StatusBar.currentHeight + 35,
     paddingHorizontal: 20,
+    marginBottom: 20,
   },
   backButton: {
     position: 'absolute',
@@ -660,51 +739,65 @@ const styles = StyleSheet.create({
     marginHorizontal: 15,
     textAlign: "center",
   },
-  sectionTitleContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 30,
-    marginTop: 10,
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
     position: "relative",
-    paddingHorizontal: 20,
   },
-  addButton: {
-    position: 'absolute',
-    top: StatusBar.currentHeight + 45,
-    left: 20,
-    zIndex: 1000,
+  filterButton: {
+    position: "absolute",
+    left: 0,
   },
-  addButtonGradient: {
+  filterIconContainer: {
     width: 50,
     height: 50,
-    borderRadius: 60,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: modernColors.success,
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 3,
+      height: 2,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
-    marginTop: -12
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    position: 'relative',
   },
-  sparkleContainer: {
-    position: "absolute",
-    top: -10,
-    right: -10,
+  activeFilterIcon: {
+    backgroundColor: modernColors.primary,
   },
-  sparkle1: {
-    position: "absolute",
-    top: 0,
-    right: 90,
+  filterBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#ff6b6b',
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
-  sparkle2: {
+  clearFiltersButton: {
     position: "absolute",
-    top: 10,
-    right: 25,
+    right: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   contentContainer: {
     flex: 1,
@@ -737,7 +830,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    height: 270,
+    height: 270, // افزایش ارتفاع برای نام طراح
     flex: 1,
   },
   portfolioImageContainer: {
@@ -814,6 +907,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
   dateContainer: {
     flexDirection: 'row-reverse',
@@ -834,6 +928,20 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: '#666',
     marginLeft: 3,
+  },
+  memberContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    marginTop: 5,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+  },
+  memberText: {
+    fontSize: 11,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: modernColors.primary,
+    marginRight: 4,
   },
   loadingFooter: {
     padding: 20,
@@ -859,7 +967,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    height: 280,
+    height: 320,
     flex: 1,
   },
   portfolioImageSkeleton: {
@@ -983,4 +1091,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PortfolioListScreen;
+export default AllPortfolioScreen;

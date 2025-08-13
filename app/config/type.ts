@@ -1,5 +1,7 @@
 // types.ts
 
+import { number } from "yup";
+
 export interface Member {
   MemberId: number;
   IsIndividual: boolean;
@@ -248,4 +250,11 @@ export interface UserProfileProps {
     };
   };
   navigation: any;
+}
+
+export interface MemberReview {
+  ContnetId: number;
+  reviewItemRatings: string[];
+  ContentReviewItemId: number;
+  Rating: number;
 }

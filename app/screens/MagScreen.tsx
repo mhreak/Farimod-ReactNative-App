@@ -10,15 +10,18 @@ import {
   TouchableOpacity,
   FlatList,
   RefreshControl,
+  Image,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
 import MainBackground from "../components/MainBackground";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import Toast from "../components/Toast";
 import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
+import FilterModal from "../components/FilterModal";
 
 const { width, height } = Dimensions.get('window');
 
@@ -47,33 +50,71 @@ const ITEMS_PER_PAGE = 20;
 
 const useBlogPostsWithPagination = () => {
   const [data, setData] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({});
 
-  const fetchBlogPosts = async (page = 1, pageSize = ITEMS_PER_PAGE) => {
+  const fetchBlogPosts = async (newPage = 1, pageSize = ITEMS_PER_PAGE, filterParams = {}) => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `${appConfig.mobileApi}BlogPost/GetAll?filterActive=true&currentPage=${page}&pageSize=${pageSize}`
-      );
+      let filterQuery = "filterActive=true";
+
+      if (filterParams.filterTitle) {
+        console.log('Adding filterTitle to query:', filterParams.filterTitle);
+        filterQuery += `&filterTitle=${encodeURIComponent(filterParams.filterTitle)}`;
+      }
+
+      if (filterParams.filterCategoryId) {
+        console.log('Adding filterCategoryId to query:', filterParams.filterCategoryId);
+        filterQuery += `&filterCategoryId=${filterParams.filterCategoryId}`;
+      }
+      // اضافه کردن فیلتر کاربر
+      if (filterParams.filterMemberId) {
+        filterQuery += `&filterMemberId=${filterParams.filterMemberId}`;
+      } 
+      const finalUrl = `${appConfig.mobileApi}BlogPost/GetAll?${filterQuery}&currentPage=${newPage}&pageSize=${pageSize}`;
+      console.log('Final API URL:', finalUrl);
+
+      const response = await fetch(finalUrl);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
+      console.log('API Response:', result);
 
-      setData(result.Data || []);
+      if (newPage === 1) {
+        setData(result.Data || []);
+      } else {
+        setData(prevData => [...prevData, ...(result.Data || [])]);
+      }
+
       setTotal(result.Total || 0);
+      setPage(newPage);
+      setFilters(filterParams);
+
+      setHasMore((result.Data || []).length === pageSize && (result.Data || []).length > 0);
     } catch (err) {
+      console.error('API Error:', err);
       setError(err.message);
-      setData([]);
+      if (newPage === 1) {
+        setData([]);
+      }
       setTotal(0);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      fetchBlogPosts(page + 1, ITEMS_PER_PAGE, filters);
     }
   };
 
@@ -83,44 +124,83 @@ const useBlogPostsWithPagination = () => {
     loading,
     error,
     fetchBlogPosts,
+    loadMore,
+    hasMore,
+    page,
+    filters,
   };
 };
 
-const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
+const useBlogCategories = () => {
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchCategories = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(
+        `${appConfig.mobileApi}BlogPostCategory?filterActive=true&currentPage=0&pageSize=20`
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setCategories(result.Data || []);
+    } catch (err) {
+      setError(err.message);
+      setCategories([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    categories,
+    loading,
+    error,
+    fetchCategories,
+  };
+};
+
+const SkeletonLoader = ({ style }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const startAnimation = () => {
+    const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(animatedValue, {
           toValue: 1,
-          duration: 1000,
-          useNativeDriver: false,
+          duration: 1200,
+          useNativeDriver: true,
         }),
         Animated.timing(animatedValue, {
           toValue: 0,
-          duration: 1000,
-          useNativeDriver: false,
+          duration: 1200,
+          useNativeDriver: true,
         }),
-      ]).start(() => startAnimation());
-    };
+      ])
+    );
+    animation.start();
 
-    startAnimation();
+    return () => animation.stop();
   }, [animatedValue]);
 
-  const backgroundColor = animatedValue.interpolate({
+  const opacity = animatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#e0e0e0', '#f0f0f0'],
+    outputRange: [0.3, 0.7],
   });
 
   return (
     <Animated.View
       style={[
         {
-          width,
-          height,
-          backgroundColor,
-          borderRadius,
+          backgroundColor: '#e1e5e9',
+          opacity,
         },
         style,
       ]}
@@ -132,22 +212,22 @@ const BlogPostCardSkeleton = () => {
   return (
     <View style={styles.blogSkeletonContainer}>
       <View style={styles.blogImageSkeleton}>
-        <SkeletonLoader width="100%" height="100%" borderRadius={12} />
+        <SkeletonLoader style={{ width: '100%', height: '100%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }} />
       </View>
 
       <View style={styles.blogDetailsSkeleton}>
-        <SkeletonLoader width="90%" height={18} style={{ marginBottom: 12, alignSelf: 'flex-end' }} />
-        <SkeletonLoader width="70%" height={16} style={{ marginBottom: 8, alignSelf: 'flex-end' }} />
+        <SkeletonLoader style={{ width: '90%', height: 18, marginBottom: 12, alignSelf: 'flex-end', borderRadius: 4 }} />
+        <SkeletonLoader style={{ width: '70%', height: 16, marginBottom: 8, alignSelf: 'flex-end', borderRadius: 4 }} />
 
         <View style={styles.blogMetaSkeleton}>
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center' }}>
-            <SkeletonLoader width={16} height={16} borderRadius={8} style={{ marginLeft: 6 }} />
-            <SkeletonLoader width={80} height={14} />
+            <SkeletonLoader style={{ width: 16, height: 16, borderRadius: 8, marginLeft: 6 }} />
+            <SkeletonLoader style={{ width: 80, height: 14, borderRadius: 4 }} />
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <SkeletonLoader width={16} height={16} borderRadius={8} style={{ marginRight: 6 }} />
-            <SkeletonLoader width={30} height={14} />
+            <SkeletonLoader style={{ width: 16, height: 16, borderRadius: 8, marginRight: 6 }} />
+            <SkeletonLoader style={{ width: 30, height: 14, borderRadius: 4 }} />
           </View>
         </View>
       </View>
@@ -155,168 +235,111 @@ const BlogPostCardSkeleton = () => {
   );
 };
 
-const PaginationComponent = ({
-  currentPage,
-  totalPages,
-  onPageChange,
-  style = {}
-}) => {
-  const pageButtonAnim = useRef(new Animated.Value(1)).current;
-  const [animatingPage, setAnimatingPage] = useState(null);
+const BlogImageComponent = ({ item }) => {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
 
-  const animatePageChange = (page) => {
-    if (page === currentPage) return;
+  const hasValidImage = item.FeaturedImageFileName &&
+    item.FeaturedImageURL &&
+    !item.FeaturedImageURL.endsWith('/');
 
-    setAnimatingPage(page);
-    Animated.sequence([
-      Animated.timing(pageButtonAnim, {
-        toValue: 0.8,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(pageButtonAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setAnimatingPage(null);
-      onPageChange(page);
-    });
+  const handleImageError = () => {
+    setImageError(true);
+    setImageLoading(false);
   };
 
-  const renderPageButton = (page, isActive = false) => {
-    const isAnimating = animatingPage === page;
+  const handleImageLoad = () => {
+    setImageLoading(false);
+    setImageError(false);
+  };
 
+  if (!hasValidImage || imageError) {
     return (
-      <TouchableOpacity
-        key={page}
-        style={[
-          styles.pageButton,
-          isActive && styles.activePageButton,
-        ]}
-        onPress={() => animatePageChange(page)}
-        activeOpacity={0.7}
-      >
-        <Animated.View
-          style={[
-            styles.pageButtonContent,
-            isActive && styles.activePageButtonContent,
-            isAnimating && { transform: [{ scale: pageButtonAnim }] },
-          ]}
-        >
-          <AppText style={[
-            styles.pageButtonText,
-            isActive && styles.activePageButtonText,
-          ]}>
-            {page}
-          </AppText>
-        </Animated.View>
-      </TouchableOpacity>
+      <View style={styles.blogImagePlaceholder}>
+        <Image
+          style={styles.postImage}
+          source={require("../../assets/blogPost_icon.jpg")}
+        />
+      </View>
     );
-  };
-
-  const renderPaginationItems = () => {
-    const items = [];
-    const maxVisiblePages = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-
-    if (currentPage > 1) {
-      items.push(
-        <TouchableOpacity
-          key="prev"
-          style={styles.navButton}
-          onPress={() => animatePageChange(currentPage - 1)}
-          activeOpacity={0.7}
-        >
-          <LinearGradient
-            colors={[modernColors.primary, modernColors.primaryDark]}
-            style={styles.navButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <MaterialIcons name="keyboard-arrow-right" size={20} color="#ffffff" />
-          </LinearGradient>
-        </TouchableOpacity>
-      );
-    }
-
-    if (startPage > 1) {
-      items.push(renderPageButton(1, currentPage === 1));
-      if (startPage > 2) {
-        items.push(
-          <View key="ellipsis-start" style={styles.ellipsis}>
-            <AppText style={styles.ellipsisText}>...</AppText>
-          </View>
-        );
-      }
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      items.push(renderPageButton(i, i === currentPage));
-    }
-
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) {
-        items.push(
-          <View key="ellipsis-end" style={styles.ellipsis}>
-            <AppText style={styles.ellipsisText}>...</AppText>
-          </View>
-        );
-      }
-      items.push(renderPageButton(totalPages, currentPage === totalPages));
-    }
-
-    if (currentPage < totalPages) {
-      items.push(
-        <TouchableOpacity
-          key="next"
-          style={styles.navButton}
-          onPress={() => animatePageChange(currentPage + 1)}
-          activeOpacity={0.7}
-        >
-          <LinearGradient
-            colors={[modernColors.primary, modernColors.primaryDark]}
-            style={styles.navButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <MaterialIcons name="keyboard-arrow-left" size={20} color="#ffffff" />
-          </LinearGradient>
-        </TouchableOpacity>
-      );
-    }
-
-    return items;
-  };
-
-  if (totalPages <= 1) return null;
+  }
 
   return (
-    <View style={[styles.paginationContainer, style]}>
-      <View style={styles.paginationWrapper}>
-        {renderPaginationItems()}
-      </View>
+    <View style={styles.blogImageContainer}>
+      {/* {imageLoading && (
+        <View style={[styles.blogImagePlaceholder, { position: 'absolute', zIndex: 1 }]}>
+          <MaterialIcons name="article" size={40} color="#ccc" />
+        </View>
+      )} */}
+      <Image
+        source={{ uri: item.FeaturedImageURL }}
+        style={styles.blogImage}
+        onError={handleImageError}
+        onLoad={handleImageLoad}
+        resizeMode="cover"
+      />
     </View>
   );
 };
 
 const MagScreen = () => {
-  const navigation = useNavigation();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const navigation = useNavigation();
+  const route = useRoute();
 
-  const { data: blogPosts, total, loading: blogLoading, error: blogError, fetchBlogPosts } = useBlogPostsWithPagination();
+  // دریافت پارامترهای فیلتر از route
+  const { filteredMemberId, filteredMemberName, filterType } = route.params || {};
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+  // در useEffect اولیه:
+  useEffect(() => {
+    // اگر از پروفایل کاربر آمده، فیلتر کاربر را اعمال کن
+    if (filteredMemberId && filterType === 'member') {
+      const memberFilter = {
+        filterMemberId: filteredMemberId
+      };
+      setAppliedFilters(memberFilter);
+      setHasActiveFilters(true);
+      fetchBlogPosts(1, ITEMS_PER_PAGE, memberFilter);
+
+      // نمایش پیام فیلتر
+      showToast(`نمایش مقالات ${filteredMemberName}`, 'info');
+    } else {
+      fetchBlogPosts(1, ITEMS_PER_PAGE);
+    }
+    fetchCategories();
+  }, [filteredMemberId]);
+
+  // بروزرسانی header title
+  const getHeaderTitle = () => {
+    if (filteredMemberId && filteredMemberName) {
+      return `مقالات`;
+    }
+    return 'مجله ها';
+  };
+  const {
+    data: blogPosts,
+    total,
+    loading: blogLoading,
+    error: blogError,
+    fetchBlogPosts,
+    loadMore,
+    hasMore,
+    filters
+  } = useBlogPostsWithPagination();
+
+  const {
+    categories,
+    loading: categoriesLoading,
+    error: categoriesError,
+    fetchCategories
+  } = useBlogCategories();
+
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState({});
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -325,8 +348,9 @@ const MagScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchBlogPosts(currentPage, ITEMS_PER_PAGE);
-  }, [currentPage]);
+    fetchBlogPosts(1, ITEMS_PER_PAGE);
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     Animated.parallel([
@@ -366,7 +390,10 @@ const MagScreen = () => {
     if (blogError) {
       showToast('خطا در دریافت اطلاعات مقالات. لطفاً دوباره تلاش کنید.', 'error');
     }
-  }, [blogError]);
+    if (categoriesError) {
+      showToast('خطا در دریافت دسته‌بندی‌ها. لطفاً دوباره تلاش کنید.', 'error');
+    }
+  }, [blogError, categoriesError]);
 
   const handleBlogPress = (blogData) => {
     navigation.navigate("MagDetailes", {
@@ -375,29 +402,73 @@ const MagScreen = () => {
     });
   };
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    Animated.timing(slideAnim, {
-      toValue: 20,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    });
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchBlogPosts(currentPage, ITEMS_PER_PAGE);
+    await fetchBlogPosts(1, ITEMS_PER_PAGE, appliedFilters);
     setRefreshing(false);
   };
 
+  const handleLoadMore = () => {
+    if (!blogLoading && hasMore) {
+      loadMore();
+    }
+  };
+
+  const handleApplyFilters = (newFilters) => {
+    console.log('Received filters in MagScreen:', newFilters);
+
+    setAppliedFilters(newFilters);
+
+    const hasFilters = Object.keys(newFilters).some(key => {
+      const value = newFilters[key];
+      return value !== false && value !== '' && value !== 'all' && value !== undefined && value !== null;
+    });
+
+    console.log('Has active filters:', hasFilters);
+    setHasActiveFilters(hasFilters);
+
+    if (hasFilters) {
+      showToast('فیلترها اعمال شد', 'success');
+    }
+
+    console.log('Calling fetchBlogPosts with filters:', newFilters);
+    fetchBlogPosts(1, ITEMS_PER_PAGE, newFilters);
+  };
+
+  const clearAllFilters = () => {
+    setAppliedFilters({});
+    setHasActiveFilters(false);
+    fetchBlogPosts(1, ITEMS_PER_PAGE, {});
+    showToast('فیلترها پاک شد', 'info');
+  };
+
   const createSkeletonData = () => {
-    return Array.from({ length: ITEMS_PER_PAGE }, (_, index) => ({ id: `skeleton-${index}` }));
+    return Array.from({ length: ITEMS_PER_PAGE }, (_, index) => ({
+      id: `skeleton-${index}`,
+      isSkeleton: true
+    }));
+  };
+
+  const prepareFilterOptions = () => {
+    return {
+      title: 'فیلتر مقالات',
+      icon: 'article',
+      sections: [
+        {
+          title: 'دسته‌بندی',
+          type: 'selection',
+          key: 'categoryId',
+          icon: 'category',
+          options: [
+            { label: 'همه', value: 'all' },
+            ...(categories || []).map(category => ({
+              label: category.Name,
+              value: category.BlogPostCategoryId.toString()
+            }))
+          ],
+        }
+      ],
+    };
   };
 
   const renderBlogItem = ({ item, index }) => {
@@ -416,11 +487,7 @@ const MagScreen = () => {
           activeOpacity={0.8}
           style={styles.blogCard}
         >
-          <View style={styles.blogImageContainer}>
-            <View style={styles.blogImagePlaceholder}>
-              <MaterialIcons name="article" size={40} color="#ccc" />
-            </View>
-          </View>
+          <BlogImageComponent item={item} />
 
           <View style={styles.blogContent}>
             <AppText style={styles.blogTitle} numberOfLines={3}>
@@ -430,7 +497,7 @@ const MagScreen = () => {
             <View style={styles.blogMeta}>
               <View style={styles.dateContainer}>
                 <MaterialIcons name="calendar-month" size={16} color="#666" />
-                <AppText style={styles.dateText}>{toPersianDigits(item.ShamsiInsertDateTime)}</AppText>
+                <AppText style={styles.dateText}>{toPersianDigits(item.ShamsiInsertDate)}</AppText>
               </View>
 
               <View style={styles.likeContainer}>
@@ -438,8 +505,26 @@ const MagScreen = () => {
                 <AppText style={styles.likeText}>{toPersianDigits(item.LikeCount || 0)}</AppText>
               </View>
             </View>
+
+            {item.BlogPostCategoryName && (
+              <View style={styles.categoryContainer}>
+                <MaterialIcons name="folder" size={16} color={modernColors.tertiary} />
+                <AppText style={styles.categoryText}>{item.BlogPostCategoryName}</AppText>
+              </View>
+            )}
           </View>
         </TouchableOpacity>
+      </View>
+    );
+  };
+
+  const renderFooter = () => {
+    if (!blogLoading) return null;
+
+    return (
+      <View style={styles.loadingFooter}>
+        <ActivityIndicator size="small" color={modernColors.primary} />
+        <AppText style={styles.loadingMoreText}>در حال بارگذاری...</AppText>
       </View>
     );
   };
@@ -449,7 +534,8 @@ const MagScreen = () => {
 
     return (
       <View style={styles.emptyContainer}>
-        <MaterialIcons name="article" size={80} color="#9e9e9e" />
+        <MaterialIcons name="article" size={48} color="#9e9e9e" />
+
         <AppText style={styles.emptyTitle}>هیچ مقاله‌ای موجود نیست</AppText>
         <AppText style={styles.emptySubtitle}>
           در حال حاضر مقاله‌ای برای نمایش وجود ندارد
@@ -467,7 +553,7 @@ const MagScreen = () => {
       </AppText>
       <TouchableOpacity
         style={styles.retryButton}
-        onPress={() => fetchBlogPosts(currentPage, ITEMS_PER_PAGE)}
+        onPress={() => fetchBlogPosts(1, ITEMS_PER_PAGE, appliedFilters)}
       >
         <MaterialIcons name="refresh" size={20} color={colors.white} />
         <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
@@ -486,6 +572,15 @@ const MagScreen = () => {
           message={toastMessage}
           type={toastType}
           onHide={() => setToastVisible(false)}
+        />
+
+        <FilterModal
+          visible={filterModalVisible}
+          onClose={() => setFilterModalVisible(false)}
+          onApplyFilters={handleApplyFilters}
+          filterType="blog"
+          initialFilters={appliedFilters}
+          customFilterOptions={prepareFilterOptions()}
         />
 
         <TouchableOpacity
@@ -510,43 +605,35 @@ const MagScreen = () => {
             },
           ]}
         >
-          <View style={styles.titleWrapper}>
-            <AppText style={styles.headerTitle}>مجله ها</AppText>
-          </View>
-        </Animated.View>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={() => setFilterModalVisible(true)}
+            >
+              <View style={[styles.filterIconContainer, hasActiveFilters && styles.activeFilterIcon]}>
+                <MaterialIcons
+                  name="filter-list"
+                  size={24}
+                  color={hasActiveFilters ? "#ffffff" : "#6366f1"}
+                />
+                {hasActiveFilters && <View style={styles.filterBadge} />}
+              </View>
+            </TouchableOpacity>
+            <View style={styles.titleWrapper}>
+              <AppText style={styles.headerTitle}>{getHeaderTitle()}</AppText>
+            </View>
 
-        <Animated.View
-          style={[
-            styles.sectionTitleContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <View style={styles.sparkleContainer}>
-            <MaterialIcons
-              name="star-half"
-              size={16}
-              color="#FFD700"
-              style={styles.sparkle1}
-            />
-            <MaterialIcons
-              name="star-half"
-              size={12}
-              color="#FF6B6B"
-              style={styles.sparkle2}
-            />
+            {hasActiveFilters && (
+              <TouchableOpacity
+                style={styles.clearFiltersButton}
+                onPress={clearAllFilters}
+              >
+                <MaterialIcons name="clear" size={20} color="#ff6b6b" />
+              </TouchableOpacity>
+            )}
           </View>
-        </Animated.View>
 
-        <Animated.View
-          style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
-        >
-        </Animated.View>
-        <Animated.View
-          style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]}
-        >
+
         </Animated.View>
 
         <Animated.View
@@ -563,10 +650,12 @@ const MagScreen = () => {
           ) : (
             <>
               <FlatList
-                data={blogLoading ? createSkeletonData() : blogPosts}
+                data={blogLoading && blogPosts.length === 0 ? createSkeletonData() : blogPosts}
                 renderItem={renderBlogItem}
                 keyExtractor={(item, index) =>
-                  item.BlogPostId ? item.BlogPostId.toString() : `skeleton-${index}`
+                  item.isSkeleton
+                    ? item.id
+                    : (item.BlogPostId ? item.BlogPostId.toString() : `blog-${index}`)
                 }
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listContainer}
@@ -578,17 +667,11 @@ const MagScreen = () => {
                     tintColor={modernColors.primary}
                   />
                 }
-                ListEmptyComponent={renderEmptyComponent}
+                ListEmptyComponent={!blogLoading ? renderEmptyComponent : null}
+                ListFooterComponent={renderFooter}
+                onEndReached={handleLoadMore}
+                onEndReachedThreshold={0.3}
               />
-
-              {!blogLoading && !blogError && totalPages > 1 && (
-                <PaginationComponent
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                  style={styles.pagination}
-                />
-              )}
             </>
           )}
         </Animated.View>
@@ -632,6 +715,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: StatusBar.currentHeight + 35,
     paddingHorizontal: 20,
+    marginBottom: 20
   },
   backButton: {
     position: 'absolute',
@@ -669,33 +753,94 @@ const styles = StyleSheet.create({
     marginHorizontal: 15,
     textAlign: "center",
   },
-  sectionTitleContainer: {
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    position: "relative",
+  },
+  filterButton: {
+    position: "absolute",
+    left: 0,
+  },
+  filterIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    position: 'relative',
+  },
+  activeFilterIcon: {
+    backgroundColor: modernColors.primary,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#ff6b6b',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  clearFiltersButton: {
+    position: "absolute",
+    right: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  activeFiltersContainer: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    marginTop: 12,
+    paddingHorizontal: 4,
+  },
+  activeFilterChip: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 30,
-    marginTop: 10,
-    position: "relative",
-    paddingHorizontal: 20,
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginLeft: 8,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.3)',
   },
-  sparkleContainer: {
-    position: "absolute",
-    top: -10,
-    right: -10,
-  },
-  sparkle1: {
-    position: "absolute",
-    top: 0,
-    right: 90,
-  },
-  sparkle2: {
-    position: "absolute",
-    top: 10,
-    right: 25,
+  activeFilterText: {
+    fontSize: 12,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#6366f1',
+    marginRight: 4,
   },
   contentContainer: {
     flex: 1,
     alignItems: 'center',
+    paddingBottom: 20,
   },
   listContainer: {
     paddingBottom: 20,
@@ -724,12 +869,18 @@ const styles = StyleSheet.create({
   blogImageContainer: {
     height: 200,
     width: '100%',
+    position: 'relative',
+  },
+  blogImage: {
+    width: '100%',
+    height: '100%',
   },
   blogImagePlaceholder: {
     flex: 1,
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
+    height: 200,
   },
   blogContent: {
     padding: 16,
@@ -746,6 +897,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
   dateContainer: {
     flexDirection: 'row-reverse',
@@ -767,96 +919,36 @@ const styles = StyleSheet.create({
     color: '#666',
     marginLeft: 6,
   },
-  pagination: {
-    marginBottom: 40,
-  },
-  paginationContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-  },
-  paginationWrapper: {
+  categoryContainer: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 1,
-    marginBottom: 12,
+    marginTop: 8,
   },
-  pageButton: {
-    marginHorizontal: 4,
-    marginVertical: 4,
+  categoryText: {
+    fontSize: 13,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: modernColors.tertiary,
+    marginRight: 6,
   },
-  pageButtonContent: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
+  loadingFooter: {
+    padding: 20,
     alignItems: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    justifyContent: 'center',
+    flexDirection: 'row',
   },
-  activePageButtonContent: {
-    backgroundColor: modernColors.primary,
-    borderColor: modernColors.primary,
-    shadowColor: modernColors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  pageButtonText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
+  loadingMoreText: {
+    marginLeft: 10,
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
     color: '#666',
   },
-  activePageButtonText: {
-    color: '#ffffff',
-  },
-  navButton: {
-    marginHorizontal: 6,
-    marginVertical: 4,
-  },
-  navButtonGradient: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
+  endListMessage: {
+    padding: 20,
     alignItems: 'center',
-    shadowColor: modernColors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
   },
-  ellipsis: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  ellipsisText: {
-    fontSize: 18,
-    fontFamily: "Yekan_Bakh_Bold",
+  endListText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
     color: '#999',
   },
   blogSkeletonContainer: {
@@ -990,6 +1082,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 200,
     left: 40,
+  },
+    postImage: {
+    height: "100%",
+    width: "100%",
   },
 });
 

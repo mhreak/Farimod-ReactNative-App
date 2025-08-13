@@ -1,36 +1,43 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   StyleSheet,
-  Text,
   TouchableOpacity,
   View,
   Image,
   Animated,
+  BackHandler,
 } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
 import Screen from "../components/Screen";
 import AppButton from "../components/Button";
 import { Formik } from "formik";
-import AppTextInput from "../components/TextInput";
 import colors from "../config/colors";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute, useFocusEffect, CommonActions } from "@react-navigation/native";
 import * as Yup from "yup";
 import AppText from "../components/Text";
 import { AppNavigationProp } from "../Navigators";
 import { MaterialIcons } from "@expo/vector-icons";
 import Toast from "../components/Toast";
+import OTPInput from "../components/OTPInput";
 import AuthService from "../services/AuthService";
+import { useAuth } from "../contexts/AuthContext";
 
 const validationSchema = Yup.object().shape({
-  mobileNumber: Yup.string()
-    .matches(/^09\d{9}$/, "شماره موبایل معتبر نیست")
-    .required("شماره موبایل وارد نشده است"),
+  otp: Yup.string()
+    .length(5, "کد تایید باید 5 رقم باشد")
+    .required("کد تایید وارد نشده است"),
 });
 
-const LoginScreen = () => {
-  const navigation = useNavigation<AppNavigationProp>();
+const OTPScreen = () => {
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { mobileNumber } = route.params;
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
+  const [countdown, setCountdown] = useState(120); // 2 minutes
+
+  // استفاده از AuthContext
+  const { login } = useAuth();
 
   // Animation values
   const iconFadeAnim = useRef(new Animated.Value(0)).current;
@@ -39,6 +46,21 @@ const LoginScreen = () => {
   const formSlideAnim = useRef(new Animated.Value(40)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+
+  
+  // Handle back button - Fixed version
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        navigation.goBack();
+        return true;
+      };
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+
+      return () => subscription?.remove();
+    }, [navigation])
+  );
 
   useEffect(() => {
     // Sequential animations for better effect
@@ -97,6 +119,15 @@ const LoginScreen = () => {
     ).start();
   }, []);
 
+  // Countdown timer for resend OTP
+  useEffect(() => {
+    let timer;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
+
   const showToast = (message, type = "info") => {
     setToast({ visible: true, message, type });
   };
@@ -105,22 +136,56 @@ const LoginScreen = () => {
     setToast({ visible: false, message: "", type: "info" });
   };
 
-  const handleSendOTP = async (values) => {
+  const handleVerifyOTP = async (values) => {
     setIsLoading(true);
 
-    const result = await AuthService.sendOTP(values.mobileNumber);
+    try {
+      const result = await AuthService.verifyOTP(mobileNumber, values.otp);
 
-    if (result.success) {
-      showToast(result.message, "success");
-      // Navigate to OTP screen after a short delay
-      setTimeout(() => {
-        navigation.navigate("OTP", { mobileNumber: values.mobileNumber });
-      }, 1000);
-    } else {
-      showToast(result.message, "error");
+      if (result.success) {
+        // استفاده از login function از AuthContext
+        await login(result.data);
+
+        showToast(result.message, "success");
+
+        // Navigate to main tabs
+        navigation.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [{ name: "MainTabs" }],
+          })
+        );
+      } else {
+        showToast(result.message, "error");
+      }
+    } catch (error) {
+      console.error('OTP verification error:', error);
+      showToast('خطا در اتصال به سرور', 'error');
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    setIsLoading(false);
+  const handleResendOTP = async () => {
+    if (countdown === 0) {
+      setIsLoading(true);
+      const result = await AuthService.sendOTP(mobileNumber);
+
+      if (result.success) {
+        setCountdown(120);
+        showToast(result.message, "success");
+      } else {
+        showToast(result.message, "error");
+      }
+
+      setIsLoading(false);
+    }
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const spin = rotateAnim.interpolate({
@@ -166,7 +231,7 @@ const LoginScreen = () => {
               style={styles.iconCircle}
             >
               <View style={styles.iconInnerCircle}>
-                <MaterialIcons name="phone-android" color={colors.white} size={65} />
+                <MaterialIcons name="security" color={colors.white} size={65} />
               </View>
               {/* Decorative ring with rotation */}
               <Animated.View
@@ -195,51 +260,64 @@ const LoginScreen = () => {
 
               {/* Content */}
               <View style={styles.contentContainer}>
-                <AppText style={styles.logingText}>ورود به حساب کاربری</AppText>
-                <AppText style={styles.description}>
-                  شماره موبایل خود را وارد کنید تا کد تایید برای شما ارسال شود
+                <AppText style={styles.logingText}>تایید کد پیامکی</AppText>
+                <AppText style={styles.otpDescription}>
+                  کد تایید ۵ رقمی به شماره {mobileNumber} ارسال شد
                 </AppText>
 
                 <Formik
-                  initialValues={{ mobileNumber: "" }}
-                  onSubmit={handleSendOTP}
+                  initialValues={{ otp: "" }}
+                  onSubmit={handleVerifyOTP}
                   validationSchema={validationSchema}
                 >
-                  {({ handleChange, handleSubmit, errors, values }) => (
+                  {({ handleSubmit, errors, setFieldValue, values }) => (
                     <>
-                      <View>
-                        <AppTextInput
-                          autoCapitalize="none"
-                          autoCorrect={false}
-                          icon="phone-android"
-                          keyboardType="phone-pad"
-                          name="mobileNumber"
-                          placeholder="شماره موبایل"
-                          value={values.mobileNumber}
-                          onChangeText={handleChange("mobileNumber")}
+                      <View style={styles.otpContainer}>
+                        <OTPInput
+                          onCodeChange={(code) => setFieldValue("otp", code)}
+                          code={values.otp}
                         />
-                        {errors.mobileNumber && (
+                        {errors.otp && (
                           <AppText style={styles.errorText}>
-                            {errors.mobileNumber}
+                            {errors.otp}
                           </AppText>
                         )}
-                        <AppButton
-                          style={styles.loginButton}
-                          title={isLoading ? "در حال ارسال..." : "ارسال کد تایید"}
-                          onPress={handleSubmit}
-                          disabled={isLoading}
-                        />
-                        <View style={styles.footerContainer}>
-                          <AppText style={styles.footerText}>
-                            حساب کاربری ندارید؟{" "}
-                          </AppText>
-                          <TouchableOpacity
-                            onPress={() => navigation.navigate("Signup")}
-                          >
-                            <AppText style={styles.signupText}>ثبت نام کنید</AppText>
-                          </TouchableOpacity>
-                        </View>
                       </View>
+
+                      <AppButton
+                        style={styles.loginButton}
+                        title={isLoading ? "در حال بررسی..." : "تایید"}
+                        onPress={handleSubmit}
+                        disabled={isLoading || values.otp.length !== 5}
+                      />
+
+                      <View style={styles.resendContainer}>
+                        {countdown > 0 ? (
+                          <AppText style={styles.countdownText}>
+                            ارسال مجدد کد در {formatTime(countdown)}
+                          </AppText>
+                        ) : (
+                          <TouchableOpacity
+                            onPress={handleResendOTP}
+                            disabled={isLoading}
+                          >
+                            <AppText style={[
+                              styles.resendText,
+                              isLoading && styles.disabledText
+                            ]}>
+                              ارسال مجدد کد تایید
+                            </AppText>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      <TouchableOpacity
+                        style={styles.backButton}
+                        onPress={() => navigation.goBack()}
+                      >
+                        <MaterialIcons name="arrow-forward" size={20} color={colors.primary} />
+                        <AppText style={styles.backText}>تغییر شماره موبایل</AppText>
+                      </TouchableOpacity>
                     </>
                   )}
                 </Formik>
@@ -356,7 +434,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   loginButton: {
-    marginTop: 10,
+    marginTop: 20,
   },
   logingText: {
     marginTop: 50,
@@ -369,7 +447,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
-  description: {
+  otpDescription: {
     fontSize: 16,
     textAlign: "center",
     marginBottom: 30,
@@ -377,28 +455,48 @@ const styles = StyleSheet.create({
     color: colors.medium,
     lineHeight: 24,
   },
+  otpContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   errorText: {
     color: colors.danger,
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Regular",
-    marginTop: 5,
+    marginTop: 10,
     textAlign: 'center',
   },
-  footerContainer: {
+  resendContainer: {
+    alignItems: 'center',
     marginTop: 20,
-    flexDirection: "row-reverse",
-    justifyContent: "center",
-    alignItems: "center",
   },
-  footerText: {
+  countdownText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: colors.medium,
+  },
+  resendText: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
-  },
-  signupText: {
-    fontSize: 16,
     color: colors.primary,
     textDecorationLine: "underline",
   },
+  disabledText: {
+    color: colors.medium,
+    textDecorationLine: "none",
+  },
+  backButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 30,
+  },
+  backText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: colors.primary,
+    marginRight: 8,
+  },
 });
 
-export default LoginScreen;
+export default OTPScreen;

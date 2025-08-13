@@ -21,10 +21,16 @@ import MainBackground from "../components/MainBackground";
 import CourseCard from "../components/CourseCard";
 import { toPersianDigits, safeNumber, formatPrice, safeString } from "../utils/converters";
 import appConfig from "../config/config";
-import { Member, Product, Course, AvatarProps } from "../config/type";
+import { Member, Course, AvatarProps } from "../config/type";
 import { useMembers, useProducts, useCourses } from "../config/useApi";
 import Toast from "../components/Toast";
 import { StatusBar } from "react-native";
+import { useHomePageSlideNavigator, ClickableSlide } from '../components/useHomePageSlideNavigator';
+import MenuModal from "../components/MenuModal";
+import { useAuth } from "../contexts/AuthContext";
+import { CommonActions } from "@react-navigation/native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 
 
@@ -40,13 +46,15 @@ interface HomePageSlide {
 }
 
 interface Portfolio {
-  PotfolioId: number;
+  PortfolioId: number;
+  PotfolioId?: number;
   Title: string;
   Description: string;
   InsertDate: string;
   Active: boolean;
   LikeCount: number;
   Rating: number | null;
+  FeaturedImageURL?: string;
 }
 
 interface BlogPost {
@@ -78,12 +86,26 @@ interface ImageGallery {
   LikeCount: number;
   ImageGalleryItemList: any[];
 }
-
+interface Product {
+  ProductId: number;
+  MemberId: number;
+  MemberName?: string;
+  ProductName: string;
+  Price: number;
+  SpecialSalePrice: number;
+  ProductCategories: string;
+  FeaturedImageURL?: string; // اضافه شده
+  LikeCount: number;
+  Rating?: number;
+  Active: boolean;
+  InsertDate: string;
+}
 
 const useHomePageSlides = () => {
   const [data, setData] = useState<HomePageSlide[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
 
   const fetchSlides = async () => {
     try {
@@ -189,6 +211,7 @@ const useImageGalleries = () => {
   return { data, loading, error, refetch: fetchGalleries };
 };
 
+
 const useBlogPosts = () => {
   const [data, setData] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -222,6 +245,7 @@ const useBlogPosts = () => {
 
   return { data, loading, error, refetch: fetchBlogPosts };
 };
+
 
 const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
@@ -297,11 +321,18 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
 };
 
 const PortfolioCard = ({ item, onPress }: { item: Portfolio; onPress?: (portfolio: Portfolio) => void }) => {
+  const [imageError, setImageError] = useState(false);
+
   const handlePress = () => {
-    console.log('Portfolio pressed:', item.PotfolioId, item.Title);
+    const portfolioId = item.PortfolioId || item.PotfolioId;
+    console.log('Portfolio pressed:', portfolioId, item.Title);
     if (onPress) {
       onPress(item);
     }
+  };
+
+  const handleImageError = () => {
+    setImageError(true);
   };
 
   return (
@@ -311,9 +342,20 @@ const PortfolioCard = ({ item, onPress }: { item: Portfolio; onPress?: (portfoli
       onPress={handlePress}
     >
       <View style={styles.portfolioImageContainer}>
-        <View style={styles.portfolioImagePlaceholder}>
-          <MaterialIcons name="design-services" size={30} color="#ccc" />
-        </View>
+        {item.FeaturedImageURL && !imageError ? (
+          <Image
+            source={{ uri: item.FeaturedImageURL }}
+            style={styles.portfolioImage}
+            onError={handleImageError}
+          />
+        ) : (
+          <View style={styles.portfolioImagePlaceholder}>
+            <Image
+              source={require("../../assets/portfolio_icon.jpg")}
+              style={styles.portfolioDefaultImage}
+            />
+          </View>
+        )}
 
         <View style={styles.likeBadge}>
           <MaterialIcons name="favorite" size={14} color="#ffffff" />
@@ -359,7 +401,6 @@ const PortfolioCard = ({ item, onPress }: { item: Portfolio; onPress?: (portfoli
     </TouchableOpacity>
   );
 };
-
 const BlogPostCard = ({ item, onPress }: { item: BlogPost; onPress?: (post: BlogPost) => void }) => {
   const handlePress = () => {
     console.log('Blog post pressed:', item.BlogPostId, item.Title);
@@ -382,8 +423,10 @@ const BlogPostCard = ({ item, onPress }: { item: BlogPost; onPress?: (post: Blog
           />
         ) : (
           <View style={styles.blogPostImagePlaceholder}>
-            <MaterialIcons name="article" size={40} color="#ccc" />
-          </View>
+            <Image
+              style={styles.postImage}
+              source={require("../../assets/blogPost_icon.jpg")}
+            />          </View>
         )}
       </View>
 
@@ -411,6 +454,8 @@ const BlogPostCard = ({ item, onPress }: { item: BlogPost; onPress?: (post: Blog
     </TouchableOpacity>
   );
 };
+
+
 
 const GalleryCard = ({ item, onPress }: { item: ImageGallery; onPress?: (gallery: ImageGallery) => void }) => {
   const handlePress = () => {
@@ -463,6 +508,7 @@ const GalleryCard = ({ item, onPress }: { item: ImageGallery; onPress?: (gallery
 };
 
 const ProductCard = ({ item, onPress }: { item: Product; onPress?: (product: Product) => void }) => {
+  const [imageError, setImageError] = useState(false);
   const price = safeNumber(item.Price);
   const specialPrice = safeNumber(item.SpecialSalePrice);
   const discountPercentage = specialPrice > 0 && price > 0
@@ -476,6 +522,15 @@ const ProductCard = ({ item, onPress }: { item: Product; onPress?: (product: Pro
     }
   };
 
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  // ریست کردن خطا هنگام تغییر URL
+  useEffect(() => {
+    setImageError(false);
+  }, [item.FeaturedImageURL]);
+
   return (
     <TouchableOpacity
       style={styles.productCard}
@@ -483,14 +538,19 @@ const ProductCard = ({ item, onPress }: { item: Product; onPress?: (product: Pro
       onPress={handlePress}
     >
       <View style={styles.productImageContainer}>
-        <Image
-          source={
-            item.ProductImageFileName
-              ? { uri: `${appConfig.mobileApi}Product/GetProductImage/${item.ProductImageFileName}` }
-              : require("../../assets/sample_clothe.jpg")
-          }
-          style={styles.productImage}
-        />
+        {item.FeaturedImageURL && !imageError ? (
+          <Image
+            source={{ uri: item.FeaturedImageURL }}
+            style={styles.productImage}
+            onError={handleImageError}
+          />
+        ) : (
+          <Image
+            source={require("../../assets/Product_icon.jpg")}
+            style={styles.productImage}
+          />
+        )}
+
         {discountPercentage > 0 && (
           <View style={styles.discountBadge}>
             <AppText style={styles.discountText}>{toPersianDigits(discountPercentage.toString())}% تخفیف</AppText>
@@ -520,6 +580,7 @@ const ProductCard = ({ item, onPress }: { item: Product; onPress?: (product: Pro
 };
 
 const Avatar = ({ name, size = 150, onPress, showOnline = false, member }: AvatarProps) => {
+  const [imageError, setImageError] = useState(false);
   const scaleValue = new Animated.Value(1);
 
   const gradientColors = [
@@ -555,7 +616,17 @@ const Avatar = ({ name, size = 150, onPress, showOnline = false, member }: Avata
     }
   };
 
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  // ریست کردن خطا هنگام تغییر URL
+  useEffect(() => {
+    setImageError(false);
+  }, [member?.AvatarImageURL]);
+
   const selectedGradient = getGradientForName(name);
+  const hasProfileImage = member?.AvatarImageURL && member.AvatarImageURL.trim() !== '' && !imageError;
 
   return (
     <TouchableOpacity
@@ -575,25 +646,69 @@ const Avatar = ({ name, size = 150, onPress, showOnline = false, member }: Avata
           },
         ]}
       >
-        <LinearGradient
-          colors={selectedGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[
-            styles.avatarGradient,
+        {hasProfileImage ? (
+          <View style={[
+            styles.avatarImageContainer,
             {
               width: size,
               height: size,
               borderRadius: size / 2,
             },
-          ]}
-        >
-          <MaterialCommunityIcons
-            name={member?.Gender ? "face-man" : "face-woman"}
-            size={size * 0.7}
-            color="white"
-          />
-        </LinearGradient>
+          ]}>
+            <Image
+              source={{ uri: member.AvatarImageURL }}
+              style={[
+                styles.avatarImage,
+                {
+                  width: size,
+                  height: size,
+                  borderRadius: size / 2,
+                },
+              ]}
+              resizeMode="cover"
+              onError={handleImageError}
+            />
+          </View>
+        ) : (
+          <LinearGradient
+            colors={selectedGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={[
+              styles.avatarGradient,
+              {
+                width: size,
+                height: size,
+                borderRadius: size / 2,
+              },
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={member?.Gender ? "face-man" : "face-woman"}
+              size={size * 0.7}
+              color="white"
+            />
+          </LinearGradient>
+        )}
+
+        {member?.ShowBlueTick && (
+          <View style={[
+            styles.blueTickContainer,
+            {
+              width: size * 0.28,
+              height: size * 0.28,
+              borderRadius: (size * 0.28) / 2,
+              bottom: size * 0.20,
+              right: size * 0.05,
+            }
+          ]}>
+            <MaterialIcons
+              name="verified"
+              size={size * 0.22}
+              color="#1DA1F2"
+            />
+          </View>
+        )}
 
         {name && (
           <AppText style={[styles.nameText, { fontSize: size * 0.13 }]} numberOfLines={1}>
@@ -604,6 +719,7 @@ const Avatar = ({ name, size = 150, onPress, showOnline = false, member }: Avata
     </TouchableOpacity>
   );
 };
+
 const PortfolioCardSkeleton = () => {
   return (
     <View style={styles.portfolioCard}>
@@ -764,6 +880,8 @@ const AvatarSkeleton = ({ size = 100 }) => {
 
 const HomeScreen = () => {
   const navigation = useNavigation();
+  const { logout } = useAuth();
+
   const [selectedScreen, setSelectedScreen] = useState("Home");
 
   const { data: slides, loading: slidesLoading, error: slidesError, refetch: refetchSlides } = useHomePageSlides();
@@ -794,6 +912,9 @@ const HomeScreen = () => {
   const memberPagerRef = useRef<PagerView>(null);
   const coursePagerRef = useRef<PagerView>(null);
   const galleryPagerRef = useRef<PagerView>(null);
+  const { handleSlideClick, isSlideClickable, getSlideTypeLabel } = useHomePageSlideNavigator();
+  const [showMenuModal, setShowMenuModal] = useState(false);
+
 
   const autoScrollInterval = 3000;
 
@@ -978,13 +1099,37 @@ const HomeScreen = () => {
       </View>
     ));
   };
+  const handleLogout = async () => {
+    try {
+      await logout();
+      showToast('با موفقیت خارج شدید', 'success');
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: "Login" }],
+        })
+      );
+    } catch (error) {
+      console.error('Logout error:', error);
+      showToast('خطا در خروج از حساب کاربری', 'error');
+    }
+  };
 
+  // اضافه کردن تابع handleMenuNavigation
+  const handleMenuNavigation = (screen) => {
+    if (screen === 'LOGOUT') {
+      // اجرای عملیات خروج
+      handleLogout();
+    } else {
+      navigation.navigate(screen as never);
+    }
+  };
   const createPortfolioPages = () => {
     if (portfolios.length === 0) {
       return [
         <View key="no-portfolios" style={{ transform: [{ scaleX: -1 }] }}>
           <View style={styles.noPortfolioContainer}>
-            <MaterialIcons name="design-services" size={48} color="#9e9e9e" />
+            <MaterialIcons name="brush" size={48} color="#9e9e9e" />
             <AppText style={styles.noPortfolioText}>هیچ نمونه کاری موجود نیست</AppText>
           </View>
         </View>
@@ -999,14 +1144,18 @@ const HomeScreen = () => {
       pages.push(
         <View key={`portfolio-page-${i}`} style={{ transform: [{ scaleX: -1 }] }}>
           <View style={styles.portfolioGrid}>
-            {pagePortfolios.map((portfolio, index) => (
-              <View key={`portfolio-${portfolio.PotfolioId}-page${Math.floor(i / 2)}-pos${index}`} style={styles.portfolioWrapper}>
-                <PortfolioCard
-                  item={portfolio}
-                  onPress={handlePortfolioPress}
-                />
-              </View>
-            ))}
+            {pagePortfolios.map((portfolio, index) => {
+              // اطمینان از وجود ID صحیح
+              const portfolioId = portfolio.PortfolioId || portfolio.PotfolioId;
+              return (
+                <View key={`portfolio-${portfolioId}-page${Math.floor(i / 2)}-pos${index}`} style={styles.portfolioWrapper}>
+                  <PortfolioCard
+                    item={portfolio}
+                    onPress={handlePortfolioPress}
+                  />
+                </View>
+              );
+            })}
           </View>
         </View>
       );
@@ -1228,29 +1377,46 @@ const HomeScreen = () => {
     }
 
     return slides.map((slide) => (
-      <TouchableOpacity
+      <ClickableSlide
         key={slide.HomePageSlideId}
-        onPress={() => handleSlidePress(slide)}
-        activeOpacity={slide.ClickTrigger ? 0.8 : 1}
-        disabled={!slide.ClickTrigger}
+        slideData={slide}
+        showToast={showToast}
+        activeOpacity={isSlideClickable(slide) ? 0.8 : 1}
+        onSlidePress={(slideData) => {
+          // اختیاری: لاگ اضافی یا عملیات دیگر قبل از navigation
+          console.log('Slide pressed:', {
+            id: slideData.HomePageSlideId,
+            type: getSlideTypeLabel(slideData.ClickTrigger),
+            clickTrigger: slideData.ClickTrigger
+          });
+        }}
       >
         <Image
           style={styles.headerBox}
           source={{
-            uri: `${slide.ImageURL}`
+            uri: slide.ImageURL
           }}
           defaultSource={require("../../assets/sample_clothe.jpg")}
         />
-      </TouchableOpacity>
+
+
+      </ClickableSlide>
     ));
   };
 
   const handlePortfolioPress = (portfolioData: Portfolio) => {
-    console.log('Navigating to Portfolio with:', portfolioData.PotfolioId);
+    console.log('Navigating to Portfolio with:', portfolioData);
     try {
-      const portfolioId = portfolioData.PotfolioId && portfolioData.PotfolioId !== 0
-        ? portfolioData.PotfolioId
-        : 1;
+      // استفاده از فیلد صحیح PortfolioId (نه PotfolioId)
+      const portfolioId = portfolioData.PortfolioId || portfolioData.PotfolioId;
+
+      if (!portfolioId || portfolioId === 0) {
+        console.error('Invalid portfolio ID:', portfolioId);
+        showToast('خطا: شناسه نمونه کار نامعتبر است', 'error');
+        return;
+      }
+
+      console.log('Final portfolioId:', portfolioId);
 
       navigation.navigate("PortfolioDetail" as never, {
         title: portfolioData.Title,
@@ -1263,7 +1429,7 @@ const HomeScreen = () => {
   };
 
   const handleViewAllPortfolios = () => {
-    navigation.navigate("PortfolioListScreen" as never);
+    navigation.navigate("AllPortfolio" as never);
   };
 
   const handleCoursePress = (courseData: Course) => {
@@ -1313,7 +1479,7 @@ const HomeScreen = () => {
   };
 
   const handleViewAllBlogPosts = () => {
-    navigation.navigate("MagScreen" as never);
+    navigation.navigate("مجله ی فریمد" as never);
   };
 
   const handleGalleryPress = (galleryData: ImageGallery) => {
@@ -1329,11 +1495,6 @@ const HomeScreen = () => {
     }
   };
 
-  const handleSlidePress = (slide: HomePageSlide) => {
-    if (slide.ClickTrigger) {
-      console.log('Slide clicked with trigger:', slide.ClickTrigger);
-    }
-  };
 
   const handleViewAllCourses = () => {
     navigation.navigate("AllCourses" as never);
@@ -1378,14 +1539,13 @@ const HomeScreen = () => {
 
       <TouchableOpacity
         style={styles.notificationButton}
-        onPress={() => {
-          // Handle notification press
-          console.log('Notification pressed');
-        }}
+
+        onPress={() => setShowMenuModal(true)}
+
       >
         <View style={styles.notificationButtonContainer}>
           <MaterialIcons
-            name="notifications"
+            name="menu"
             size={24}
             color="#6366f1"
           />
@@ -1423,7 +1583,6 @@ const HomeScreen = () => {
             {createSlidePages()}
           </PagerView>
         )}
-
         <View style={styles.titleBox}>
           <View style={{ flexDirection: "row-reverse", alignItems: "center" }}>
             <View
@@ -1805,6 +1964,11 @@ const HomeScreen = () => {
           </PagerView>
         )}
       </ScrollView>
+      <MenuModal
+        visible={showMenuModal}
+        onClose={() => setShowMenuModal(false)}
+        onNavigate={handleMenuNavigation}
+      />
     </View>
   );
 };
@@ -1826,6 +1990,10 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 1000,
   },
+  postImage: {
+    height: "100%",
+    width: "100%",
+  },
   frameButtonContainer: {
     width: 44,
     height: 44,
@@ -1839,7 +2007,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
-    padding:10
+    padding: 10
   },
   notificationButton: {
     position: 'absolute',
@@ -1868,7 +2036,7 @@ const styles = StyleSheet.create({
     color: "#2c3e50",
     marginHorizontal: 15,
     textAlign: "center",
-    marginTop:-100
+    marginTop: -100
   },
   bodyText: {
     fontSize: 20,
@@ -2357,7 +2525,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
-    height: 280,
+    height: 270,
     marginBottom: 20,
   },
   portfolioImageContainer: {
@@ -2370,6 +2538,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  portfolioImage: {
+    width: '100%',
+    height: '100%',
+    // resizeMode: 'contain',
+  },
+  portfolioDefaultImage: {
+    width: '100%',
+    height: '100%',
+
   },
   likeBadge: {
     position: 'absolute',
@@ -2424,6 +2602,37 @@ const styles = StyleSheet.create({
     color: '#666',
     marginRight: 4,
   },
+  avatarImageContainer: {
+    borderWidth: 4,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  avatarImage: {
+    borderWidth: 4,
+    borderColor: '#fff',
+  },
+  blueTickContainer: {
+    position: 'absolute',
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    marginTop: -15,
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2452,6 +2661,23 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: '#9e9e9e',
     marginTop: 12,
+    textAlign: 'center',
+  },
+  slideTypeBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  slideTypeText: {
+    fontSize: 10,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#ffffff',
     textAlign: 'center',
   },
 });

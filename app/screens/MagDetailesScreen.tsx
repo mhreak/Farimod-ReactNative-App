@@ -20,7 +20,7 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import Toast from "../components/Toast";
 import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
-import RatingComponent, { StarDisplay } from "../components/RatingComponent";
+import MultiOptionRatingComponent, { StarDisplay } from "../components/RatingComponent";
 
 const { width, height } = Dimensions.get('window');
 
@@ -54,22 +54,26 @@ const transformContentReviewToRatingOptions = (contentReviewList) => {
       {
         id: 'content',
         title: 'کیفیت محتوا',
-        subtitle: 'کیفیت و مفید بودن محتوای مقاله'
+        subtitle: 'کیفیت و مفید بودن محتوای مقاله',
+        contentReviewItemId: 'content'
       },
       {
         id: 'writing',
         title: 'نگارش',
-        subtitle: 'کیفیت نوشتار و روان بودن متن'
+        subtitle: 'کیفیت نوشتار و روان بودن متن',
+        contentReviewItemId: 'writing'
       },
       {
         id: 'usefulness',
         title: 'کاربردی بودن',
-        subtitle: 'میزان مفید و قابل استفاده بودن'
+        subtitle: 'میزان مفید و قابل استفاده بودن',
+        contentReviewItemId: 'usefulness'
       },
       {
         id: 'comprehensiveness',
         title: 'جامعیت',
-        subtitle: 'پوشش کامل موضوع'
+        subtitle: 'پوشش کامل موضوع',
+        contentReviewItemId: 'comprehensiveness'
       }
     ];
   }
@@ -235,7 +239,10 @@ const MagDetailesScreen = ({ route }) => {
   const likeAnim = useRef(new Animated.Value(1)).current;
   const heartAnim = useRef(new Animated.Value(0)).current;
   const [imageError, setImageError] = useState(false);
+  const [imageViewerVisible, setImageViewerVisible] = useState(false);
 
+  const imageViewerScaleAnim = useRef(new Animated.Value(0)).current;
+  const imageViewerOpacityAnim = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
     useCallback(() => {
@@ -278,6 +285,46 @@ const MagDetailesScreen = ({ route }) => {
     ).start();
   }, []);
 
+  useEffect(() => {
+    if (error) {
+      showToast('خطا در دریافت اطلاعات مقاله. لطفاً دوباره تلاش کنید.', 'error');
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (imageViewerVisible) {
+      imageViewerScaleAnim.setValue(0.8);
+      imageViewerOpacityAnim.setValue(0);
+
+      Animated.parallel([
+        Animated.spring(imageViewerScaleAnim, {
+          toValue: 1,
+          tension: 150,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(imageViewerOpacityAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        })
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(imageViewerScaleAnim, {
+          toValue: 0.8,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(imageViewerOpacityAnim, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        })
+      ]).start();
+    }
+  }, [imageViewerVisible]);
+
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -289,11 +336,20 @@ const MagDetailesScreen = ({ route }) => {
     setToastVisible(true);
   };
 
-  useEffect(() => {
-    if (error) {
-      showToast('خطا در دریافت اطلاعات مقاله. لطفاً دوباره تلاش کنید.', 'error');
+  const hasValidImage = () => {
+    if (!blogPost) return false;
+    if (!blogPost.FeaturedImageFileName) return false;
+    if (!blogPost.FeaturedImageURL) return false;
+    if (imageError) return false;
+    if (blogPost.FeaturedImageURL.endsWith('/')) return false;
+    return true;
+  };
+
+  const handleImagePress = () => {
+    if (hasValidImage()) {
+      setImageViewerVisible(true);
     }
-  }, [error]);
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -379,6 +435,10 @@ const MagDetailesScreen = ({ route }) => {
     ]).start(() => {
       setShowDeleteConfirmModal(false);
     });
+  };
+
+  const handleCloseImageViewer = () => {
+    setImageViewerVisible(false);
   };
 
   const handleLike = async () => {
@@ -507,53 +567,6 @@ const MagDetailesScreen = ({ route }) => {
     }
   };
 
-  const handleRatingChange = (newRating, detailedRatings = null) => {
-    if (blogPost) {
-      const updatedBlogPost = {
-        ...blogPost,
-        UserRating: newRating
-      };
-
-      if (detailedRatings) {
-        updatedBlogPost.UserDetailedRatings = detailedRatings;
-        setUserDetailedRatings(detailedRatings);
-      }
-
-      setData(updatedBlogPost);
-    }
-
-    if (detailedRatings) {
-      const ratingTexts = Object.entries(detailedRatings).map(([key, value]) => {
-        const option = dynamicRatingOptions.find(opt => opt.id === key);
-        return `${option?.title}: ${toPersianDigits(value.toString())}`;
-      }).join('، ');
-
-
-    } else {
-      showToast(`امتیاز ${toPersianDigits(newRating.toString())} ستاره ثبت شد`, 'success');
-    }
-  };
-
-  const handleRatingSubmit = async (rating, detailedRatings = null) => {
-    try {
-      console.log('Submitting rating:', rating);
-      if (detailedRatings) {
-        console.log('Detailed ratings:', detailedRatings);
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      if (detailedRatings) {
-        const totalCategories = Object.keys(detailedRatings).length;
-        showToast(`امتیاز شما در ${toPersianDigits(totalCategories.toString())} بخش با موفقیت ثبت شد`, 'success');
-      } else {
-        showToast('امتیاز شما با موفقیت ثبت شد', 'success');
-      }
-    } catch (error) {
-      showToast('خطا در ثبت امتیاز', 'error');
-    }
-  };
-
   const renderContentItems = () => {
     if (!blogPost.ContentReviewItemList || blogPost.ContentReviewItemList.length === 0) {
       return (
@@ -574,8 +587,6 @@ const MagDetailesScreen = ({ route }) => {
             {toPersianDigits(blogPost.Content)}
           </AppText>
         )}
-
-        
       </View>
     );
   };
@@ -621,23 +632,33 @@ const MagDetailesScreen = ({ route }) => {
     return (
       <View style={styles.contentWrapper}>
         <View style={styles.imageContainer}>
-          {blogPost.FeaturedImageURL && !imageError ? (
-            <Image
-              source={{ uri: blogPost.FeaturedImageURL }}
-              style={styles.postImage}
-              resizeMode="cover"
-              onError={() => setImageError(true)}
-            />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <MaterialIcons name="article" size={60} color="#ccc" />
-            </View>
-          )}
+          <TouchableOpacity
+            onPress={handleImagePress}
+            activeOpacity={0.9}
+            disabled={!hasValidImage()}
+          >
+            {hasValidImage() ? (
+              <Image
+                source={{ uri: blogPost.FeaturedImageURL }}
+                style={styles.postImage}
+                resizeMode="cover"
+                onError={() => setImageError(true)}
+              />
+            ) : (
+              <Image
+                source={require("../../assets/blogPost_icon.jpg")}
+                style={styles.postImage}
+                resizeMode="cover"
+              />
+            )}
+          </TouchableOpacity>
 
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.3)']}
-            style={styles.imageGradient}
-          />
+          {hasValidImage() && (
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.3)']}
+              style={styles.imageGradient}
+            />
+          )}
 
           {isOwnPost && (
             <View style={[styles.statusBadge, { backgroundColor: blogPost.Active ? modernColors.success : modernColors.warning }]}>
@@ -676,34 +697,122 @@ const MagDetailesScreen = ({ route }) => {
           <AppText style={styles.titleText}>
             {toPersianDigits(blogPost.Title)}
           </AppText>
-
+          {blogPost.MemberName && (
+            <View style={styles.authorContainer}>
+              <View style={styles.authorCardBorder}>
+                <View style={styles.authorIconContainer}>
+                  <MaterialIcons name="person" size={18} color="#816bff" />
+                </View>
+                <AppText style={styles.authorText}>
+                 {toPersianDigits(blogPost.MemberName)}
+                </AppText>
+              </View>
+            </View>
+          )}
           {renderContentItems()}
 
+          {blogPost.BlogPostCategoriesStr && blogPost.BlogPostCategoriesStr.trim() !== '' && (
+            <View style={styles.categoriesContainer}>
+              <View style={styles.categoriesList}>
+                {blogPost.BlogPostCategoriesStr.split('،').map((category, index) => (
+                  <View key={index} style={styles.categoryTag}>
+                    <AppText style={styles.categoryText}>
+                      {toPersianDigits(category.trim())}
+                    </AppText>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
           <View style={styles.ratingSection}>
-            <RatingComponent
-              initialRating={blogPost.UserRating || 0}
+            <MultiOptionRatingComponent
+              contentId={blogPost.BlogPostId}
               averageRating={blogPost.Rating || 0}
               ratingCount={blogPost.RatingCount || 0}
-              onRatingChange={handleRatingChange}
-              onSubmit={handleRatingSubmit}
+              initialRating={blogPost.UserRating || 0}
+              initialDetailedRatings={userDetailedRatings}
               maxStars={5}
               size={24}
-              showRatingText={true}
-              showRatingCount={true}
-              animated={true}
-              allowHalfStars={false}
               starColor={modernColors.fashionGold}
-              style={styles.ratingComponent}
               enableMultipleOptions={true}
               ratingOptions={dynamicRatingOptions}
-              modalTitle="امتیاز دهی مقاله"
+              modalTitle="امتیازدهی مقاله"
               submitButtonText="ثبت امتیاز"
               cancelButtonText="لغو"
+              showRatingCount={true}
+              showRatingText={true}
+              animated={true}
+              allowHalfStars={false}
+              onRatingSubmitted={(result) => {
+                console.log('Rating submitted successfully:', result);
+
+                if (result.ratings) {
+                  setUserDetailedRatings(result.ratings);
+                  const averageRating = result.averageRating;
+
+                  setData(prevData => ({
+                    ...prevData,
+                    UserRating: averageRating,
+                    UserDetailedRatings: result.ratings
+                  }));
+
+                  showToast(`امتیاز شما در ${Object.keys(result.ratings).length} بخش با موفقیت ثبت شد`, 'success');
+                } else {
+                  setData(prevData => ({
+                    ...prevData,
+                    UserRating: result.rating
+                  }));
+
+                  showToast(`امتیاز ${toPersianDigits(result.rating.toString())} ستاره ثبت شد`, 'success');
+                }
+              }}
+              onRatingError={(errorMessage) => {
+                console.error('Rating submission failed:', errorMessage);
+                showToast(errorMessage || 'خطا در ثبت امتیاز', 'error');
+              }}
+              onRatingChange={(rating, detailedRatings) => {
+                if (detailedRatings) {
+                  setUserDetailedRatings(detailedRatings);
+                }
+              }}
+              style={styles.ratingComponent}
             />
+
+            {dynamicRatingOptions.length > 0 && Object.keys(userDetailedRatings).length > 0 && (
+              <View style={styles.userDetailedRatingsContainer}>
+                <AppText style={styles.userDetailedRatingsTitle}>امتیازات شما:</AppText>
+                {dynamicRatingOptions
+                  .filter(option => userDetailedRatings[option.id])
+                  .map((option) => (
+                    <View key={option.id} style={styles.userRatingRow}>
+                      <View style={styles.userRatingRowContent}>
+                        <View style={styles.userRatingRowText}>
+                          <AppText style={styles.userRatingRowTitle}>{option.title}</AppText>
+                        </View>
+                        <View style={styles.userRatingRowStars}>
+                          <StarDisplay
+                            rating={userDetailedRatings[option.id]}
+                            maxStars={5}
+                            size={16}
+                            color={modernColors.fashionGold}
+                            emptyColor="#e0e0e0"
+                            showHalfStars={false}
+                            animated={false}
+                          />
+                          <AppText style={styles.userRatingScore}>
+                            {toPersianDigits(userDetailedRatings[option.id].toString())}
+                          </AppText>
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+              </View>
+            )}
 
             {dynamicRatingOptions.length > 0 && dynamicRatingOptions.some(option => option.averageRating && option.averageRating > 0) && (
               <View style={styles.detailedRatingsContainer}>
-                <AppText style={styles.detailedRatingsTitle}>میانگین امتیاز در هر بخش:</AppText>
+                <AppText style={styles.detailedRatingsTitle}>میانگین امتیازات:</AppText>
                 {dynamicRatingOptions
                   .filter(option => option.averageRating && option.averageRating > 0)
                   .map((option) => (
@@ -712,7 +821,6 @@ const MagDetailesScreen = ({ route }) => {
                         <View style={styles.ratingRowText}>
                           <AppText style={styles.ratingRowTitle}>{option.title}</AppText>
                         </View>
-
                         <View style={styles.ratingRowStars}>
                           <StarDisplay
                             rating={option.averageRating}
@@ -723,6 +831,9 @@ const MagDetailesScreen = ({ route }) => {
                             showHalfStars={true}
                             animated={false}
                           />
+                          <AppText style={styles.averageRatingScore}>
+                            {toPersianDigits(option.averageRating.toFixed(1))}
+                          </AppText>
                         </View>
                       </View>
                     </View>
@@ -736,20 +847,10 @@ const MagDetailesScreen = ({ route }) => {
               <View style={styles.dateContainer}>
                 <MaterialIcons name="calendar-month" size={17} color="#666" />
                 <AppText style={styles.dateText}>
-                  {toPersianDigits(blogPost.ShamsiInsertDateTime)}
+                  {toPersianDigits(blogPost.ShamsiInsertDate)}
                 </AppText>
               </View>
 
-              <View style={styles.commentStatusContainer}>
-                <AppText style={[styles.commentStatusText, { color: blogPost.CommentEnabled ? modernColors.info : "#999" }]}>
-                  {blogPost.CommentEnabled ? 'کامنت فعال' : 'کامنت غیرفعال'}
-                </AppText>
-                <MaterialIcons
-                  name={blogPost.CommentEnabled ? "comment" : "comments-disabled"}
-                  size={16}
-                  color={blogPost.CommentEnabled ? modernColors.info : "#999"}
-                />
-              </View>
             </View>
           </View>
         </View>
@@ -944,25 +1045,6 @@ const MagDetailesScreen = ({ route }) => {
               </View>
 
               <View style={styles.modalActions}>
-                {dynamicRatingOptions.length > 0 && dynamicRatingOptions.some(option => option.averageRating && option.averageRating > 0) && (
-                  <View style={styles.drawerRatingsSection}>
-                    <AppText style={styles.drawerRatingsTitle}>امتیازات بخش‌ها:</AppText>
-                    {dynamicRatingOptions
-                      .filter(option => option.averageRating && option.averageRating > 0)
-                      .map((option) => (
-                        <View key={option.id} style={styles.drawerRatingItem}>
-                          <AppText style={styles.drawerRatingText}>{option.title}</AppText>
-                          <View style={styles.drawerRatingRight}>
-                            <AppText style={styles.drawerRatingScore}>
-                              {toPersianDigits(option.averageRating.toFixed(1))}
-                            </AppText>
-                            <MaterialIcons name="star" size={16} color={modernColors.fashionGold} />
-                          </View>
-                        </View>
-                      ))}
-                  </View>
-                )}
-
                 <TouchableOpacity
                   style={styles.modalActionItem}
                   onPress={() => {
@@ -1096,6 +1178,99 @@ const MagDetailesScreen = ({ route }) => {
             </Animated.View>
           </View>
         </Modal>
+
+        <Modal
+          visible={imageViewerVisible}
+          transparent={true}
+          animationType="none"
+          onRequestClose={handleCloseImageViewer}
+          statusBarTranslucent={true}
+        >
+          <View style={styles.imageViewerContainer}>
+            <Animated.View
+              style={[
+                styles.imageViewerBackdrop,
+                {
+                  opacity: imageViewerOpacityAnim,
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.imageViewerBackdropTouchable}
+                onPress={handleCloseImageViewer}
+                activeOpacity={1}
+              />
+            </Animated.View>
+
+            <Animated.View
+              style={[
+                styles.imageViewerContent,
+                {
+                  opacity: imageViewerOpacityAnim,
+                  transform: [{ scale: imageViewerScaleAnim }],
+                },
+              ]}
+            >
+              {blogPost && blogPost.FeaturedImageFileName && blogPost.FeaturedImageURL && !imageError && (
+                <>
+                  <View style={styles.imageContainer}>
+                    <Image
+                      source={{ uri: blogPost.FeaturedImageURL }}
+                      style={styles.fullScreenImage}
+                      resizeMode="contain"
+                    />
+                  </View>
+
+                  <View style={styles.imageViewerHeader}>
+                    <TouchableOpacity
+                      style={styles.closeButton}
+                      onPress={handleCloseImageViewer}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.closeButtonContainer}>
+                        <MaterialIcons name="close" size={24} color="#ffffff" />
+                      </View>
+                    </TouchableOpacity>
+
+                    <View style={styles.imageViewerInfo}>
+                      <AppText style={styles.imageViewerTitle} numberOfLines={2}>
+                        {toPersianDigits(blogPost.Title)}
+                      </AppText>
+                      <AppText style={styles.imageViewerSubtitle}>
+                        تصویر شاخص مقاله
+                      </AppText>
+                    </View>
+                  </View>
+
+                  <View style={styles.imageViewerFooter}>
+                    <View style={styles.imageActions}>
+                      {isOwnPost && (
+                        <TouchableOpacity
+                          style={styles.actionButton}
+                          onPress={() => {
+                            handleCloseImageViewer();
+                            setTimeout(() => {
+                              handleEditPost();
+                            }, 300);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <LinearGradient
+                            colors={[modernColors.primary, modernColors.primaryDark]}
+                            style={styles.actionButtonGradient}
+                          >
+                            <MaterialIcons name="edit" size={20} color="white" />
+                          </LinearGradient>
+                          <AppText style={styles.actionButtonText}>ویرایش</AppText>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                </>
+              )}
+            </Animated.View>
+          </View>
+        </Modal>
       </View>
     </>
   );
@@ -1110,7 +1285,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-
   headerContainer: {
     alignItems: "center",
     paddingTop: StatusBar.currentHeight + 35,
@@ -1195,6 +1369,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  placeholderText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#999',
+    marginTop: 10,
+    textAlign: 'center',
   },
   imageGradient: {
     position: 'absolute',
@@ -1286,37 +1469,28 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     direction: "rtl",
   },
-  contentItemContainer: {
-    marginBottom: 20,
-    padding: 15,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    borderRightWidth: 4,
-    borderRightColor: modernColors.primary,
+  categoriesContainer: {
+    marginBottom: 25,
+    padding: 0,
   },
-  contentItemHeader: {
+  categoriesList: {
     flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginBottom: 10,
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  contentItemNumber: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.primary,
-    backgroundColor: modernColors.primaryLight,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-    minWidth: 30,
-    textAlign: 'center',
+  categoryTag: {
+    backgroundColor: '#e3f2fd',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#bbdefb',
   },
-  contentItemText: {
-    fontSize: 15,
+  categoryText: {
+    fontSize: 13,
     fontFamily: "Yekan_Bakh_Regular",
-    color: "#34495e",
-    textAlign: "justify",
-    lineHeight: 26,
-    direction: "rtl",
+    color: '#1976d2',
+    textAlign: 'center',
   },
   ratingSection: {
     marginBottom: 25,
@@ -1337,6 +1511,57 @@ const styles = StyleSheet.create({
   ratingComponent: {
     alignItems: 'flex-end',
   },
+  // امتیازات تفصیلی کاربر
+  userDetailedRatingsContainer: {
+    marginTop: 20,
+    backgroundColor: '#e8f5e8',
+    borderRadius: 15,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+  },
+  userDetailedRatingsTitle: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    textAlign: 'right',
+    marginBottom: 15,
+  },
+  userRatingRow: {
+    marginBottom: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e8f5e8',
+  },
+  userRatingRowContent: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  userRatingRowText: {
+    flex: 1,
+    alignItems: 'flex-end',
+  },
+  userRatingRowTitle: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    marginBottom: 4,
+  },
+  userRatingRowStars: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    marginLeft: 15,
+    gap: 8,
+  },
+  userRatingScore: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: modernColors.success,
+  },
+  // میانگین امتیازات سایر کاربران
   detailedRatingsContainer: {
     marginTop: 20,
     backgroundColor: '#f8f9fa',
@@ -1376,7 +1601,15 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   ratingRowStars: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
     marginLeft: 15,
+    gap: 8,
+  },
+  averageRatingScore: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#666",
   },
   metaContainer: {
     flexDirection: 'row-reverse',
@@ -1409,6 +1642,7 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Regular",
     marginRight: 8,
   },
+  // Skeleton Loader Styles
   skeletonContainer: {
     flex: 1,
   },
@@ -1440,6 +1674,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
   },
+  // Error Container Styles
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1482,6 +1717,7 @@ const styles = StyleSheet.create({
     color: colors.white,
     marginRight: 8,
   },
+  // Empty Container Styles
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1504,6 +1740,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
+  // Floating Decorations
   floatingDecoration1: {
     position: 'absolute',
     top: 200,
@@ -1553,6 +1790,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     pointerEvents: 'none',
   },
+  // Modal Styles
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -1604,52 +1842,6 @@ const styles = StyleSheet.create({
   modalActions: {
     marginBottom: 20,
   },
-  drawerRatingsSection: {
-    backgroundColor: '#f8f9ff',
-    borderRadius: 15,
-    padding: 15,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#e3e7ff',
-  },
-  drawerRatingsTitle: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    textAlign: 'right',
-    marginBottom: 12,
-  },
-  drawerRatingItem: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    backgroundColor: '#ffffff',
-    borderRadius: 10,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-  },
-  drawerRatingText: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#2c3e50",
-    flex: 1,
-    textAlign: 'right',
-  },
-  drawerRatingRight: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 4,
-  },
-  drawerRatingScore: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.fashionGold,
-    minWidth: 25,
-    textAlign: 'center',
-  },
   modalActionItem: {
     paddingVertical: 15,
     paddingHorizontal: 10,
@@ -1699,6 +1891,7 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: '#6c757d',
   },
+  // Delete Modal Styles
   deleteModalContent: {
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 25,
@@ -1795,6 +1988,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
     color: '#6c757d',
+  },
+  authorContainer: {
+    marginBottom: 25,
+    borderRadius: 16,
+    overflow: 'hidden',
+ 
+  },
+  authorGradient: {
+    padding: 16,
+  },
+  authorContent: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  authorIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 12,
+  },
+  authorText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: 'black',
+ 
+  },
+  authorCardBorder: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: '#f3eefc',
+    padding: 16,
+    borderRadius: 12,
+    borderRightWidth: 4,
+    
+    borderRightColor: '#866bff',
+  
   },
 });
 

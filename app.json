@@ -49,7 +49,8 @@
             "networkSecurityConfig": "./network_security_config.xml"
           }
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
 }

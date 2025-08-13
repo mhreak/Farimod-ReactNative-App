@@ -24,6 +24,10 @@ import MainBackground from "../components/MainBackground";
 import { toPersianDigits, safeNumber, formatPrice, safeString } from "../utils/converters";
 import appConfig from "../config/config";
 import { useMemberProfile } from "../config/useApi";
+import { VideoView } from 'expo-video';
+import { useVideoPlayer } from 'expo-video';
+
+
 
 const { width } = Dimensions.get("window");
 
@@ -58,7 +62,246 @@ const modernColors = {
   gradientEnd: "#764ba2",
 };
 
-// Skeleton Component
+// کامپوننت لایک
+const LikeButton = ({ memberId, initialLikeCount = 0, initialIsLiked = false }) => {
+  const [likeCount, setLikeCount] = useState(initialLikeCount);
+  const [isLiked, setIsLiked] = useState(initialIsLiked);
+  const [isLiking, setIsLiking] = useState(false);
+
+  const likeAnim = useRef(new Animated.Value(1)).current;
+  const heartAnim = useRef(new Animated.Value(0)).current;
+
+  const handleLike = async () => {
+    if (isLiking || !memberId) return;
+
+    setIsLiking(true);
+
+    const newIsLiked = !isLiked;
+    const countChange = newIsLiked ? 1 : -1;
+    const newLikeCount = likeCount + countChange;
+
+    // بروزرسانی فوری UI
+    setIsLiked(newIsLiked);
+    setLikeCount(newLikeCount);
+
+    // انیمیشن لایک
+    Animated.sequence([
+      Animated.parallel([
+        Animated.timing(likeAnim, {
+          toValue: 0.6,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartAnim, {
+          toValue: 0.3,
+          duration: 100,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.parallel([
+        Animated.spring(likeAnim, {
+          toValue: 1.3,
+          tension: 200,
+          friction: 4,
+          useNativeDriver: true,
+        }),
+        Animated.timing(heartAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.spring(likeAnim, {
+        toValue: 1,
+        tension: 200,
+        friction: 6,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // انیمیشن قلب پرنده برای لایک
+    if (newIsLiked) {
+      setTimeout(() => {
+        Animated.sequence([
+          Animated.timing(heartAnim, {
+            toValue: 0.8,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(heartAnim, {
+            toValue: 0,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, 200);
+    } else {
+      Animated.timing(heartAnim, {
+        toValue: 0,
+        duration: 100,
+        useNativeDriver: true,
+      }).start();
+    }
+
+    try {
+      const response = await fetch(
+        `${appConfig.mobileApi}Member/Like?id=${memberId}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('Like API Response:', result);
+
+      // اگر سرور لایک کانت واقعی برگردونه، بروزرسانی کنید
+      if (result.LikeCount !== undefined) {
+        setLikeCount(result.LikeCount);
+      }
+
+    } catch (error) {
+      console.error('Like API Error:', error);
+
+      // در صورت خطا، تغییرات رو برگردونید
+      setIsLiked(isLiked);
+      setLikeCount(likeCount);
+
+      // نمایش پیام خطا (می‌تونید Toast اضافه کنید)
+      console.log('خطا در ثبت لایک');
+
+    } finally {
+      setIsLiking(false);
+    }
+  };
+
+  return (
+    <View style={styles.likeSection}>
+      <TouchableOpacity
+        style={styles.likeButton}
+        onPress={handleLike}
+        disabled={isLiking}
+        activeOpacity={0.7}
+      >
+        <View style={styles.likeButtonInner}>
+          <View>
+            <MaterialIcons
+              name={isLiked ? "favorite" : "favorite-border"}
+              size={20}
+              color={isLiked ? modernColors.secondary : modernColors.medium}
+            />
+          </View>
+          <AppText style={[
+            styles.likeText,
+            { color: isLiked ? modernColors.secondary : modernColors.medium }
+          ]}>
+            {toPersianDigits(likeCount.toString())}
+          </AppText>
+        </View>
+      </TouchableOpacity>
+
+      {/* قلب پرنده */}
+      <Animated.View
+        style={[
+          styles.floatingHeart,
+          {
+            opacity: heartAnim,
+            transform: [
+              {
+                translateY: heartAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, -100],
+                }),
+              },
+              {
+                scale: heartAnim.interpolate({
+                  inputRange: [0, 0.3, 0.7, 1],
+                  outputRange: [0.5, 1.5, 1.2, 0.3],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <MaterialIcons name="favorite" size={30} color={modernColors.secondary} />
+      </Animated.View>
+    </View>
+  );
+};
+
+
+const VideoSection = ({ userData, animatedValues }) => {
+  const [videoError, setVideoError] = useState(false);
+
+  if (!userData.IntroductionVideoFileName && !userData.IntroductionVideoURL) {
+    return null;
+  }
+
+  const videoSource =
+    userData.VideoURL ||
+    (userData.IntroductionVideoURL ? `${userData.IntroductionVideoURL}` : null);
+
+  if (!videoSource || videoError) {
+    return (
+      <Animated.View
+        style={[
+          styles.videoSection,
+          {
+            opacity: animatedValues.fadeAnim,
+            transform: [{ translateY: animatedValues.slideAnim }],
+          },
+        ]}
+      >
+        <View style={styles.videoPlaceholder}>
+          <MaterialIcons name="play-circle-outline" size={60} color={modernColors.medium} />
+          <AppText style={styles.videoPlaceholderText}>ویدیو موجود نیست</AppText>
+        </View>
+      </Animated.View>
+    );
+  }
+
+  const player = useVideoPlayer(videoSource, (player) => {
+    player.loop = false;
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.videoSection,
+        {
+          opacity: animatedValues.fadeAnim,
+          transform: [{ translateY: animatedValues.slideAnim }],
+        },
+      ]}
+    >
+      <LinearGradient
+        colors={[modernColors.primary + '10', modernColors.accent + '10']}
+        style={styles.videoWrapper}
+      >
+        <View style={styles.videoShadow}>
+          <VideoView
+            player={player}
+            style={styles.videoPlayer}
+            contentFit="cover"
+            nativeControls
+            onError={(e) => {
+              console.log('Video error:', e);
+              setVideoError(true);
+            }}
+          />
+        </View>
+
+      </LinearGradient>
+    </Animated.View>
+  );
+};
+
 const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
 
@@ -101,7 +344,6 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   );
 };
 
-// Profile Skeleton Components
 const ProfileSkeleton = () => (
   <View style={styles.profileSection}>
     <View style={styles.avatarContainer}>
@@ -112,7 +354,9 @@ const ProfileSkeleton = () => (
       />
     </View>
     <SkeletonLoader width={180} height={24} borderRadius={12} style={{ marginBottom: 8 }} />
-    <SkeletonLoader width={120} height={16} borderRadius={20} />
+    <SkeletonLoader width={120} height={16} borderRadius={20} style={{ marginBottom: 15 }} />
+    {/* اسکلتون لایک */}
+    <SkeletonLoader width={80} height={35} borderRadius={20} />
   </View>
 );
 
@@ -150,8 +394,7 @@ const ContactSkeleton = () => (
 );
 
 const QuickAccessSkeleton = () => {
-  // در حالت skeleton 2 تا 4 آیتم نمایش داده می‌شود (تصادفی)
-  const itemCount = Math.floor(Math.random() * 3) + 2; // 2, 3, یا 4
+  const itemCount = Math.floor(Math.random() * 3) + 2;
 
   return (
     <View style={styles.quickAccessContainer}>
@@ -183,13 +426,13 @@ const SectionSkeleton = ({ title, cardType = "portfolio" }) => (
           {cardType === "course" && <CourseCardSkeleton />}
           {cardType === "product" && <ProductCardSkeleton />}
           {cardType === "gallery" && <GalleryCardSkeleton />}
+          {cardType === "blog" && <BlogPostCardSkeleton />}
         </View>
       ))}
     </ScrollView>
   </View>
 );
 
-// Card Skeletons
 const PortfolioCardSkeleton = () => (
   <View style={styles.portfolioCard}>
     <SkeletonLoader width="100%" height="100%" borderRadius={0} />
@@ -246,7 +489,27 @@ const GalleryCardSkeleton = () => (
   </View>
 );
 
-// Portfolio Card Component
+const BlogPostCardSkeleton = () => (
+  <View style={styles.blogCard}>
+    <View style={styles.blogImageContainer}>
+      <SkeletonLoader width="100%" height="100%" borderRadius={0} />
+    </View>
+    <View style={styles.blogContent}>
+      <SkeletonLoader width="90%" height={16} style={{ marginBottom: 12 }} />
+      <View style={styles.blogMeta}>
+        <View style={styles.dateContainer}>
+          <SkeletonLoader width={16} height={16} borderRadius={8} style={{ marginLeft: 6 }} />
+          <SkeletonLoader width={80} height={14} />
+        </View>
+        <View style={styles.likeContainer}>
+          <SkeletonLoader width={16} height={16} borderRadius={8} style={{ marginRight: 6 }} />
+          <SkeletonLoader width={30} height={14} />
+        </View>
+      </View>
+    </View>
+  </View>
+);
+
 const PortfolioCard = ({ item }) => (
   <TouchableOpacity style={styles.portfolioCard} activeOpacity={0.8}>
     <Image
@@ -266,16 +529,13 @@ const PortfolioCard = ({ item }) => (
           <AppText style={styles.portfolioTitle} numberOfLines={2}>
             {safeString(item.Title, 'عنوان پروژه')}
           </AppText>
-          <AppText style={styles.portfolioCategory}>
-            {safeString(item.Category, 'دسته‌بندی')}
-          </AppText>
+
         </View>
       </LinearGradient>
     </View>
   </TouchableOpacity>
 );
 
-// Course Card Component
 const CourseCard = ({ item }) => (
   <TouchableOpacity style={styles.courseCard} activeOpacity={0.8}>
     <Image
@@ -317,7 +577,6 @@ const CourseCard = ({ item }) => (
   </TouchableOpacity>
 );
 
-// Product Card Component
 const ProductCard = ({ item }) => {
   const price = safeNumber(item.Price);
   const specialPrice = safeNumber(item.SpecialSalePrice);
@@ -368,7 +627,6 @@ const ProductCard = ({ item }) => {
   );
 };
 
-// Gallery Card Component
 const GalleryCard = ({ item }) => (
   <TouchableOpacity style={styles.galleryCard} activeOpacity={0.8}>
     <Image
@@ -390,7 +648,77 @@ const GalleryCard = ({ item }) => (
   </TouchableOpacity>
 );
 
-// Contact Item Component
+const BlogImageComponent = ({ item }) => {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
+
+  const hasValidImage = item.FeaturedImageFileName &&
+    item.FeaturedImageURL &&
+    !item.FeaturedImageURL.endsWith('/');
+
+  const handleImageError = () => {
+    setImageError(true);
+    setImageLoading(false);
+  };
+
+  const handleImageLoad = () => {
+    setImageLoading(false);
+    setImageError(false);
+  };
+
+  if (!hasValidImage || imageError) {
+    return (
+      <View style={styles.blogImagePlaceholder}>
+        <Image
+          style={styles.postImage}
+          source={require("../../assets/blogPost_icon.jpg")}
+        />      </View>
+    );
+  }
+
+  return (
+    <View style={styles.blogImageContainer}>
+      {imageLoading && (
+        <View style={[styles.blogImagePlaceholder, { position: 'absolute', zIndex: 1 }]}>
+          <MaterialIcons name="article" size={40} color="#ccc" />
+        </View>
+      )}
+      <Image
+        source={{ uri: item.FeaturedImageURL }}
+        style={styles.blogImage}
+        onError={handleImageError}
+        onLoad={handleImageLoad}
+        resizeMode="cover"
+      />
+    </View>
+  );
+};
+
+const BlogPostCard = ({ item, onPress }) => (
+  <TouchableOpacity style={styles.blogCard} activeOpacity={0.8} onPress={() => onPress(item)}>
+    <BlogImageComponent item={item} />
+    <View style={styles.blogContent}>
+      <AppText style={styles.blogTitle} numberOfLines={2}>
+        {safeString(item.Title, 'عنوان مقاله')}
+      </AppText>
+      <View style={styles.blogMeta}>
+        <View style={styles.dateContainer}>
+          <MaterialIcons name="calendar-month" size={16} color="#666" />
+          <AppText style={styles.dateText}>
+            {toPersianDigits(item.ShamsiInsertDate || '')}
+          </AppText>
+        </View>
+        <View style={styles.likeContainer}>
+          <MaterialIcons name="favorite" size={16} color="#ff6b6b" />
+          <AppText style={styles.likeText}>
+            {toPersianDigits((item.LikeCount || 0).toString())}
+          </AppText>
+        </View>
+      </View>
+    </View>
+  </TouchableOpacity>
+);
+
 const ContactItem = ({ icon, text, type, onPress, shimmerAnim }) => (
   <TouchableOpacity
     style={styles.modernContactItem}
@@ -566,26 +894,67 @@ const UserProfileScreen = () => {
   const route = useRoute();
   const { userData } = route.params || {};
 
-  // Get member ID from the passed data
   const memberId = userData?.MemberId || userData?.id || null;
 
-  // Fetch detailed member profile using the API
   const { data: memberProfile, loading, error, refetch } = useMemberProfile(memberId);
+  const handleNavigateToFilteredContent = (contentType, memberId, memberName) => {
+    const navigationMap = {
+      blog: 'MagScreen',          // این در TabNavigator هست، پس باید navigate کنیم
+      portfolio: 'AllPortfolio',   // نام موجود در Stack
+      products: 'AllProducts',     // نام موجود در Stack  
+      courses: 'AllCourses',       // نام موجود در Stack
+      gallery: 'AllGalleries'      // نام موجود در Stack
+    };
 
-  // ScrollView and section refs
+    const screenName = navigationMap[contentType];
+    if (screenName && memberId) {
+      console.log(`Navigating to ${screenName} with memberId: ${memberId}`);
+
+      if (screenName === 'MagScreen') {
+        // برای MagScreen که در TabNavigator است
+        navigation.navigate('MainTabs', {
+          screen: 'مجله ی فریمد',
+          params: {
+            filteredMemberId: memberId,
+            filteredMemberName: memberName || user.Name || 'کاربر',
+            filterType: 'member'
+          }
+        });
+      } else {
+        // برای بقیه صفحات که در Stack هستند
+        navigation.navigate(screenName, {
+          filteredMemberId: memberId,
+          filteredMemberName: memberName || user.Name || 'کاربر',
+          filterType: 'member'
+        });
+      }
+    } else {
+      console.log(`Navigation failed: screenName=${screenName}, memberId=${memberId}`);
+    }
+  };
+
   const scrollViewRef = useRef(null);
   const portfolioRef = useRef(null);
   const coursesRef = useRef(null);
   const productsRef = useRef(null);
   const galleryRef = useRef(null);
+  const blogPostsRef = useRef(null);
 
-  // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const shimmerAnim = useRef(new Animated.Value(0)).current;
   const avatarGlowAnim = useRef(new Animated.Value(0)).current;
+
+  const animatedValues = {
+    fadeAnim,
+    slideAnim,
+    pulseAnim,
+    rotateAnim,
+    shimmerAnim,
+    avatarGlowAnim
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -660,7 +1029,6 @@ const UserProfileScreen = () => {
     outputRange: ['0deg', '360deg'],
   });
 
-  // Use memberProfile data if available, otherwise fallback to initial userData
   const user = memberProfile || userData || {
     MemberId: 0,
     Name: "کاربر ناشناس",
@@ -676,6 +1044,7 @@ const UserProfileScreen = () => {
     navigation.goBack();
   };
 
+
   const scrollToSection = (sectionRef) => {
     if (sectionRef.current && scrollViewRef.current) {
       sectionRef.current.measureLayout(
@@ -688,18 +1057,16 @@ const UserProfileScreen = () => {
     }
   };
 
-  // محاسبه تعداد بخش‌هایی که داده دارند
   const hasData = {
     portfolio: user.PortfolioViewModelList && user.PortfolioViewModelList.length > 0,
     products: user.ProductViewModelList && user.ProductViewModelList.length > 0,
     courses: user.CourseViewModelList && user.CourseViewModelList.length > 0,
-    gallery: user.ImageGalleryViewModelList && user.ImageGalleryViewModelList.length > 0
+    gallery: user.ImageGalleryViewModelList && user.ImageGalleryViewModelList.length > 0,
+    blogPosts: user.BlogPostViewModelList && user.BlogPostViewModelList.length > 0
   };
 
-  // شمارش بخش‌هایی که داده دارند
   const sectionsWithData = Object.values(hasData).filter(Boolean).length;
 
-  // Quick Access فقط زمانی نمایش داده می‌شود که حداقل 2 بخش داده داشته باشند
   const shouldShowQuickAccess = sectionsWithData >= 2;
 
   const InfoSection = ({ icon, title, children, iconColor = modernColors.primary }) => (
@@ -707,7 +1074,7 @@ const UserProfileScreen = () => {
       style={[
         styles.glassSection,
         {
-          opacity: 1, // مقدار ثابت 1 به جای fadeAnim
+          opacity: 1,
         },
       ]}
     >
@@ -725,12 +1092,19 @@ const UserProfileScreen = () => {
     </View>
   );
 
+  const handleBlogPress = (blogData) => {
+    navigation.navigate("MagDetailes", {
+      title: blogData.Title,
+      blogId: blogData.BlogPostId
+    });
+  };
+
   const renderPortfolioItem = ({ item }) => <PortfolioCard item={item} />;
   const renderCourseItem = ({ item }) => <CourseCard item={item} />;
   const renderProductItem = ({ item }) => <ProductCard item={item} />;
   const renderGalleryItem = ({ item }) => <GalleryCard item={item} />;
+  const renderBlogPostItem = ({ item }) => <BlogPostCard item={item} onPress={handleBlogPress} />;
 
-  // Show loading state with skeleton
   if (loading) {
     return (
       <>
@@ -742,7 +1116,6 @@ const UserProfileScreen = () => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContainer}
           >
-            {/* Half Circle Gradient */}
             <View style={styles.topHalfCircle}>
               <LinearGradient
                 colors={[modernColors.primary, modernColors.primaryDark, modernColors.accent]}
@@ -752,36 +1125,25 @@ const UserProfileScreen = () => {
               />
             </View>
 
-            {/* Back Button */}
             <View style={styles.backButtonContainer}>
               <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
                 <Ionicons name="arrow-forward" size={24} color={modernColors.surface} />
               </TouchableOpacity>
             </View>
 
-            {/* Profile Skeleton */}
             <ProfileSkeleton />
-
-            {/* About Me Skeleton */}
+            {/* اسکلتون باکس ویدیو */}
+            <View style={styles.videoSection}>
+              <SkeletonLoader width="100%" height={200} borderRadius={20} />
+            </View>
             <InfoSectionSkeleton title="درباره من" />
-
-            {/* Contact Info Skeleton */}
             <ContactSkeleton />
-
-            {/* Quick Access Skeleton */}
             <QuickAccessSkeleton />
-
-            {/* Portfolio Skeleton */}
             <SectionSkeleton title="نمونه کارها" cardType="portfolio" />
-
-            {/* Products Skeleton */}
             <SectionSkeleton title="محصولات" cardType="product" />
-
-            {/* Courses Skeleton */}
             <SectionSkeleton title="دوره‌ها" cardType="course" />
-
-            {/* Gallery Skeleton */}
             <SectionSkeleton title="گالری تصاویر" cardType="gallery" />
+            <SectionSkeleton title="مقالات" cardType="blog" />
 
             <View style={styles.bottomSpacer} />
           </ScrollView>
@@ -790,7 +1152,6 @@ const UserProfileScreen = () => {
     );
   }
 
-  // Show error state
   if (error) {
     return (
       <View style={styles.container}>
@@ -811,7 +1172,6 @@ const UserProfileScreen = () => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContainer}
         >
-          {/* Half Circle Gradient at Top */}
           <Animated.View
             style={[
               styles.topHalfCircle,
@@ -829,7 +1189,6 @@ const UserProfileScreen = () => {
             />
           </Animated.View>
 
-          {/* Back Button */}
           <Animated.View
             style={[
               styles.backButtonContainer,
@@ -844,7 +1203,6 @@ const UserProfileScreen = () => {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* Profile Section */}
           <Animated.View style={styles.profileSection}>
             <View style={styles.avatarContainer}>
               <Animated.View style={[
@@ -864,31 +1222,47 @@ const UserProfileScreen = () => {
                 >
                   <View style={styles.avatarMiddleRing}>
                     <View style={styles.avatarInnerContainer}>
-                      <LinearGradient
-                        colors={[modernColors.primary, modernColors.primaryDark]}
-                        style={styles.defaultAvatar}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                      >
-                        <MaterialCommunityIcons
-                          name={user.Gender ? "face-man" : "face-woman"}
-                          size={60}
-                          color="white"
+                      {user.AvatarImageURL && user.AvatarImageURL.trim() !== '' ? (
+                        <Image
+                          source={{ uri: user.AvatarImageURL }}
+                          style={styles.avatarImage}
                         />
-                        <View style={styles.avatarDecorations}>
-                          <View style={styles.avatarStar1}>
-                            <MaterialIcons name="star" size={12} color="rgba(255, 255, 255, 0.8)" />
+                      ) : (
+                        <LinearGradient
+                          colors={[modernColors.primary, modernColors.primaryDark]}
+                          style={styles.defaultAvatar}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                        >
+                          <MaterialCommunityIcons
+                            name={user.Gender ? "face-man" : "face-woman"}
+                            size={60}
+                            color="white"
+                          />
+                          <View style={styles.avatarDecorations}>
+                            <View style={styles.avatarStar1}>
+                              <MaterialIcons name="star" size={12} color="rgba(255, 255, 255, 0.8)" />
+                            </View>
+                            <View style={styles.avatarStar2}>
+                              <MaterialIcons name="auto-awesome" size={10} color="rgba(255, 255, 255, 0.6)" />
+                            </View>
                           </View>
-                          <View style={styles.avatarStar2}>
-                            <MaterialIcons name="auto-awesome" size={10} color="rgba(255, 255, 255, 0.6)" />
-                          </View>
-                        </View>
-                      </LinearGradient>
+                        </LinearGradient>
+                      )}
                     </View>
                   </View>
                 </LinearGradient>
 
-                {/* Floating particles */}
+                {user?.ShowBlueTick && (
+                  <View style={styles.blueTickContainer}>
+                    <MaterialIcons
+                      name="verified"
+                      size={26}
+                      color="#1DA1F2"
+                    />
+                  </View>
+                )}
+
                 <Animated.View style={[
                   styles.floatingParticle1,
                   {
@@ -935,16 +1309,24 @@ const UserProfileScreen = () => {
 
             <AppText style={styles.userName}>{safeString(user.Name, 'کاربر ناشناس')}</AppText>
             <AppText style={styles.userProfession}>{safeString(user.MemberGroupsStr, 'تعریف نشده')}</AppText>
+
+            {/* اضافه کردن لایک زیر بج گروه */}
+            <LikeButton
+              memberId={user.MemberId}
+              initialLikeCount={user.LikeCount || 0}
+              initialIsLiked={user.IsMemberLiked || false}
+            />
           </Animated.View>
+
+          {/* باکس ویدیو کاربر */}
+          <VideoSection userData={user} animatedValues={animatedValues} />
 
           {!shouldShowQuickAccess && <View style={{ height: 50 }} />}
 
-          {/* About Me Section */}
           <InfoSection icon="person" title="درباره من" iconColor={modernColors.info}>
             <ExpandableText text={safeString(user.AboutMe, 'اطلاعات بیوگرافی موجود نیست')} maxLines={3} />
           </InfoSection>
 
-          {/* Contact Info */}
           <InfoSection icon="contact-phone" title="اطلاعات تماس" iconColor={modernColors.tertiary}>
             <View style={styles.contactGrid}>
               {user.Email && (
@@ -979,7 +1361,6 @@ const UserProfileScreen = () => {
             </View>
           </InfoSection>
 
-          {/* Quick Access Menu - فقط در صورت وجود حداقل 2 بخش نمایش داده می‌شود */}
           {shouldShowQuickAccess && (
             <Animated.View
               style={[
@@ -991,6 +1372,16 @@ const UserProfileScreen = () => {
               ]}
             >
               <View style={styles.quickAccessGrid}>
+                {hasData.portfolio && (
+                  <TouchableOpacity
+                    style={[styles.quickAccessItem, { backgroundColor: modernColors.warning + '15' }]}
+                    onPress={() => scrollToSection(portfolioRef)}
+                  >
+                    <MaterialIcons name="work" size={24} color={modernColors.warning} />
+                    <AppText style={styles.quickAccessText}>نمونه کار</AppText>
+                  </TouchableOpacity>
+                )}
+
                 {hasData.products && (
                   <TouchableOpacity
                     style={[styles.quickAccessItem, { backgroundColor: modernColors.accent + '15' }]}
@@ -1020,21 +1411,41 @@ const UserProfileScreen = () => {
                     <AppText style={styles.quickAccessText}>گالری</AppText>
                   </TouchableOpacity>
                 )}
-
-                {hasData.portfolio && (
-                  <TouchableOpacity
-                    style={[styles.quickAccessItem, { backgroundColor: modernColors.warning + '15' }]}
-                    onPress={() => scrollToSection(portfolioRef)}
-                  >
-                    <MaterialIcons name="work" size={24} color={modernColors.warning} />
-                    <AppText style={styles.quickAccessText}>نمونه کار</AppText>
-                  </TouchableOpacity>
-                )}
               </View>
             </Animated.View>
           )}
 
-          {/* Portfolio Section */}
+          {hasData.blogPosts && (
+            <Animated.View
+              ref={blogPostsRef}
+              style={[
+                styles.sectionContainer,
+                {
+                  opacity: 1,
+                  transform: [{ translateY: 0 }],
+                },
+              ]}
+            >
+              <SectionHeader
+                title="مقالات"
+                icon="article"
+                color={modernColors.info}
+                hasData={user.BlogPostViewModelList.length > 0}
+                onSeeAll={() => handleNavigateToFilteredContent('blog', user.MemberId, user.Name)}
+              />
+              <FlatList
+                data={user.BlogPostViewModelList}
+                renderItem={renderBlogPostItem}
+                keyExtractor={(item) => item.BlogPostId?.toString() || Math.random().toString()}
+                horizontal
+                inverted={true}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.horizontalList}
+                ItemSeparatorComponent={() => <View style={{ width: 15 }} />}
+              />
+            </Animated.View>
+          )}
+
           {hasData.portfolio && (
             <Animated.View
               ref={portfolioRef}
@@ -1051,7 +1462,7 @@ const UserProfileScreen = () => {
                 icon="work"
                 color={modernColors.secondary}
                 hasData={user.PortfolioViewModelList.length > 0}
-                onSeeAll={() => console.log("Portfolio See All")}
+                onSeeAll={() => handleNavigateToFilteredContent('portfolio', user.MemberId, user.Name)}
               />
               <FlatList
                 data={user.PortfolioViewModelList}
@@ -1065,8 +1476,6 @@ const UserProfileScreen = () => {
               />
             </Animated.View>
           )}
-
-          {/* Products Section */}
           {hasData.products && (
             <Animated.View
               ref={productsRef}
@@ -1083,7 +1492,7 @@ const UserProfileScreen = () => {
                 icon="shopping-bag"
                 color={modernColors.accent}
                 hasData={user.ProductViewModelList.length > 0}
-                onSeeAll={() => console.log("Products See All")}
+                onSeeAll={() => handleNavigateToFilteredContent('products', user.MemberId, user.Name)}
               />
               <FlatList
                 data={user.ProductViewModelList}
@@ -1098,7 +1507,6 @@ const UserProfileScreen = () => {
             </Animated.View>
           )}
 
-          {/* Courses Section */}
           {hasData.courses && (
             <Animated.View
               ref={coursesRef}
@@ -1115,7 +1523,7 @@ const UserProfileScreen = () => {
                 icon="school"
                 color={modernColors.tertiary}
                 hasData={user.CourseViewModelList.length > 0}
-                onSeeAll={() => console.log("Courses See All")}
+                onSeeAll={() => handleNavigateToFilteredContent('courses', user.MemberId, user.Name)}
               />
               <FlatList
                 data={user.CourseViewModelList}
@@ -1129,8 +1537,6 @@ const UserProfileScreen = () => {
               />
             </Animated.View>
           )}
-
-          {/* Gallery Section */}
           {hasData.gallery && (
             <Animated.View
               ref={galleryRef}
@@ -1147,7 +1553,7 @@ const UserProfileScreen = () => {
                 icon="photo-library"
                 color={modernColors.error}
                 hasData={user.ImageGalleryViewModelList.length > 0}
-                onSeeAll={() => console.log("Gallery See All")}
+                onSeeAll={() => handleNavigateToFilteredContent('gallery', user.MemberId, user.Name)}
               />
               <FlatList
                 data={user.ImageGalleryViewModelList}
@@ -1162,7 +1568,6 @@ const UserProfileScreen = () => {
             </Animated.View>
           )}
 
-          {/* Decorative Elements */}
           <View style={styles.decorativeElements}>
             <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
               <MaterialIcons name="star" size={22} color="rgba(255, 215, 0, 0.4)" />
@@ -1302,6 +1707,11 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
+  avatarImage: {
+    width: PROFILE_CONSTANTS.AVATAR_SIZE,
+    height: PROFILE_CONSTANTS.AVATAR_SIZE,
+    borderRadius: PROFILE_CONSTANTS.AVATAR_SIZE / 2,
+  },
   defaultAvatar: {
     width: PROFILE_CONSTANTS.AVATAR_SIZE,
     height: PROFILE_CONSTANTS.AVATAR_SIZE,
@@ -1309,6 +1719,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     position: 'relative',
+  },
+  blueTickContainer: {
+    position: 'absolute',
+    bottom: 4,
+    right: 4,
+    backgroundColor: '#ffffff',
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 5,
   },
   avatarDecorations: {
     position: 'absolute',
@@ -1351,7 +1780,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Regular",
     color: modernColors.medium,
-    marginBottom: 0,
+    marginBottom: 15,
     paddingHorizontal: 16,
     paddingVertical: 8,
     backgroundColor: "rgba(255, 255, 255, 0.3)",
@@ -1360,6 +1789,109 @@ const styles = StyleSheet.create({
     WebkitBackdropFilter: "blur(20px)",
     borderColor: "rgba(255, 255, 255, 0.8)",
     borderWidth: 1,
+    textAlign: 'center',
+  },
+  // استایل‌های لایک شیشه‌ای
+  likeSection: {
+    position: 'relative',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  likeButton: {
+    borderRadius: 25,
+    overflow: 'hidden',
+
+  },
+  likeButtonInner: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+    backdropFilter: "blur(20px)",
+    WebkitBackdropFilter: "blur(20px)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.3)",
+  },
+
+  floatingHeart: {
+    position: 'absolute',
+    top: -10,
+    alignSelf: 'center',
+    pointerEvents: 'none',
+  },
+  // استایل‌های ویدیو
+  videoSection: {
+    marginHorizontal: 0,
+    marginBottom: 50,
+  },
+  videoContainer: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: modernColors.surface,
+
+    aspectRatio: 1, // مربعی کردن باکس
+  },
+  videoThumbnail: {
+    flex: 1,
+    position: 'relative',
+  },
+  videoGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playButtonContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  videoInfo: {
+    position: 'absolute',
+    bottom: 15,
+    right: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  videoTitle: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: modernColors.surface,
+    marginBottom: 2,
+  },
+  videoSubtitle: {
+    fontSize: 12,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  videoPlaceholder: {
+    aspectRatio: 1,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderStyle: 'dashed',
+  },
+  videoPlaceholderText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: modernColors.medium,
+    marginTop: 10,
     textAlign: 'center',
   },
   glassSection: {
@@ -1542,6 +2074,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',
+    maxWidth: (width - 60) / 4,
   },
   quickAccessText: {
     fontSize: 11,
@@ -1549,18 +2082,6 @@ const styles = StyleSheet.create({
     color: modernColors.dark,
     marginTop: 6,
     textAlign: 'center',
-  },
-  quickAccessCount: {
-    fontSize: 10,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.dark,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginTop: 4,
-    textAlign: 'center',
-    minWidth: 20,
   },
   sectionContainer: {
     marginBottom: 25,
@@ -1631,11 +2152,6 @@ const styles = StyleSheet.create({
     color: modernColors.surface,
     marginBottom: 5,
   },
-  portfolioCategory: {
-    fontSize: 13,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
   courseCard: {
     width: 300,
     backgroundColor: modernColors.surface,
@@ -1702,7 +2218,7 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
   },
   productCard: {
-    width: 180, // Increased from 160
+    width: 180,
     backgroundColor: '#fff',
     borderRadius: 12,
     overflow: 'hidden',
@@ -1719,7 +2235,7 @@ const styles = StyleSheet.create({
   productImageContainer: {
     position: 'relative',
     width: '100%',
-    aspectRatio: 1, // Makes the image square like in HomeScreen
+    aspectRatio: 1,
     backgroundColor: '#f5f5f5',
   },
   productImage: {
@@ -1729,7 +2245,7 @@ const styles = StyleSheet.create({
   },
   productContent: {
     padding: 12,
-    minHeight: 85, // Minimum height for content consistency
+    minHeight: 85,
     justifyContent: 'space-between',
   },
   discountBadge: {
@@ -1833,6 +2349,73 @@ const styles = StyleSheet.create({
     color: modernColors.surface,
     marginRight: 4,
   },
+  blogCard: {
+    width: 280,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+    marginBottom: 20,
+  },
+  blogImageContainer: {
+    height: 160,
+    width: '100%',
+    position: 'relative',
+  },
+  blogImage: {
+    width: '100%',
+    height: '100%',
+  },
+  blogImagePlaceholder: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 160,
+  },
+  blogContent: {
+    padding: 16,
+  },
+  blogTitle: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    textAlign: "right",
+    lineHeight: 24,
+    marginBottom: 12,
+  },
+  blogMeta: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  dateContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  dateText: {
+    fontSize: 12,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#666',
+    marginRight: 6,
+  },
+  likeContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  likeText: {
+    fontSize: 12,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#666',
+    marginRight: 8,
+  },
   decorativeElements: {
     position: "absolute",
     top: 0,
@@ -1859,6 +2442,47 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: 50,
   },
+  postImage: {
+    height: "100%",
+    width: "100%",
+  },
+  videoWrapper: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  videoShadow: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  videoPlayer: {
+    width: '100%',
+    height: 220,
+  },
+  videoTitleBar: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  videoTitleText: {
+    fontFamily: 'Yekan_Bakh_Bold',
+    color: modernColors.surface,
+    fontSize: 14,
+    marginLeft: 6,
+  },
+
 });
 
 export default UserProfileScreen;
