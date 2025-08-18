@@ -107,7 +107,6 @@ const profileItems = [
     color: "#e067c2",
     permission: "allowAddCourse",
   },
-
   {
     id: 8,
     title: "نمونه کار ها",
@@ -206,6 +205,14 @@ const ProfileScreen = () => {
 
   // استفاده از AuthContext
   const { user, logout, isAuthenticated, refreshSubscription } = useAuth();
+
+  // فیلتر کردن آیتم‌ها بر اساس IsInfinityPlan
+  const filteredProfileItems = React.useMemo(() => {
+    if (user?.ActiveSubscriptionPlan?.IsInfinityPlan) {
+      return profileItems.filter(item => item.id !== 7); // حذف کارت اشتراک‌ها
+    }
+    return profileItems;
+  }, [user?.ActiveSubscriptionPlan?.IsInfinityPlan]);
 
   // Disable swipe back gesture for this screen specifically
   React.useLayoutEffect(() => {
@@ -414,6 +421,17 @@ const ProfileScreen = () => {
     />
   );
 
+  // تعیین آیکون پروفایل بر اساس جنسیت
+  const getGenderIcon = () => {
+    if (user?.Gender === 1) { // مرد
+      return "face-man";
+    } else if (user?.Gender === 2) { // زن
+      return "face-woman";
+    } else { // جنسیت مشخص نشده
+      return "account-circle";
+    }
+  };
+
   return (
     <>
       <Toast
@@ -569,7 +587,6 @@ const ProfileScreen = () => {
             </View>
           </TouchableOpacity>
 
-
           <Animated.View
             style={[
               styles.headerContainer,
@@ -605,7 +622,11 @@ const ProfileScreen = () => {
                   colors={['#8b5cf6', '#6366f1', '#06b6d4']}
                   style={styles.profileImageGradient}
                 >
-                  <MaterialCommunityIcons name="face-man" size={85} color="white" />
+                  <MaterialCommunityIcons
+                    name={getGenderIcon()}
+                    size={85}
+                    color="white"
+                  />
                 </LinearGradient>
               )}
             </View>
@@ -620,11 +641,8 @@ const ProfileScreen = () => {
                   {toPersianDigits(user?.Mobile || "09131234567")}
                 </AppText>
               </View>
-
-
             </View>
           </Animated.View>
-
 
           {/* Profile Options - Horizontal FlatList with RTL */}
           <Animated.View
@@ -637,7 +655,7 @@ const ProfileScreen = () => {
             ]}
           >
             <FlatList
-              data={profileItems}
+              data={filteredProfileItems}
               renderItem={renderProfileCard}
               keyExtractor={(item) => item.id.toString()}
               horizontal
@@ -662,7 +680,6 @@ const ProfileScreen = () => {
               },
             ]}
           >
-
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleLogout}
@@ -675,7 +692,6 @@ const ProfileScreen = () => {
                 end={{ x: 1, y: 0 }}
               >
                 <MaterialIcons name="logout" size={24} color="white" />
-
                 <Text style={styles.primaryButtonText}>خروج از حساب کاربری</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -859,8 +875,13 @@ const styles = StyleSheet.create({
     minHeight: 160,
     justifyContent: 'center',
     alignItems: 'center',
-    flexDirection: 'row',
     position: 'relative',
+  },
+  cardContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
   },
   iconContainer: {
     width: 80,
@@ -888,6 +909,7 @@ const styles = StyleSheet.create({
     textShadowColor: "rgba(255, 255, 255, 0.9)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
+    lineHeight: 24,
   },
   lockOverlay: {
     position: 'absolute',
@@ -1092,11 +1114,6 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: "white",
     marginRight: 12,
-  },
-  ardContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 
   // استایل جدید برای متن عمودی

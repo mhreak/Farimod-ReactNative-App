@@ -31,9 +31,6 @@ import { useAuth } from "../contexts/AuthContext";
 import { CommonActions } from "@react-navigation/native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-
-
-
 const { width: screenWidth } = Dimensions.get('window');
 
 interface HomePageSlide {
@@ -86,6 +83,7 @@ interface ImageGallery {
   LikeCount: number;
   ImageGalleryItemList: any[];
 }
+
 interface Product {
   ProductId: number;
   MemberId: number;
@@ -94,7 +92,7 @@ interface Product {
   Price: number;
   SpecialSalePrice: number;
   ProductCategories: string;
-  FeaturedImageURL?: string; // اضافه شده
+  FeaturedImageURL?: string;
   LikeCount: number;
   Rating?: number;
   Active: boolean;
@@ -105,7 +103,6 @@ const useHomePageSlides = () => {
   const [data, setData] = useState<HomePageSlide[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
 
   const fetchSlides = async () => {
     try {
@@ -211,7 +208,6 @@ const useImageGalleries = () => {
   return { data, loading, error, refetch: fetchGalleries };
 };
 
-
 const useBlogPosts = () => {
   const [data, setData] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -245,7 +241,6 @@ const useBlogPosts = () => {
 
   return { data, loading, error, refetch: fetchBlogPosts };
 };
-
 
 const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
@@ -401,6 +396,7 @@ const PortfolioCard = ({ item, onPress }: { item: Portfolio; onPress?: (portfoli
     </TouchableOpacity>
   );
 };
+
 const BlogPostCard = ({ item, onPress }: { item: BlogPost; onPress?: (post: BlogPost) => void }) => {
   const handlePress = () => {
     console.log('Blog post pressed:', item.BlogPostId, item.Title);
@@ -426,7 +422,8 @@ const BlogPostCard = ({ item, onPress }: { item: BlogPost; onPress?: (post: Blog
             <Image
               style={styles.postImage}
               source={require("../../assets/blogPost_icon.jpg")}
-            />          </View>
+            />
+          </View>
         )}
       </View>
 
@@ -454,8 +451,6 @@ const BlogPostCard = ({ item, onPress }: { item: BlogPost; onPress?: (post: Blog
     </TouchableOpacity>
   );
 };
-
-
 
 const GalleryCard = ({ item, onPress }: { item: ImageGallery; onPress?: (gallery: ImageGallery) => void }) => {
   const handlePress = () => {
@@ -526,7 +521,6 @@ const ProductCard = ({ item, onPress }: { item: Product; onPress?: (product: Pro
     setImageError(true);
   };
 
-  // ریست کردن خطا هنگام تغییر URL
   useEffect(() => {
     setImageError(false);
   }, [item.FeaturedImageURL]);
@@ -620,7 +614,6 @@ const Avatar = ({ name, size = 150, onPress, showOnline = false, member }: Avata
     setImageError(true);
   };
 
-  // ریست کردن خطا هنگام تغییر URL
   useEffect(() => {
     setImageError(false);
   }, [member?.AvatarImageURL]);
@@ -802,7 +795,7 @@ const GalleryCardSkeleton = () => {
 const HeaderSliderSkeleton = () => {
   return (
     <PagerView
-      style={[{ minHeight: 200, marginBottom: 30 }, { transform: [{ scaleX: -1 }] }]}
+      style={[{ minHeight: 200, marginBottom: 20 }, { transform: [{ scaleX: -1 }] }]}
       initialPage={0}
       layoutDirection={"ltr"}
       pageMargin={20}
@@ -877,7 +870,6 @@ const AvatarSkeleton = ({ size = 100 }) => {
   );
 };
 
-
 const HomeScreen = () => {
   const navigation = useNavigation();
   const { logout } = useAuth();
@@ -914,7 +906,6 @@ const HomeScreen = () => {
   const galleryPagerRef = useRef<PagerView>(null);
   const { handleSlideClick, isSlideClickable, getSlideTypeLabel } = useHomePageSlideNavigator();
   const [showMenuModal, setShowMenuModal] = useState(false);
-
 
   const autoScrollInterval = 3000;
 
@@ -1099,6 +1090,7 @@ const HomeScreen = () => {
       </View>
     ));
   };
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -1115,15 +1107,14 @@ const HomeScreen = () => {
     }
   };
 
-  // اضافه کردن تابع handleMenuNavigation
   const handleMenuNavigation = (screen) => {
     if (screen === 'LOGOUT') {
-      // اجرای عملیات خروج
       handleLogout();
     } else {
       navigation.navigate(screen as never);
     }
   };
+
   const createPortfolioPages = () => {
     if (portfolios.length === 0) {
       return [
@@ -1145,7 +1136,6 @@ const HomeScreen = () => {
         <View key={`portfolio-page-${i}`} style={{ transform: [{ scaleX: -1 }] }}>
           <View style={styles.portfolioGrid}>
             {pagePortfolios.map((portfolio, index) => {
-              // اطمینان از وجود ID صحیح
               const portfolioId = portfolio.PortfolioId || portfolio.PotfolioId;
               return (
                 <View key={`portfolio-${portfolioId}-page${Math.floor(i / 2)}-pos${index}`} style={styles.portfolioWrapper}>
@@ -1245,7 +1235,6 @@ const HomeScreen = () => {
     }
     return pages;
   };
-
 
   const createCourseSkeletonPages = () => {
     return Array.from({ length: 3 }, (_, index) => (
@@ -1383,7 +1372,6 @@ const HomeScreen = () => {
         showToast={showToast}
         activeOpacity={isSlideClickable(slide) ? 0.8 : 1}
         onSlidePress={(slideData) => {
-          // اختیاری: لاگ اضافی یا عملیات دیگر قبل از navigation
           console.log('Slide pressed:', {
             id: slideData.HomePageSlideId,
             type: getSlideTypeLabel(slideData.ClickTrigger),
@@ -1398,8 +1386,6 @@ const HomeScreen = () => {
           }}
           defaultSource={require("../../assets/sample_clothe.jpg")}
         />
-
-
       </ClickableSlide>
     ));
   };
@@ -1407,7 +1393,6 @@ const HomeScreen = () => {
   const handlePortfolioPress = (portfolioData: Portfolio) => {
     console.log('Navigating to Portfolio with:', portfolioData);
     try {
-      // استفاده از فیلد صحیح PortfolioId (نه PotfolioId)
       const portfolioId = portfolioData.PortfolioId || portfolioData.PotfolioId;
 
       if (!portfolioId || portfolioId === 0) {
@@ -1495,7 +1480,6 @@ const HomeScreen = () => {
     }
   };
 
-
   const handleViewAllCourses = () => {
     navigation.navigate("AllCourses" as never);
   };
@@ -1525,13 +1509,12 @@ const HomeScreen = () => {
       <TouchableOpacity
         style={styles.frameButton}
         onPress={() => {
-          // Handle frame logo press
           console.log('Frame logo pressed');
         }}
       >
         <View style={styles.frameButtonContainer}>
           <Image
-            source={require("../../assets/main-icon.png")} // تغییر دهید به عکس مورد نظرتان
+            source={require("../../assets/main-icon.png")}
             style={styles.frameImage}
           />
         </View>
@@ -1539,9 +1522,7 @@ const HomeScreen = () => {
 
       <TouchableOpacity
         style={styles.notificationButton}
-
         onPress={() => setShowMenuModal(true)}
-
       >
         <View style={styles.notificationButtonContainer}>
           <MaterialIcons
@@ -1558,7 +1539,6 @@ const HomeScreen = () => {
         </View>
       </View>
 
-
       <ScrollView showsVerticalScrollIndicator={false}>
         {slidesLoading ? (
           <HeaderSliderSkeleton />
@@ -1574,7 +1554,7 @@ const HomeScreen = () => {
         ) : (
           <PagerView
             ref={pagerRef2}
-            style={[{ minHeight: 200, marginBottom: 30 }, { transform: [{ scaleX: -1 }] }]}
+            style={[{ minHeight: 200, marginBottom: 20 }, { transform: [{ scaleX: -1 }] }]}
             initialPage={0}
             layoutDirection={"ltr"}
             pageMargin={20}
@@ -1583,6 +1563,7 @@ const HomeScreen = () => {
             {createSlidePages()}
           </PagerView>
         )}
+
         <View style={styles.titleBox}>
           <View style={{ flexDirection: "row-reverse", alignItems: "center" }}>
             <View
@@ -1640,7 +1621,7 @@ const HomeScreen = () => {
             style={[
               styles.pagerView,
               { transform: [{ scaleX: -1 }] },
-              { minHeight: 450, marginBottom: 30 },
+              { minHeight: 450, marginBottom: 20 },
             ]}
             onPageSelected={(e) => setCurrentCoursePage(e.nativeEvent.position)}
           >
@@ -1704,7 +1685,7 @@ const HomeScreen = () => {
             pageMargin={20}
             style={[
               { transform: [{ scaleX: -1 }] },
-              { minHeight: 280, marginBottom: 30 },
+              { minHeight: 280, marginBottom: 20 },
             ]}
             onPageSelected={(e) => setCurrentProductPage(e.nativeEvent.position)}
           >
@@ -1768,13 +1749,14 @@ const HomeScreen = () => {
             pageMargin={20}
             style={[
               { transform: [{ scaleX: -1 }] },
-              { minHeight: 330, marginBottom: 30 }, // افزایش از 300 به 380
+              { minHeight: 330, marginBottom: 20 },
             ]}
             onPageSelected={(e) => setCurrentBlogPostPage(e.nativeEvent.position)}
           >
             {blogPostsLoading ? createBlogPostSkeletonPages() : (blogPosts.length > 0 ? createBlogPostPages() : [])}
           </PagerView>
         )}
+
         <View style={styles.titleBox}>
           <View style={{ flexDirection: "row-reverse", alignItems: "center" }}>
             <View
@@ -1831,7 +1813,7 @@ const HomeScreen = () => {
             pageMargin={20}
             style={[
               { transform: [{ scaleX: -1 }] },
-              { minHeight: 300, marginBottom: 30 },
+              { minHeight: 300, marginBottom: 20 },
             ]}
             onPageSelected={(e) => setCurrentPortfolioPage(e.nativeEvent.position)}
           >
@@ -1895,7 +1877,7 @@ const HomeScreen = () => {
             pageMargin={20}
             style={[
               { transform: [{ scaleX: -1 }] },
-              { minHeight: 200, marginBottom: 15 }, // کاهش از 30 به 15
+              { minHeight: 200, marginBottom: 10 },
             ]}
             onPageSelected={(e) => setCurrentGalleryPage(e.nativeEvent.position)}
           >
@@ -2052,8 +2034,8 @@ const styles = StyleSheet.create({
     flexDirection: "row-reverse",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
-    marginTop: 30,
+    marginBottom: 5,
+    marginTop: 15,
   },
   pagerView: {
     justifyContent: "center",
@@ -2084,14 +2066,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     width: "100%",
-    marginBottom: 20,
+    marginBottom: 10,
     paddingHorizontal: 10,
   },
   avatarContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 10,
-    marginVertical: 15,
+    marginVertical: 8,
   },
   avatarGradient: {
     justifyContent: 'center',
@@ -2129,7 +2111,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 2,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   productImageContainer: {
     position: 'relative',
@@ -2229,7 +2211,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   galleryImageContainer: {
     position: 'relative',
@@ -2343,7 +2325,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 200,
     width: '100%',
-    marginBottom: 30,
+    marginBottom: 20,
     backgroundColor: '#f5f5f5',
     borderRadius: 20,
   },
@@ -2431,7 +2413,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 1,
     elevation: 1,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   blogPostImageContainer: {
     height: 200,
@@ -2526,7 +2508,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
     height: 270,
-    marginBottom: 20,
+    marginBottom: 10,
   },
   portfolioImageContainer: {
     height: 140,
@@ -2542,12 +2524,10 @@ const styles = StyleSheet.create({
   portfolioImage: {
     width: '100%',
     height: '100%',
-    // resizeMode: 'contain',
   },
   portfolioDefaultImage: {
     width: '100%',
     height: '100%',
-
   },
   likeBadge: {
     position: 'absolute',

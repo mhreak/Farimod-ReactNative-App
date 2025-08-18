@@ -27,8 +27,6 @@ import { useMemberProfile } from "../config/useApi";
 import { VideoView } from 'expo-video';
 import { useVideoPlayer } from 'expo-video';
 
-
-
 const { width } = Dimensions.get("window");
 
 const PROFILE_CONSTANTS = {
@@ -235,7 +233,6 @@ const LikeButton = ({ memberId, initialLikeCount = 0, initialIsLiked = false }) 
   );
 };
 
-
 const VideoSection = ({ userData, animatedValues }) => {
   const [videoError, setVideoError] = useState(false);
 
@@ -344,6 +341,7 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   );
 };
 
+// اضافه کردن کامپوننت‌های اسکلتون
 const ProfileSkeleton = () => (
   <View style={styles.profileSection}>
     <View style={styles.avatarContainer}>
@@ -355,7 +353,6 @@ const ProfileSkeleton = () => (
     </View>
     <SkeletonLoader width={180} height={24} borderRadius={12} style={{ marginBottom: 8 }} />
     <SkeletonLoader width={120} height={16} borderRadius={20} style={{ marginBottom: 15 }} />
-    {/* اسکلتون لایک */}
     <SkeletonLoader width={80} height={35} borderRadius={20} />
   </View>
 );
@@ -510,13 +507,16 @@ const BlogPostCardSkeleton = () => (
   </View>
 );
 
-const PortfolioCard = ({ item }) => (
-  <TouchableOpacity style={styles.portfolioCard} activeOpacity={0.8}>
+// کامپوننت‌های کارت با قابلیت کلیک
+const PortfolioCard = ({ item, onPress }) => (
+  <TouchableOpacity style={styles.portfolioCard} activeOpacity={0.8} onPress={() => onPress(item)}>
     <Image
       source={
         item.ImageFileName
           ? { uri: `${appConfig.mobileApi}Portfolio/GetImage/${item.ImageFileName}` }
-          : require("../../assets/sample_clothe.jpg")
+          : item.FeaturedImageURL
+            ? { uri: item.FeaturedImageURL }
+            : require("../../assets/portfolio_icon.jpg")  // عکس دیفالت پورتفولیو
       }
       style={styles.portfolioImage}
     />
@@ -529,20 +529,21 @@ const PortfolioCard = ({ item }) => (
           <AppText style={styles.portfolioTitle} numberOfLines={2}>
             {safeString(item.Title, 'عنوان پروژه')}
           </AppText>
-
         </View>
       </LinearGradient>
     </View>
   </TouchableOpacity>
 );
 
-const CourseCard = ({ item }) => (
-  <TouchableOpacity style={styles.courseCard} activeOpacity={0.8}>
+const CourseCard = ({ item, onPress }) => (
+  <TouchableOpacity style={styles.courseCard} activeOpacity={0.8} onPress={() => onPress(item)}>
     <Image
       source={
         item.CourseImageFileName
           ? { uri: `${appConfig.mobileApi}Course/GetCourseImage/${item.CourseImageFileName}` }
-          : require("../../assets/sample_clothe.jpg")
+          : item.FeaturedImageURL
+            ? { uri: item.FeaturedImageURL }
+            : require("../../assets/new_course.jpg")  // عکس دیفالت دوره
       }
       style={styles.courseImage}
     />
@@ -554,30 +555,22 @@ const CourseCard = ({ item }) => (
         <View style={styles.coursePrice}>
           <MaterialIcons name="attach-money" size={16} color={modernColors.success} />
           <AppText style={styles.coursePriceText}>
+            {/* اصلاح خواندن قیمت از API */}
             {item.SpecialSalePrice && item.SpecialSalePrice > 0
               ? formatPrice(item.SpecialSalePrice)
-              : formatPrice(item.Price)} تومان
+              : item.Price && item.Price > 0
+                ? formatPrice(item.Price)
+                : item.RegisterAmount && item.RegisterAmount > 0
+                  ? formatPrice(item.RegisterAmount)
+                  : 'رایگان'}
           </AppText>
         </View>
-        <View style={styles.courseStats}>
-          <MaterialIcons name="location-on" size={14} color={modernColors.medium} />
-          <AppText style={styles.courseStatsText}>
-            {safeString(item.Location, 'محل برگزاری')}
-          </AppText>
-        </View>
-      </View>
-      <View style={[styles.statusBadge, {
-        backgroundColor: item.Active ? modernColors.success + '20' : modernColors.error + '20'
-      }]}>
-        <AppText style={[styles.statusText, {
-          color: item.Active ? modernColors.success : modernColors.error
-        }]}>{item.ActiveStr}</AppText>
       </View>
     </View>
   </TouchableOpacity>
 );
 
-const ProductCard = ({ item }) => {
+const ProductCard = ({ item, onPress }) => {
   const price = safeNumber(item.Price);
   const specialPrice = safeNumber(item.SpecialSalePrice);
   const discountPercentage = specialPrice > 0 && price > 0
@@ -585,13 +578,15 @@ const ProductCard = ({ item }) => {
     : 0;
 
   return (
-    <TouchableOpacity style={styles.productCard} activeOpacity={0.8}>
+    <TouchableOpacity style={styles.productCard} activeOpacity={0.8} onPress={() => onPress(item)}>
       <View style={styles.productImageContainer}>
         <Image
           source={
             item.ProductImageFileName
               ? { uri: `${appConfig.mobileApi}Product/GetProductImage/${item.ProductImageFileName}` }
-              : require("../../assets/sample_clothe.jpg")
+              : item.FeaturedImageURL
+                ? { uri: item.FeaturedImageURL }
+                : require("../../assets/Product_icon.jpg")  // عکس دیفالت محصول
           }
           style={styles.productImage}
         />
@@ -627,13 +622,15 @@ const ProductCard = ({ item }) => {
   );
 };
 
-const GalleryCard = ({ item }) => (
-  <TouchableOpacity style={styles.galleryCard} activeOpacity={0.8}>
+const GalleryCard = ({ item, onPress }) => (
+  <TouchableOpacity style={styles.galleryCard} activeOpacity={0.8} onPress={() => onPress(item)}>
     <Image
       source={
         item.ImageFileName
           ? { uri: `${appConfig.mobileApi}ImageGallery/GetImage/${item.ImageFileName}` }
-          : require("../../assets/sample_clothe.jpg")
+          : item.FeaturedImageURL
+            ? { uri: item.FeaturedImageURL }
+            : require("../../assets/main-icon.png")  // عکس دیفالت گالری
       }
       style={styles.galleryImage}
     />
@@ -671,8 +668,9 @@ const BlogImageComponent = ({ item }) => {
       <View style={styles.blogImagePlaceholder}>
         <Image
           style={styles.postImage}
-          source={require("../../assets/blogPost_icon.jpg")}
-        />      </View>
+          source={require("../../assets/blogPost_icon.jpg")}  // عکس دیفالت بلاگ
+        />
+      </View>
     );
   }
 
@@ -719,6 +717,7 @@ const BlogPostCard = ({ item, onPress }) => (
   </TouchableOpacity>
 );
 
+// بقیه کامپوننت‌ها
 const ContactItem = ({ icon, text, type, onPress, shimmerAnim }) => (
   <TouchableOpacity
     style={styles.modernContactItem}
@@ -897,13 +896,15 @@ const UserProfileScreen = () => {
   const memberId = userData?.MemberId || userData?.id || null;
 
   const { data: memberProfile, loading, error, refetch } = useMemberProfile(memberId);
+
+  // توابع ناوبری به جزئیات
   const handleNavigateToFilteredContent = (contentType, memberId, memberName) => {
     const navigationMap = {
-      blog: 'MagScreen',          // این در TabNavigator هست، پس باید navigate کنیم
-      portfolio: 'AllPortfolio',   // نام موجود در Stack
-      products: 'AllProducts',     // نام موجود در Stack  
-      courses: 'AllCourses',       // نام موجود در Stack
-      gallery: 'AllGalleries'      // نام موجود در Stack
+      blog: 'MagScreen',
+      portfolio: 'AllPortfolio',
+      products: 'AllProducts',
+      courses: 'AllCourses',
+      gallery: 'AllGalleries'
     };
 
     const screenName = navigationMap[contentType];
@@ -911,7 +912,6 @@ const UserProfileScreen = () => {
       console.log(`Navigating to ${screenName} with memberId: ${memberId}`);
 
       if (screenName === 'MagScreen') {
-        // برای MagScreen که در TabNavigator است
         navigation.navigate('MainTabs', {
           screen: 'مجله ی فریمد',
           params: {
@@ -921,7 +921,6 @@ const UserProfileScreen = () => {
           }
         });
       } else {
-        // برای بقیه صفحات که در Stack هستند
         navigation.navigate(screenName, {
           filteredMemberId: memberId,
           filteredMemberName: memberName || user.Name || 'کاربر',
@@ -931,6 +930,64 @@ const UserProfileScreen = () => {
     } else {
       console.log(`Navigation failed: screenName=${screenName}, memberId=${memberId}`);
     }
+  };
+
+  // توابع کلیک روی آیتم‌ها
+  const handlePortfolioPress = (portfolioData) => {
+    try {
+      const portfolioId = portfolioData.PortfolioId || portfolioData.PotfolioId;
+
+      if (!portfolioId || portfolioId === 0) {
+        console.error('Invalid portfolio ID:', portfolioId);
+        return;
+      }
+
+      navigation.navigate("PortfolioDetail", {
+        title: portfolioData.Title,
+        portfolioId: portfolioId
+      });
+    } catch (error) {
+      console.error('Navigation error (Portfolio):', error);
+    }
+  };
+
+  const handleCoursePress = (courseData) => {
+    try {
+      navigation.navigate("CourseDetails", {
+        courseData,
+        courseId: courseData.CourseId
+      });
+    } catch (error) {
+      console.error('Navigation error (Course):', error);
+    }
+  };
+
+  const handleProductPress = (productData) => {
+    try {
+      navigation.navigate("ProductDetails", {
+        productData: productData,
+        productId: productData.ProductId
+      });
+    } catch (error) {
+      console.error('Navigation error (Product):', error);
+    }
+  };
+
+  const handleGalleryPress = (galleryData) => {
+    try {
+      navigation.navigate("GalleryItem", {
+        title: galleryData.Title,
+        galleryId: galleryData.ImageGalleryId      });
+    } catch (error) {
+      console.error('Navigation error (Gallery):', error);
+    }
+  };
+
+  const handleBlogPress = (blogData) => {
+    navigation.navigate("MagDetailes", {
+      title: blogData.Title,
+      blogId: blogData.BlogPostId
+    });
   };
 
   const scrollViewRef = useRef(null);
@@ -1044,7 +1101,6 @@ const UserProfileScreen = () => {
     navigation.goBack();
   };
 
-
   const scrollToSection = (sectionRef) => {
     if (sectionRef.current && scrollViewRef.current) {
       sectionRef.current.measureLayout(
@@ -1066,7 +1122,6 @@ const UserProfileScreen = () => {
   };
 
   const sectionsWithData = Object.values(hasData).filter(Boolean).length;
-
   const shouldShowQuickAccess = sectionsWithData >= 2;
 
   const InfoSection = ({ icon, title, children, iconColor = modernColors.primary }) => (
@@ -1092,17 +1147,10 @@ const UserProfileScreen = () => {
     </View>
   );
 
-  const handleBlogPress = (blogData) => {
-    navigation.navigate("MagDetailes", {
-      title: blogData.Title,
-      blogId: blogData.BlogPostId
-    });
-  };
-
-  const renderPortfolioItem = ({ item }) => <PortfolioCard item={item} />;
-  const renderCourseItem = ({ item }) => <CourseCard item={item} />;
-  const renderProductItem = ({ item }) => <ProductCard item={item} />;
-  const renderGalleryItem = ({ item }) => <GalleryCard item={item} />;
+  const renderPortfolioItem = ({ item }) => <PortfolioCard item={item} onPress={handlePortfolioPress} />;
+  const renderCourseItem = ({ item }) => <CourseCard item={item} onPress={handleCoursePress} />;
+  const renderProductItem = ({ item }) => <ProductCard item={item} onPress={handleProductPress} />;
+  const renderGalleryItem = ({ item }) => <GalleryCard item={item} onPress={handleGalleryPress} />;
   const renderBlogPostItem = ({ item }) => <BlogPostCard item={item} onPress={handleBlogPress} />;
 
   if (loading) {
@@ -1132,7 +1180,6 @@ const UserProfileScreen = () => {
             </View>
 
             <ProfileSkeleton />
-            {/* اسکلتون باکس ویدیو */}
             <View style={styles.videoSection}>
               <SkeletonLoader width="100%" height={200} borderRadius={20} />
             </View>
@@ -1189,6 +1236,7 @@ const UserProfileScreen = () => {
             />
           </Animated.View>
 
+          {/* دکمه بازگشت */}
           <Animated.View
             style={[
               styles.backButtonContainer,
@@ -1310,7 +1358,6 @@ const UserProfileScreen = () => {
             <AppText style={styles.userName}>{safeString(user.Name, 'کاربر ناشناس')}</AppText>
             <AppText style={styles.userProfession}>{safeString(user.MemberGroupsStr, 'تعریف نشده')}</AppText>
 
-            {/* اضافه کردن لایک زیر بج گروه */}
             <LikeButton
               memberId={user.MemberId}
               initialLikeCount={user.LikeCount || 0}
@@ -1476,6 +1523,7 @@ const UserProfileScreen = () => {
               />
             </Animated.View>
           )}
+
           {hasData.products && (
             <Animated.View
               ref={productsRef}
@@ -1537,6 +1585,7 @@ const UserProfileScreen = () => {
               />
             </Animated.View>
           )}
+
           {hasData.gallery && (
             <Animated.View
               ref={galleryRef}
@@ -1653,19 +1702,21 @@ const styles = StyleSheet.create({
   },
   backButtonContainer: {
     alignSelf: 'flex-end',
-    marginBottom: 10,
-    marginTop: PROFILE_CONSTANTS.BACK_BUTTON_TOP,
+    // marginBottom: 10,
+    // marginTop:50,
+    marginTop: PROFILE_CONSTANTS.PROFILE_SECTION_TOP + 100,
+    marginBottom: PROFILE_CONSTANTS.PROFILE_SECTION_TOP -1670,
     zIndex: 4,
   },
   backButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255,0.51)',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    // borderWidth: 1,
+    // borderColor: 'rgba(255, 255, 255,1)',
   },
   profileSection: {
     alignItems: "center",
@@ -1791,7 +1842,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     textAlign: 'center',
   },
-  // استایل‌های لایک شیشه‌ای
   likeSection: {
     position: 'relative',
     alignItems: 'center',
@@ -1800,7 +1850,6 @@ const styles = StyleSheet.create({
   likeButton: {
     borderRadius: 25,
     overflow: 'hidden',
-
   },
   likeButtonInner: {
     flexDirection: 'row-reverse',
@@ -1813,69 +1862,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.3)",
   },
-
   floatingHeart: {
     position: 'absolute',
     top: -10,
     alignSelf: 'center',
     pointerEvents: 'none',
   },
-  // استایل‌های ویدیو
   videoSection: {
     marginHorizontal: 0,
     marginBottom: 50,
   },
-  videoContainer: {
+  videoWrapper: {
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: modernColors.surface,
+    padding: 4,
 
-    aspectRatio: 1, // مربعی کردن باکس
   },
-  videoThumbnail: {
-    flex: 1,
-    position: 'relative',
+  videoShadow: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#000',
   },
-  videoGradient: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  playButtonContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  videoInfo: {
-    position: 'absolute',
-    bottom: 15,
-    right: 15,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  videoTitle: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.surface,
-    marginBottom: 2,
-  },
-  videoSubtitle: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: 'rgba(255, 255, 255, 0.8)',
+  videoPlayer: {
+    width: '100%',
+    height: 220,
   },
   videoPlaceholder: {
     aspectRatio: 1,
@@ -2197,26 +2207,6 @@ const styles = StyleSheet.create({
     color: modernColors.success,
     marginRight: 5,
   },
-  courseStats: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-  },
-  courseStatsText: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: modernColors.medium,
-    marginRight: 5,
-  },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Bold",
-  },
   productCard: {
     width: 180,
     backgroundColor: '#fff',
@@ -2446,43 +2436,6 @@ const styles = StyleSheet.create({
     height: "100%",
     width: "100%",
   },
-  videoWrapper: {
-    borderRadius: 20,
-    overflow: 'hidden',
-    padding: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  videoShadow: {
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#000',
-  },
-  videoPlayer: {
-    width: '100%',
-    height: 220,
-  },
-  videoTitleBar: {
-    position: 'absolute',
-    bottom: 12,
-    left: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  videoTitleText: {
-    fontFamily: 'Yekan_Bakh_Bold',
-    color: modernColors.surface,
-    fontSize: 14,
-    marginLeft: 6,
-  },
-
 });
 
 export default UserProfileScreen;

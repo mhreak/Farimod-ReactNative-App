@@ -450,19 +450,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   menuItemTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: "Yekan_Bakh_Bold",
     color: "#2c3e50",
     marginBottom: 4,
   },
 
   closeButton: {
-    backgroundColor: "#ef444450", // قرمز
+    backgroundColor: "#ef444450", 
     paddingVertical: 15,
     borderRadius: 15,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#DC2626', // قرمز تیره‌تر برای border
+    borderColor: '#DC2626', 
     marginTop: 10,
     marginBottom: 40,
 

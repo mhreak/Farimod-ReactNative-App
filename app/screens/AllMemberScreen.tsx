@@ -202,27 +202,29 @@ const Avatar = ({ name, size = 80, onPress, member }) => {
         ]}
       >
         {hasProfileImage ? (
-          <View style={[
-            styles.avatarImageContainer,
-            {
+          // حذف View اضافی و استفاده مستقیم از Image
+          <Image
+            source={{ uri: member.AvatarImageURL }}
+            style={{
               width: size,
               height: size,
               borderRadius: size / 2,
-            },
-          ]}>
-            <Image
-              source={{ uri: member.AvatarImageURL }}
-              style={[
-                styles.avatarImage,
-                {
-                  width: size,
-                  height: size,
-                  borderRadius: size / 2,
-                },
-              ]}
-              resizeMode="cover"
-            />
-          </View>
+              // حذف کامل border
+              borderWidth: 0,
+              // اضافه کردن shadow برای زیبایی
+              shadowColor: '#000',
+              shadowOffset: {
+                width: 0,
+                height: 2,
+              },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 3,
+              // اطمینان از cover شدن کامل عکس
+              backgroundColor: 'transparent',
+            }}
+            resizeMode="cover"
+          />
         ) : (
           <LinearGradient
             colors={selectedGradient}
@@ -234,6 +236,8 @@ const Avatar = ({ name, size = 80, onPress, member }) => {
                 width: size,
                 height: size,
                 borderRadius: size / 2,
+                borderWidth: 3,
+                borderColor: '#fff',
               },
             ]}
           >
@@ -907,36 +911,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     flex: 1,
   },
-  avatarImageContainer: {
-    borderWidth: 3,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  avatarImage: {
-    borderWidth: 3,
-    borderColor: '#fff',
-  },
+
   avatarGradient: {
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
+    borderColor: '#fff', // فقط برای gradient avatarها
   },
+
   blueTickContainer: {
     position: 'absolute',
     backgroundColor: '#ffffff',

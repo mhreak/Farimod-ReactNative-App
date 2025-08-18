@@ -290,6 +290,8 @@ function AppNavigator() {
         component={AddPortfolioScreen}
         options={{
           headerShown: false,
+          gestureEnabled: false,
+
         }}
       />
       <AppStack.Screen
@@ -297,6 +299,8 @@ function AppNavigator() {
         component={AddProductScreen}
         options={{
           headerShown: false,
+          gestureEnabled: false,
+
         }}
       />
       <AppStack.Screen
@@ -375,6 +379,8 @@ function AppNavigator() {
         component={AddNewPostScreen}
         options={{
           headerShown: false,
+          gestureEnabled: false,
+
         }}
       />
       <AppStack.Screen
@@ -418,6 +424,8 @@ function AppNavigator() {
         component={AddNewCourseScreen}
         options={{
           headerShown: false,
+          gestureEnabled: false,
+
         }}
       />
       <AppStack.Screen

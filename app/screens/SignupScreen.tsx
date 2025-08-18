@@ -27,7 +27,7 @@ import { useMemberGroups } from "../config/useApi";
 import { MemberGroup } from "../config/type";
 import Toast from "../components/Toast";
 import ChipsUI from '../components/ChipsUI';
-import appConfig from '../config/config'; // Import config
+import appConfig from '../config/config';
 
 interface IFormData {
   firstName: string;
@@ -36,7 +36,7 @@ interface IFormData {
   selectedGroups: number[];
 }
 
-const SignupScreen = () => {
+const SignupScreen: React.FC = () => {
   const navigation = useNavigation<AppNavigationProp>();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<IFormData>({
@@ -45,20 +45,28 @@ const SignupScreen = () => {
     mobileNumber: "",
     selectedGroups: [],
   });
+  const [tempPersonalData, setTempPersonalData] = useState({
+    firstName: "",
+    lastName: "",
+    mobileNumber: "",
+  });
 
   const [otp, setOtp] = useState(["", "", "", "", ""]);
   const otpInputs = useRef<TextInput[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false); // Loading state for API calls
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [signupToken, setSignupToken] = useState<string>(""); // Store signup token
 
-  // Toast state
+  // Timer states
+  const [resendTimer, setResendTimer] = useState(0);
+  const [canResend, setCanResend] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('info');
 
-  // Fetch member groups from API
   const { data: memberGroups, loading: groupsLoading, error: groupsError, refetch } = useMemberGroups();
 
-  // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const iconFadeAnim = useRef(new Animated.Value(0)).current;
@@ -69,9 +77,7 @@ const SignupScreen = () => {
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Start all animations immediately
     Animated.parallel([
-      // Icon appears with slide from top
       Animated.parallel([
         Animated.timing(iconFadeAnim, {
           toValue: 1,
@@ -84,7 +90,6 @@ const SignupScreen = () => {
           useNativeDriver: true,
         }),
       ]),
-      // Form appears with slide from bottom
       Animated.parallel([
         Animated.timing(formFadeAnim, {
           toValue: 1,
@@ -99,7 +104,6 @@ const SignupScreen = () => {
       ]),
     ]).start();
 
-    // Continuous pulse animation for icon
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -115,7 +119,6 @@ const SignupScreen = () => {
       ])
     ).start();
 
-    // Continuous rotation for decorative ring
     Animated.loop(
       Animated.timing(rotateAnim, {
         toValue: 1,
@@ -125,10 +128,12 @@ const SignupScreen = () => {
     ).start();
   }, []);
 
-  // Clear OTP when moving to step 2
+  // Clear OTP when moving to step 3
   useEffect(() => {
-    if (currentStep === 2) {
+    if (currentStep === 3) {
       setOtp(["", "", "", "", ""]);
+      // Start timer when entering OTP step
+      startResendTimer();
     }
   }, [currentStep]);
 
@@ -141,6 +146,15 @@ const SignupScreen = () => {
     }
   }, [groupsError]);
 
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
+
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -152,12 +166,41 @@ const SignupScreen = () => {
       .required("کد تأیید وارد نشده است"),
   });
 
-  // API call function for sending registration data
-  const sendRegistrationData = async (userData: Omit<IFormData, "selectedGroups">) => {
+  // Timer functions
+  const startResendTimer = (duration: number = 120) => { // 2 minutes default
+    setResendTimer(duration);
+    setCanResend(false);
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    timerRef.current = setInterval(() => {
+      setResendTimer((prev) => {
+        if (prev <= 1) {
+          setCanResend(true);
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const formatTime = (seconds: number): string => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${toPersianDigits(minutes.toString().padStart(2, '0'))}:${toPersianDigits(remainingSeconds.toString().padStart(2, '0'))}`;
+  };
+
+  // Step 2: Send signup data with groups and get token
+  const sendSignupFirstStep = async (userData: IFormData) => {
     try {
       setIsSubmitting(true);
 
-      const response = await fetch(`${appConfig.mobileApi}MobileAccount/SignUp`, {
+      const response = await fetch(`${appConfig.mobileApi}MobileAccount/SignupFirstStep`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -166,61 +209,36 @@ const SignupScreen = () => {
           FirstName: userData.firstName,
           LastName: userData.lastName,
           Mobile: userData.mobileNumber,
+          MemberGroupIdList: userData.selectedGroups // گروه‌ها در مرحله ۲ ارسال می‌شوند
         }),
       });
 
       const result = await response.json();
-      console.log('API Response:', response.status, result);
+      console.log('SignupFirstStep API Response:', response.status, result);
 
-      if (response.status >= 200 && response.status < 300) {
-        // Success response
-        console.log('Success - showing toast');
-        setToastMessage(result.Message || "عملیات با موفقیت انجام شد");
-        setToastType('success');
-        setToastVisible(true);
+      if (response.status >= 200 && response.status < 300 && result.SignupToken) {
+        // Success - store token and form data
+        setSignupToken(result.SignupToken);
+        setFormData(userData);
 
-        // Save form data and move to next step
-        setFormData((prev) => ({
-          ...prev,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          mobileNumber: userData.mobileNumber,
-        }));
+        // Automatically proceed to send SMS
+        await sendSignupOTPSMS(result.SignupToken);
 
-        setTimeout(() => {
-          setCurrentStep(2);
-        }, 1000);
       } else {
-        // Error response - Always show error message
-        console.log('Error detected - showing toast');
+        // Error response
         let errorMessage = "خطا در ارسال اطلاعات";
-
         if (result.Message) {
           errorMessage = result.Message;
-          console.log('Using result.Message:', errorMessage);
         } else if (result.errors && result.errors.Mobile && result.errors.Mobile[0]) {
           errorMessage = result.errors.Mobile[0];
-          console.log('Using validation error:', errorMessage);
         } else if (result.title) {
           errorMessage = result.title;
-          console.log('Using result.title:', errorMessage);
         }
 
-        console.log('Setting toast message:', errorMessage);
         setToastMessage(errorMessage);
         setToastType('error');
         setToastVisible(true);
 
-        // Force re-render by logging state
-        setTimeout(() => {
-          console.log('Toast state after setting:', {
-            visible: toastVisible,
-            message: toastMessage,
-            type: toastType
-          });
-        }, 100);
-
-        // Check for redirect to login
         if (result.RedirectToLogin === true) {
           setTimeout(() => {
             navigation.navigate("Login");
@@ -228,8 +246,7 @@ const SignupScreen = () => {
         }
       }
     } catch (error) {
-      console.error('Registration error:', error);
-      console.log('Network error - showing toast');
+      console.error('SignupFirstStep error:', error);
       setToastMessage("خطا در اتصال به سرور");
       setToastType('error');
       setToastVisible(true);
@@ -238,8 +255,113 @@ const SignupScreen = () => {
     }
   };
 
-  const handleStep1Submit = async (values: Omit<IFormData, "selectedGroups">) => {
-    await sendRegistrationData(values);
+  // Step 2: Send SMS OTP
+  const sendSignupOTPSMS = async (token: string) => {
+    try {
+      const response = await fetch(
+        `${appConfig.mobileApi}MobileAccount/SendSignupOTPSMS?signupToken=${encodeURIComponent(token)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const result = await response.json();
+      console.log('SendSignupOTPSMS API Response:', response.status, result);
+
+      if (response.status >= 200 && response.status < 300) {
+        setToastMessage(result.Message || "کد پیامکی با موفقیت ارسال شد");
+        setToastType('success');
+        setToastVisible(true);
+
+        // Move to step 3 for OTP verification
+        setTimeout(() => {
+          setCurrentStep(3);
+        }, 1000);
+      } else {
+        setToastMessage(result.Message || "خطا در ارسال پیامک");
+        setToastType('error');
+        setToastVisible(true);
+      }
+    } catch (error) {
+      console.error('SendSignupOTPSMS error:', error);
+      setToastMessage("خطا در ارسال پیامک");
+      setToastType('error');
+      setToastVisible(true);
+    }
+  };
+
+  // Step 3: Validate OTP
+  const validateSignupOTP = async (otpCode: string) => {
+    try {
+      setIsSubmitting(true);
+
+      const response = await fetch(`${appConfig.mobileApi}MobileAccount/ValidateSignupOTP`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          SignupToken: signupToken,
+          OTP: otpCode,
+        }),
+      });
+
+      const result = await response.json();
+      console.log('ValidateSignupOTP API Response:', response.status, result);
+
+      if (response.status >= 200 && response.status < 300) {
+        setToastMessage(result.Message || "کد با موفقیت تایید شد");
+        setToastType('success');
+        setToastVisible(true);
+
+        // Clear timer
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+
+        // Move to step 4 (final success step)
+        setTimeout(() => {
+          setCurrentStep(4);
+        }, 1000);
+      } else {
+        setToastMessage(result.Message || "کد وارد شده اشتباه است");
+        setToastType('error');
+        setToastVisible(true);
+      }
+    } catch (error) {
+      console.error('ValidateSignupOTP error:', error);
+      setToastMessage("خطا در تایید کد");
+      setToastType('error');
+      setToastVisible(true);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle step 1 (personal data) - just store temporarily and move to step 2
+  const handleStep1Submit = (values: Omit<IFormData, "selectedGroups">) => {
+    setTempPersonalData(values);
+    setCurrentStep(2);
+  };
+
+  // Handle step 2 (groups + API call)
+  const handleStep2Submit = async () => {
+    if (formData.selectedGroups.length === 0) {
+      setToastMessage("لطفاً حداقل یک گروه انتخاب کنید");
+      setToastType('error');
+      setToastVisible(true);
+      return;
+    }
+
+    const submitData: IFormData = {
+      ...tempPersonalData,
+      selectedGroups: formData.selectedGroups,
+    };
+
+    await sendSignupFirstStep(submitData);
   };
 
   const handleOtpChange = (text: string, index: number) => {
@@ -263,9 +385,7 @@ const SignupScreen = () => {
       return;
     }
 
-    // Here you can add OTP verification API call
-    // For now, we simulate successful verification
-    setCurrentStep(3);
+    validateSignupOTP(otpCode);
   };
 
   const handleOtpKeyPress = (e: any, index: number, currentValue: string) => {
@@ -283,37 +403,18 @@ const SignupScreen = () => {
     }));
   };
 
-  const handleFinalSubmit = () => {
-    if (formData.selectedGroups.length === 0) {
-      setToastMessage("لطفاً حداقل یک گروه انتخاب کنید");
-      setToastType('warning');
-      setToastVisible(true);
-      return;
-    }
-
-    console.log("Final form data:", formData);
-
-    // Show success message
-    setToastMessage("ثبت نام با موفقیت انجام شد");
-    setToastType('success');
-    setToastVisible(true);
-
-    // Navigate after a short delay
-    setTimeout(() => {
-      navigation.navigate("MainTabs");
-    }, 1500);
-  };
-
   const hideToast = () => {
     setToastVisible(false);
   };
 
-  // Test function for Toast
-  const testToast = () => {
-    console.log('Test button pressed');
-    setToastMessage("تست پیام خطا");
-    setToastType('error');
-    setToastVisible(true);
+  // Resend OTP function with timer restart
+  const resendOTP = async () => {
+    if (signupToken && canResend) {
+      setCanResend(false);
+      await sendSignupOTPSMS(signupToken);
+      // Restart timer after successful resend
+      startResendTimer(120); // 2 minutes
+    }
   };
 
   const renderStepIndicator = () => (
@@ -351,7 +452,7 @@ const SignupScreen = () => {
             ۲
           </Text>
         </View>
-        <Text style={styles.stepLabel}>تأیید تلفن همراه</Text>
+        <Text style={styles.stepLabel}>انتخاب گروه</Text>
       </View>
 
       <View
@@ -371,20 +472,23 @@ const SignupScreen = () => {
             ۳
           </Text>
         </View>
-        <Text style={styles.stepLabel}>گروه کاربری</Text>
+        <Text style={styles.stepLabel}>تأیید تلفن همراه</Text>
       </View>
+
+      
+
+
     </View>
   );
 
   const renderStep1 = () => (
     <Formik
       initialValues={{
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        mobileNumber: formData.mobileNumber,
+        firstName: tempPersonalData.firstName,
+        lastName: tempPersonalData.lastName,
+        mobileNumber: tempPersonalData.mobileNumber,
       }}
-      onSubmit={(values, { setFieldError }) => {
-        // Validate fields and show toast errors instead of inline errors
+      onSubmit={(values) => {
         if (!values.firstName) {
           setToastMessage("نام وارد نشده است");
           setToastType('error');
@@ -449,18 +553,79 @@ const SignupScreen = () => {
 
           <AppButton
             style={styles.nextButton}
-            title={isSubmitting ? "در حال ارسال..." : "مرحله بعد"}
+            title="مرحله بعد"
             onPress={handleSubmit}
-            disabled={isSubmitting}
           />
 
-        
+          <View style={styles.footerContainer}>
+            <AppText style={styles.footerText}>
+              حساب کاربری دارید؟{" "}
+            </AppText>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("Login")}
+            >
+              <AppText style={styles.signupText}>وارد شوید</AppText>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
     </Formik>
   );
 
   const renderStep2 = () => (
+    <View>
+      <AppText style={styles.sectionTitle}>انتخاب گروه‌ها</AppText>
+      <AppText style={styles.sectionSubTitle}>
+        جزء کدام یک از گروه‌های زیر هستید؟ می‌توانید چند گزینه انتخاب کنید
+      </AppText>
+
+      {groupsLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <AppText style={styles.loadingText}>در حال بارگذاری گروه‌ها...</AppText>
+        </View>
+      ) : groupsError ? (
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={48} color="#9e9e9e" />
+          <AppText style={styles.errorText}>خطا در بارگذاری گروه‌ها</AppText>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={refetch}
+          >
+            <MaterialIcons name="refresh" size={20} color={colors.white} />
+            <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.groupsContainer}>
+          <ChipsUI
+            groups={memberGroups}
+            selectedGroups={formData.selectedGroups}
+            onToggleGroup={toggleGroup}
+            allowMultipleSelection={true}
+          />
+        </View>
+      )}
+
+      <View style={styles.buttonContainer}>
+        <AppButton
+          style={[styles.backButton, { marginLeft: 10, width: "48%" }]}
+          title="مرحله قبل"
+          color={colors.medium}
+          onPress={() => setCurrentStep(1)}
+        />
+
+        <AppButton
+          style={[styles.submitButton, { width: "48%" }]}
+          title={isSubmitting ? "در حال ارسال..." : "ادامه"}
+          onPress={handleStep2Submit}
+          disabled={isSubmitting}
+        />
+      </View>
+    </View>
+  );
+
+  const renderStep3 = () => (
     <View>
       <AppText style={styles.sectionTitle}>کد تأیید را وارد کنید</AppText>
       <AppText style={styles.sectionSubTitle}>
@@ -484,6 +649,21 @@ const SignupScreen = () => {
         ))}
       </View>
 
+      {/* Resend OTP with timer */}
+      <View style={styles.resendContainer}>
+        {canResend ? (
+          <TouchableOpacity onPress={resendOTP}>
+            <AppText style={styles.resendText}>ارسال مجدد کد</AppText>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.timerContainer}>
+            <AppText style={styles.timerText}>
+              ارسال مجدد کد تا {formatTime(resendTimer)}
+            </AppText>
+          </View>
+        )}
+      </View>
+
       <View style={styles.buttonContainer}>
         <AppButton
           style={[styles.backButton, { marginLeft: 10, width: "48%" }]}
@@ -494,63 +674,40 @@ const SignupScreen = () => {
 
         <AppButton
           style={[styles.submitButton, { width: "48%" }]}
-          title="تایید کد"
+          title={isSubmitting ? "در حال تایید..." : "تایید کد"}
           onPress={handleOtpSubmit}
+          disabled={isSubmitting}
         />
       </View>
     </View>
   );
 
-  const renderStep3 = () => (
+  const renderStep4 = () => (
     <View>
       <AppText style={styles.sectionTitle}>
-        جزء کدام یک از گروه های زیر هستید؟
+        ثبت نام با موفقیت انجام شد!
       </AppText>
       <AppText style={styles.sectionSubTitle}>
-        میتوانید چند گزینه انتخاب کنید
+        اکنون می‌توانید از حساب کاربری خود استفاده کنید
       </AppText>
 
-      {groupsLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <AppText style={styles.loadingText}>در حال بارگذاری گروه‌ها...</AppText>
-        </View>
-      ) : groupsError ? (
-        <View style={styles.errorContainer}>
-          <MaterialIcons name="error-outline" size={48} color="#9e9e9e" />
-          <AppText style={styles.errorText}>خطا در بارگذاری گروه‌ها</AppText>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={refetch}
-          >
-            <MaterialIcons name="refresh" size={20} color={colors.white} />
-            <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <ChipsUI
-          groups={memberGroups}
-          selectedGroups={formData.selectedGroups}
-          onToggleGroup={toggleGroup}
-          allowMultipleSelection={true}
-        />
-      )}
+      <View style={styles.successContainer}>
+        <MaterialIcons name="check-circle" size={80} color={colors.success} />
+        <AppText style={styles.successText}>
+          خوش آمدید {formData.firstName} {formData.lastName}
+        </AppText>
+        <AppText style={styles.successSubText}>
+          شماره موبایل شما با موفقیت تایید شد
+        </AppText>
 
-      <View style={styles.buttonContainer}>
-        <AppButton
-          style={[styles.backButton, { marginLeft: 10, width: "50%" }]}
-          title="مرحله قبل"
-          color={colors.danger}
-          onPress={() => setCurrentStep(2)}
-        />
 
-        <AppButton
-          style={[styles.submitButton, { width: "50%" }]}
-          title="ثبت نام"
-          onPress={handleFinalSubmit}
-          disabled={groupsLoading}
-        />
       </View>
+
+      <AppButton
+        style={styles.finalButton}
+        title="ورود به برنامه"
+        onPress={() => navigation.navigate("Login")}
+      />
     </View>
   );
 
@@ -608,9 +765,17 @@ const SignupScreen = () => {
                 },
               ]}
             >
+              {/* Glassmorphism overlay */}
               <View style={styles.glassOverlay} />
 
-              <View style={styles.contentContainer}>
+              {/* Content */}
+              <ScrollView
+                style={styles.contentScrollContainer}
+                contentContainerStyle={styles.contentContainer}
+                showsVerticalScrollIndicator={true}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled={true}
+              >
                 <AppText style={styles.logingText}>ثبت نام</AppText>
 
                 {renderStepIndicator()}
@@ -618,8 +783,10 @@ const SignupScreen = () => {
                   ? renderStep1()
                   : currentStep === 2
                     ? renderStep2()
-                    : renderStep3()}
-              </View>
+                    : currentStep === 3
+                      ? renderStep3()
+                      : renderStep4()}
+              </ScrollView>
             </Animated.View>
           </View>
         </Screen>
@@ -637,6 +804,7 @@ const SignupScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  // Background and Layout
   backgroundContainer: {
     flex: 1,
   },
@@ -656,15 +824,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
+    flex: 1,
     padding: 10,
     justifyContent: "center",
     fontFamily: "Yekan_Bakh_Regular",
     backgroundColor: 'transparent',
   },
+  scrollContainer: {
+    flexGrow: 1,
+    padding: 10,
+    justifyContent: "center",
+    minHeight: '100%',
+  },
   centerContainer: {
     justifyContent: "center",
     alignItems: "center",
   },
+
+  // Login Box and Glassmorphism
   loginBox: {
     borderRadius: 25,
     padding: 25,
@@ -690,18 +867,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 6,
-    zIndex: 0,
+    zIndex: 1,
+  },
+  contentScrollContainer: {
+    position: 'relative',
+    zIndex: 2,
   },
   contentContainer: {
-    position: 'relative',
-    zIndex: 1,
     backgroundColor: 'transparent',
+    paddingBottom: 20,
+    position: 'relative',
+    zIndex: 2,
   },
+
+  // Icon Styles
   iconContainer: {
     justifyContent: "center",
     alignItems: "center",
     marginBottom: -20,
-    zIndex: 1000
+    zIndex: 1000,
   },
   iconCircle: {
     width: 120,
@@ -740,12 +924,18 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 206, 232, 0.3)',
     borderStyle: 'dashed',
   },
+
+  // Typography
   logingText: {
     marginTop: 50,
-    fontSize: 40,
+    fontSize: 30,
     textAlign: "center",
     marginBottom: 20,
     fontFamily: "Yekan_Bakh_Bold",
+    color: colors.primary,
+    textShadowColor: 'rgba(255, 206, 232, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 
   // Step Indicator Styles
@@ -754,15 +944,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 30,
+    flexWrap: "wrap",
   },
   stepContainer: {
     alignItems: "center",
     justifyContent: "center",
+    marginHorizontal: 2,
   },
   stepCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 35,
+    height: 35,
+    borderRadius: 17.5,
     backgroundColor: colors.light,
     justifyContent: "center",
     alignItems: "center",
@@ -774,7 +966,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   stepNumber: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.medium,
     fontFamily: "Yekan_Bakh_Bold",
   },
@@ -783,22 +975,24 @@ const styles = StyleSheet.create({
   },
   stepLabel: {
     marginTop: 8,
-    fontSize: 12,
+    fontSize: 10,
     color: colors.medium,
     fontFamily: "Yekan_Bakh_Regular",
+    textAlign: "center",
+    maxWidth: 60,
   },
   stepLine: {
-    width: 50,
+    width: 25,
     height: 2,
     backgroundColor: colors.light,
-    marginHorizontal: 5,
+    marginHorizontal: 3,
     marginTop: -20,
   },
   activeStepLine: {
     backgroundColor: colors.primary,
   },
 
-  // Step 2 Styles
+  // Step Content Styles
   sectionTitle: {
     fontSize: 18,
     textAlign: "center",
@@ -814,54 +1008,34 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  // Updated Groups Container Styles (keeping original badge style)
-  groupsContainer: {
-    maxHeight: 300,
+  // Resend and Timer Styles
+  resendContainer: {
+    alignSelf: 'center',
     marginBottom: 20,
-    paddingVertical: 10,
   },
-  groupsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  group: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    backgroundColor: colors.light,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    borderRadius: 25,
-    marginBottom: 10,
-    minWidth: "45%",
-    position: "relative",
-    borderWidth: 1,
-    borderColor: colors.medium,
-  },
-  selectedGroup: {
-    backgroundColor: colors.success,
-    borderColor: colors.success,
-  },
-  groupInfo: {
-    flex: 1,
-    marginRight: 10,
-  },
-  groupText: {
+  resendText: {
     fontSize: 14,
-    color: colors.dark,
+    color: colors.primary,
     fontFamily: "Yekan_Bakh_Regular",
-    marginBottom: 2,
+    textDecorationLine: 'underline',
   },
-  selectedGroupText: {
-    color: colors.white,
+  timerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  groupMemberCount: {
-    fontSize: 12,
+  timerText: {
+    fontSize: 14,
     color: colors.medium,
     fontFamily: "Yekan_Bakh_Regular",
+    textAlign: 'center',
   },
-  selectedGroupMemberCount: {
-    color: 'rgba(255, 255, 255, 0.8)',
+
+  // Groups Section
+  groupsSection: {
+    marginBottom: 20,
+  },
+  groupsContainer: {
+    marginBottom: 20,
   },
 
   // Loading and Error States
@@ -918,6 +1092,30 @@ const styles = StyleSheet.create({
     backgroundColor: colors.medium,
   },
   submitButton: {},
+  finalButton: {
+    marginTop: 30,
+  },
+
+  // Footer Styles (Login Link)
+  footerContainer: {
+    marginTop: 20,
+    flexDirection: "row-reverse",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  footerText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: colors.medium,
+  },
+  signupText: {
+    fontSize: 16,
+    color: colors.primary,
+    textDecorationLine: "underline",
+    fontFamily: "Yekan_Bakh_Regular",
+  },
+
+  // OTP Input Styles
   otpContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -934,17 +1132,34 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     fontFamily: "Yekan_Bakh_Regular",
   },
-  chipsContainer: {
-    maxHeight: 250,
-    marginBottom: 20,
-  },
 
-  // Optional: Update your existing groupsContainer style if you want to keep both options
-  groupsContainerChips: {
-    maxHeight: 250,
-    marginBottom: 20,
-    paddingVertical: 0,
+  // Success Page Styles
+  successContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  successText: {
+    fontSize: 18,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: colors.dark,
+    textAlign: 'center',
+    marginTop: 20,
+  },
+  successSubText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: colors.medium,
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  successGroupText: {
+    fontSize: 12,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: colors.success,
+    textAlign: 'center',
+    marginTop: 5,
   },
 });
 
-export default SignupScreen;
+export default SignupScreen; 

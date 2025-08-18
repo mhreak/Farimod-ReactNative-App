@@ -1,4 +1,4 @@
- import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -10,6 +10,7 @@ import {
   Platform,
   Modal,
   Pressable,
+  FlatList,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -624,6 +625,79 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     return `${width}:${height}`;
   };
 
+  // رندر آیتم برای FlatList
+  const renderImageItem = ({ item, index }: { item: ImageItem; index: number }) => (
+    <View style={styles.imageItem}>
+      <TouchableOpacity
+        onPress={() => item && handleImagePress(item)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.imageWrapper}>
+          {item && item.uri && isVideo(item.uri) ? (
+            <View style={styles.videoContainer}>
+              <VideoView
+                style={styles.image}
+                player={{
+                  source: { uri: item.uri },
+                }}
+                showsTimecodes={false}
+                allowsFullscreen={false}
+                allowsPictureInPicture={false}
+                contentFit="cover"
+              />
+              <View style={styles.videoPlayIcon}>
+                <MaterialIcons name="play-arrow" size={24} color="white" />
+              </View>
+              <View style={styles.videoBadge}>
+                <MaterialIcons name="videocam" size={12} color="white" />
+                <AppText style={styles.videoBadgeText}>فیلم</AppText>
+              </View>
+            </View>
+          ) : item && item.uri ? (
+            <Image source={{ uri: item.uri }} style={styles.image} />
+          ) : (
+            <View style={styles.errorImageContainer}>
+              <MaterialIcons name="broken-image" size={40} color={colors.medium} />
+              <AppText style={styles.errorImageText}>خطا در بارگذاری</AppText>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={styles.removeButton}
+            onPress={() => item && removeImage(item.id)}
+            activeOpacity={0.7}
+          >
+            <LinearGradient
+              colors={['#ff4757', '#ff3742']}
+              style={styles.removeButtonGradient}
+            >
+              <MaterialIcons name="close" size={16} color="white" />
+            </LinearGradient>
+          </TouchableOpacity>
+
+          <View style={styles.imageInfo}>
+            <View style={styles.imageInfoContent}>
+              <AppText style={styles.imageName} numberOfLines={1}>
+                {item?.name || (item && item.uri && isVideo(item.uri) ? 'فیلم' : 'تصویر')}
+              </AppText>
+              {item?.size && (
+                <AppText style={styles.imageSize}>
+                  {formatFileSize(item.size)}
+                </AppText>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.imageBadge}>
+            <AppText style={styles.imageBadgeText}>
+              {index + 1}
+            </AppText>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <Animated.View
       style={[
@@ -709,78 +783,85 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.imagesContent}
+              scrollEnabled={true}
+              nestedScrollEnabled={Platform.OS === 'android'}
+              overScrollMode="always"
+              persistentScrollbar={false}
+              style={styles.scrollViewStyle}
             >
-              {currentImages.map((image, index) => (
-                <View key={image?.id || `image-${index}`} style={styles.imageItem}>
-                  <TouchableOpacity
-                    onPress={() => image && handleImagePress(image)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.imageWrapper}>
-                      {image && image.uri && isVideo(image.uri) ? (
-                        <View style={styles.videoContainer}>
-                          <VideoView
-                            style={styles.image}
-                            player={{
-                              source: { uri: image.uri },
-                            }}
-                            showsTimecodes={false}
-                            allowsFullscreen={false}
-                            allowsPictureInPicture={false}
-                            contentFit="cover"
-                          />
-                          <View style={styles.videoPlayIcon}>
-                            <MaterialIcons name="play-arrow" size={24} color="white" />
+              {currentImages.map((item, index) =>
+                item ? (
+                  <View key={item.id} style={styles.imageItem}>
+                    <TouchableOpacity
+                      onPress={() => handleImagePress(item)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.imageWrapper}>
+                        {item.uri && isVideo(item.uri) ? (
+                          <View style={styles.videoContainer}>
+                            <VideoView
+                              style={styles.image}
+                              player={{
+                                source: { uri: item.uri },
+                              }}
+                              showsTimecodes={false}
+                              allowsFullscreen={false}
+                              allowsPictureInPicture={false}
+                              contentFit="cover"
+                            />
+                            <View style={styles.videoPlayIcon}>
+                              <MaterialIcons name="play-arrow" size={24} color="white" />
+                            </View>
+                            <View style={styles.videoBadge}>
+                              <MaterialIcons name="videocam" size={12} color="white" />
+                              <AppText style={styles.videoBadgeText}>فیلم</AppText>
+                            </View>
                           </View>
-                          <View style={styles.videoBadge}>
-                            <MaterialIcons name="videocam" size={12} color="white" />
-                            <AppText style={styles.videoBadgeText}>فیلم</AppText>
+                        ) : item.uri ? (
+                          <Image source={{ uri: item.uri }} style={styles.image} />
+                        ) : (
+                          <View style={styles.errorImageContainer}>
+                            <MaterialIcons name="broken-image" size={40} color={colors.medium} />
+                            <AppText style={styles.errorImageText}>خطا در بارگذاری</AppText>
                           </View>
-                        </View>
-                      ) : image && image.uri ? (
-                        <Image source={{ uri: image.uri }} style={styles.image} />
-                      ) : (
-                        <View style={styles.errorImageContainer}>
-                          <MaterialIcons name="broken-image" size={40} color={colors.medium} />
-                          <AppText style={styles.errorImageText}>خطا در بارگذاری</AppText>
-                        </View>
-                      )}
+                        )}
 
-                      <TouchableOpacity
-                        style={styles.removeButton}
-                        onPress={() => image && removeImage(image.id)}
-                        activeOpacity={0.7}
-                      >
-                        <LinearGradient
-                          colors={['#ff4757', '#ff3742']}
-                          style={styles.removeButtonGradient}
+                        <TouchableOpacity
+                          style={styles.removeButton}
+                          onPress={() => removeImage(item.id)}
+                          activeOpacity={0.7}
                         >
-                          <MaterialIcons name="close" size={16} color="white" />
-                        </LinearGradient>
-                      </TouchableOpacity>
+                          <LinearGradient
+                            colors={['#ff4757', '#ff3742']}
+                            style={styles.removeButtonGradient}
+                          >
+                            <MaterialIcons name="close" size={16} color="white" />
+                          </LinearGradient>
+                        </TouchableOpacity>
 
-                      <View style={styles.imageInfo}>
-                        <View style={styles.imageInfoContent}>
-                          <AppText style={styles.imageName} numberOfLines={1}>
-                            {image?.name || (image && image.uri && isVideo(image.uri) ? 'فیلم' : 'تصویر')}
-                          </AppText>
-                          {image?.size && (
-                            <AppText style={styles.imageSize}>
-                              {formatFileSize(image.size)}
+                        <View style={styles.imageInfo}>
+                          <View style={styles.imageInfoContent}>
+                            <AppText style={styles.imageName} numberOfLines={1}>
+                              {item?.name || (item.uri && isVideo(item.uri) ? 'فیلم' : 'تصویر')}
                             </AppText>
-                          )}
+                            {item?.size && (
+                              <AppText style={styles.imageSize}>
+                                {formatFileSize(item.size)}
+                              </AppText>
+                            )}
+                          </View>
+                        </View>
+
+                        <View style={styles.imageBadge}>
+                          <AppText style={styles.imageBadgeText}>
+                            {index + 1}
+                          </AppText>
                         </View>
                       </View>
-
-                      <View style={styles.imageBadge}>
-                        <AppText style={styles.imageBadgeText}>
-                          {index + 1}
-                        </AppText>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-              ))}
+                    </TouchableOpacity>
+                  </View>
+                ) : null
+              )}
             </ScrollView>
           ) : (
             <View style={styles.singleImageItem}>
@@ -844,13 +925,11 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                     </LinearGradient>
                   </TouchableOpacity>
 
-                  {
-                    allowEditing && !isMultiple && (
-                      <View style={styles.cropBadge}>
-                        <AppText style={styles.cropBadgeText}>{getAspectRatioText()}</AppText>
-                      </View>
-                    )
-                  }
+                  {allowEditing && !isMultiple && (
+                    <View style={styles.cropBadge}>
+                      <AppText style={styles.cropBadgeText}>{getAspectRatioText()}</AppText>
+                    </View>
+                  )}
 
                   <View style={styles.imageInfo}>
                     <View style={styles.imageInfoContent}>
@@ -864,21 +943,19 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                       )}
                     </View>
                   </View>
-                </View >
-              </TouchableOpacity >
-            </View >
+                </View>
+              </TouchableOpacity>
+            </View>
           )}
-        </View >
+        </View>
       )}
 
-      {
-        error && (
-          <View style={styles.errorContainer}>
-            <MaterialIcons name="error-outline" size={16} color={colors.danger} />
-            <AppText style={styles.errorText}>{error}</AppText>
-          </View>
-        )
-      }
+      {error && (
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="error-outline" size={16} color={colors.danger} />
+          <AppText style={styles.errorText}>{error}</AppText>
+        </View>
+      )}
 
       <View style={styles.guidelines}>
         <AppText style={styles.guidelinesText}>
@@ -1184,7 +1261,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           </Animated.View>
         </View>
       </Modal>
-    </Animated.View >
+    </Animated.View>
   );
 };
 
@@ -1335,16 +1412,20 @@ const styles = StyleSheet.create({
   imagesContainer: {
     marginBottom: 15,
   },
+  scrollViewStyle: {
+    height: 140,
+  },
   singleImageContainer: {
     marginBottom: 15,
     alignItems: 'center',
   },
   imagesContent: {
     paddingHorizontal: 5,
+    paddingVertical: 10,
     gap: 15,
   },
   imageItem: {
-    marginRight: 15,
+    marginHorizontal: 0,
   },
   singleImageItem: {
     alignItems: 'center',
@@ -1659,20 +1740,21 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   deleteModalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    marginBottom: 15,
+    color: '#2c3e50',
+    marginBottom: 10,
+    textAlign: 'center',
   },
   deleteModalMessage: {
-    fontSize: 16,
+    fontSize: 14,
     fontFamily: "Yekan_Bakh_Regular",
-    color: "#6c757d",
+    color: '#7f8c8d',
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 20,
   },
   deleteModalActions: {
-    marginTop: 10,
+    paddingTop: 10,
   },
   deleteButtonsRow: {
     flexDirection: 'row-reverse',
@@ -1685,11 +1767,11 @@ const styles = StyleSheet.create({
     shadowColor: '#e74c3c',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 3,
     },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 6,
+    elevation: 6,
   },
   confirmDeleteGradient: {
     flexDirection: 'row-reverse',

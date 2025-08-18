@@ -260,7 +260,7 @@ const OTPScreen = () => {
 
               {/* Content */}
               <View style={styles.contentContainer}>
-                <AppText style={styles.logingText}>تایید کد پیامکی</AppText>
+                <AppText style={styles.logingText}>تایید کد یکبار مصرف</AppText>
                 <AppText style={styles.otpDescription}>
                   کد تایید ۵ رقمی به شماره {mobileNumber} ارسال شد
                 </AppText>

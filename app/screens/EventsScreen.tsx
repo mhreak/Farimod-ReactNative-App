@@ -83,6 +83,24 @@ const EventsScreen = () => {
       console.error('Error completing intro:', error);
     }
   };
+  const handleRegister = async () => {
+    try {
+      await completeIntro();
+
+      // هدایت به Auth stack و سپس به Signup screen
+      navigation.dispatch(
+        CommonActions.reset({
+          index: 0,
+          routes: [{
+            name: 'Auth',
+            params: { screen: 'Signup' }
+          }],
+        })
+      );
+    } catch (error) {
+      console.error('Error completing intro:', error);
+    }
+  };
 
   return (
     <>
@@ -228,11 +246,9 @@ const EventsScreen = () => {
                 },
               ]}
             >
-              {/* دکمه شروع - اضافه شده */}
               <TouchableOpacity
                 style={styles.primaryButton}
-                onPress={handleGetStarted}
-                activeOpacity={0.8}
+                onPress={handleRegister}                activeOpacity={0.8}
               >
                 <LinearGradient
                   colors={['#E91E63', '#AD1457']}
@@ -245,7 +261,7 @@ const EventsScreen = () => {
                     size={22}
                     color="white"
                   />
-                  <Text style={styles.primaryButtonText}>شروع کنیم</Text>
+                  <Text style={styles.primaryButtonText}>ثبت نام در فریمد</Text>
                 </LinearGradient>
               </TouchableOpacity>
 

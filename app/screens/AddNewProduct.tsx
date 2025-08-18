@@ -52,7 +52,6 @@ const AddProductScreen = () => {
       console.log('ProductCategoryIdList:', editProductData.ProductCategoryIdList);
       console.log('Available categories:', categories);
 
-      // اگر ProductCategoryIdList موجود است، بررسی تطبیق با categories
       if (editProductData.ProductCategoryIdList && Array.isArray(editProductData.ProductCategoryIdList)) {
         const matchedCategories = editProductData.ProductCategoryIdList.map(id => {
           const foundCategory = categories.find(cat => cat.value === id);
@@ -352,7 +351,8 @@ const AddProductScreen = () => {
             </TouchableOpacity>
           </Animated.View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}>
             <Animated.View
               style={[
                 styles.iconContainer,

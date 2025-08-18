@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Dimensions,
   StatusBar,
+  PixelRatio,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -15,6 +16,25 @@ import colors from "../config/colors";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get("window");
+
+const responsiveFontSize = (size) => {
+  const scale = width / 400;
+  const newSize = size * scale;
+
+  if (newSize < size * 0.8) return size * 0.8;
+  if (newSize > size * 1.2) return size * 1.2;
+
+  return Math.round(PixelRatio.roundToNearestPixel(newSize));
+};
+
+const normalize = (size) => {
+  if (width < 350) {
+    return size * 0.85;
+  } else if (width > 400) {
+    return size * 1.1;
+  }
+  return size;
+};
 
 const WelcomeIntroScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -156,7 +176,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
             >
               <MaterialCommunityIcons
                 name="brush"
-                size={30}
+                size={responsiveFontSize(30)}
                 color="rgba(255, 255, 255, 0.7)"
               />
             </Animated.View>
@@ -180,7 +200,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
             >
               <MaterialCommunityIcons
                 name="palette"
-                size={25}
+                size={responsiveFontSize(25)}
                 color="rgba(255, 255, 255, 0.6)"
               />
             </Animated.View>
@@ -209,7 +229,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
             >
               <MaterialCommunityIcons
                 name="tshirt-crew"
-                size={35}
+                size={responsiveFontSize(35)}
                 color="rgba(255, 255, 255, 0.5)"
               />
             </Animated.View>
@@ -238,7 +258,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
             >
               <MaterialCommunityIcons
                 name="scissors-cutting"
-                size={28}
+                size={responsiveFontSize(28)}
                 color="rgba(255, 255, 255, 0.65)"
               />
             </Animated.View>
@@ -262,7 +282,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
             >
               <MaterialCommunityIcons
                 name="tshirt-v"
-                size={32}
+                size={responsiveFontSize(32)}
                 color="rgba(255, 255, 255, 0.55)"
               />
             </Animated.View>
@@ -291,7 +311,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
             >
               <MaterialCommunityIcons
                 name="pin"
-                size={26}
+                size={responsiveFontSize(26)}
                 color="rgba(255, 255, 255, 0.7)"
               />
             </Animated.View>
@@ -315,7 +335,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
             >
               <MaterialCommunityIcons
                 name="hanger"
-                size={30}
+                size={responsiveFontSize(30)}
                 color="rgba(255, 255, 255, 0.6)"
               />
             </Animated.View>
@@ -339,7 +359,7 @@ const WelcomeIntroScreen = ({ navigation }) => {
             >
               <MaterialCommunityIcons
                 name="tape-measure"
-                size={27}
+                size={responsiveFontSize(27)}
                 color="rgba(255, 255, 255, 0.5)"
               />
             </Animated.View>
@@ -415,8 +435,10 @@ const WelcomeIntroScreen = ({ navigation }) => {
               </Animated.View>
             </View>
 
-            <Text style={styles.appName}>فریمد | Farimod</Text>
-            {/* <Text style={styles.welcomeText}>سلام و درود</Text> */}
+            {/* راه‌حل 3: استفاده از allowFontScaling={false} */}
+            <Text style={styles.appName} allowFontScaling={false}>
+              فریمد | Farimod
+            </Text>
           </Animated.View>
 
           <Animated.View
@@ -428,39 +450,38 @@ const WelcomeIntroScreen = ({ navigation }) => {
               },
             ]}
           >
-            <Text style={styles.mainText}>
+            <Text style={styles.mainText} allowFontScaling={false}>
               به اپلیکیشن معرفی طراحان پارچه و لباس ایران
             </Text>
             <View style={styles.appNameContainer}>
-              <Text style={styles.appNameHighlight}>فریمد</Text>
+              <Text style={styles.appNameHighlight} allowFontScaling={false}>
+                فریمد
+              </Text>
               <MaterialCommunityIcons
                 name="heart"
-                size={20}
+                size={responsiveFontSize(20)}
                 color={colors.primary}
                 style={styles.heartIcon}
               />
             </View>
-            <Text style={styles.mainText}>خوش آمدید!</Text>
+            <Text style={styles.mainText} allowFontScaling={false}>خوش آمدید!</Text>
 
             <View style={styles.separator}>
               <View style={styles.separatorLine} />
               <Ionicons
                 name="sparkles"
-                size={30}
+                size={responsiveFontSize(30)}
                 color={colors.primary}
               />
               <View style={styles.separatorLine} />
             </View>
 
-            <Text style={styles.subText}>
+            <Text style={styles.subText} allowFontScaling={false}>
               به خانواده بزرگ طراحان پارچه و لباس ایران بپیوندید.
             </Text>
 
             <View style={styles.starsContainer}>
-              {/* <Text style={styles.star}>✨</Text>
-              <Text style={styles.star">✨</Text>
-              <Text style={styles.star">✨</Text>
-              <Text style={styles.star">✨</Text> */}
+              {/* Stars commented out as in original */}
             </View>
           </Animated.View>
 
@@ -481,10 +502,10 @@ const WelcomeIntroScreen = ({ navigation }) => {
                 start={{ x: 1, y: 1 }}
                 end={{ x: 1, y: 0 }}
               >
-                <Text style={styles.buttonText}>ادامه</Text>
+                <Text style={styles.buttonText} allowFontScaling={false}>ادامه</Text>
                 <MaterialCommunityIcons
                   name="arrow-left"
-                  size={20}
+                  size={responsiveFontSize(20)}
                   color="white"
                 />
               </LinearGradient>
@@ -566,8 +587,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   logoCircle: {
-    width: 150,
-    height: 150,
+    width: width * 0.4, // responsive width
+    height: width * 0.4, // responsive height
+    maxWidth: 150,
+    maxHeight: 150,
+    minWidth: 120,
+    minHeight: 120,
     borderRadius: 100,
     justifyContent: "center",
     alignItems: "center",
@@ -583,8 +608,8 @@ const styles = StyleSheet.create({
     borderColor: colors.white,
   },
   logoImage: {
-    width: 100,
-    height: 100,
+    width: "65%", // responsive به جای 100px ثابت
+    height: "65%",
     borderRadius: 100,
   },
   sparkle1: {
@@ -608,19 +633,20 @@ const styles = StyleSheet.create({
     left: -10,
   },
   sparkleText: {
-    fontSize: 16,
+    fontSize: responsiveFontSize(16),
   },
   appName: {
-    fontSize: 42,
+    fontSize: responsiveFontSize(42),
     fontFamily: "Yekan_Bakh_Bold",
     color: colors.primary,
     marginTop: 25,
     textShadowColor: "rgba(0, 0, 0, 0.1)",
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 4,
+    textAlign: 'center', // اضافه شده
   },
   welcomeText: {
-    fontSize: 20,
+    fontSize: responsiveFontSize(20),
     fontFamily: "Yekan_Bakh_Regular",
     color: colors.primaryDark,
     marginTop: 5,
@@ -630,16 +656,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     zIndex: 1,
+    paddingHorizontal: 10, // اضافه شده
   },
   mainText: {
-    fontSize: 18,
+    fontSize: responsiveFontSize(18),
     fontFamily: "Yekan_Bakh_Regular",
     color: colors.dark,
     textAlign: "center",
-    lineHeight: 28,
+    lineHeight: responsiveFontSize(28),
   },
   appNameHighlight: {
-    fontSize: 28,
+    fontSize: responsiveFontSize(28),
     fontFamily: "Yekan_Bakh_Bold",
     color: colors.primary,
     textShadowColor: "rgba(0, 0, 0, 0.1)",
@@ -668,11 +695,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
   subText: {
-    fontSize: 16,
+    fontSize: responsiveFontSize(16),
     fontFamily: "Yekan_Bakh_Regular",
     color: colors.medium,
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: responsiveFontSize(24),
   },
   starsContainer: {
     flexDirection: "row",
@@ -681,7 +708,7 @@ const styles = StyleSheet.create({
     width: 120,
   },
   star: {
-    fontSize: 18,
+    fontSize: responsiveFontSize(18),
   },
   buttonContainer: {
     width: "100%",
@@ -702,7 +729,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
   buttonText: {
-    fontSize: 18,
+    fontSize: responsiveFontSize(18),
     fontFamily: "Yekan_Bakh_Bold",
     color: "white",
     marginLeft: 10,

@@ -20,6 +20,8 @@ import { AppNavigationProp } from "../Navigators";
 import { MaterialIcons } from "@expo/vector-icons";
 import Toast from "../components/Toast";
 import AuthService from "../services/AuthService";
+import { useIntro } from '../contexts/IntroContext';
+
 
 const validationSchema = Yup.object().shape({
   mobileNumber: Yup.string()
@@ -39,6 +41,7 @@ const LoginScreen = () => {
   const formSlideAnim = useRef(new Animated.Value(40)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const { completeIntro } = useIntro();
 
   useEffect(() => {
     // Sequential animations for better effect
@@ -121,6 +124,16 @@ const LoginScreen = () => {
     }
 
     setIsLoading(false);
+  };
+  const handleGoToSignup = async () => {
+    try {
+      await completeIntro();
+      navigation.navigate("Signup");
+    } catch (error) {
+      console.error('Error completing intro:', error);
+      // Fallback - navigate anyway if intro completion fails
+      navigation.navigate("Signup");
+    }
   };
 
   const spin = rotateAnim.interpolate({
