@@ -2,9 +2,11 @@ import { StatusBar } from "expo-status-bar";
 import * as Font from "expo-font";
 import { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
-import { I18nManager, View, ActivityIndicator } from "react-native";
+import { I18nManager, View, ActivityIndicator, Alert, Linking } from "react-native";
 import { IntroProvider, useIntro } from "./app/contexts/IntroContext";
 import { AuthProvider, useAuth } from "./app/contexts/AuthContext";
+import { AppUpdateProvider, useAppUpdate } from "./app/contexts/AppUpdateContext";
+import AppUpdateModal from "./app/components/AppUpdateModal";
 
 import { StackNavigator } from "./app/Navigators";
 
@@ -21,11 +23,20 @@ const forceLayoutDirection = () => {
 
 forceLayoutDirection();
 
-// جداسازی منطق اصلی اپلیکیشن
 function AppContent() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const { isIntroCompleted, isLoading: introLoading } = useIntro();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const updateContext = useAppUpdate();
+  console.log("Available context methods:", Object.keys(updateContext));
+  const {
+    updateInfo,
+    showUpdateModal,
+    handleUpdate,
+    handleLater,
+    handleClose, handleDirectDownload,  
+    handleCafeBazarDownload,
+  } = useAppUpdate();
 
   useEffect(() => {
     async function loadFonts() {
@@ -42,7 +53,6 @@ function AppContent() {
     loadFonts();
   }, []);
 
-  // نمایش لودینگ تا فونت‌ها و وضعیت‌های intro و auth بارگذاری شوند
   if (!fontsLoaded || introLoading || authLoading) {
     return (
       <View style={{
@@ -57,10 +67,21 @@ function AppContent() {
   }
 
   return (
-    <NavigationContainer>
-      <StackNavigator />
-      <StatusBar style="light" />
-    </NavigationContainer>
+    <>
+      <NavigationContainer>
+        <StackNavigator />
+        <StatusBar style="light" />
+      </NavigationContainer>
+
+      <AppUpdateModal
+        visible={showUpdateModal}
+        updateInfo={updateInfo}
+        onDirectDownload={handleDirectDownload}
+        onCafeBazarDownload={handleCafeBazarDownload}
+        onLater={handleLater}
+        onClose={handleClose}
+      />
+    </>
   );
 }
 
@@ -68,7 +89,9 @@ function App() {
   return (
     <AuthProvider>
       <IntroProvider>
-        <AppContent />
+        <AppUpdateProvider>
+          <AppContent />
+        </AppUpdateProvider>
       </IntroProvider>
     </AuthProvider>
   );

@@ -172,22 +172,226 @@ const AddProductScreen = () => {
       setLoadingCategories(false);
     }
   };
+  const uploadImageWithXHR = async (productId, imageData, imageType) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
 
-  const showValidationErrors = (errors) => {
-    const errorKeys = Object.keys(errors);
-    if (errorKeys.length > 0) {
-      const firstError = errors[errorKeys[0]];
-      showToast(firstError, 'error');
+      // اضافه کردن فایل به FormData
+      formData.append('ProductImageFile', {
+        uri: imageData.uri,
+        type: imageData.type || 'image/jpeg',
+        name: imageData.fileName || `product_image_${imageType}_${Date.now()}.jpg`,
+      } as any);
+
+      const uploadUrl = `${appConfig.mobileApi}Product/AddProductImage?productId=${productId}&type=${imageType}`;
+
+      xhr.open('POST', uploadUrl);
+
+      // تنظیم headers
+      xhr.setRequestHeader('Accept', 'application/json');
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const result = JSON.parse(xhr.responseText);
+            console.log(`XHR Upload successful (type ${imageType}):`, result);
+            resolve({ success: true, data: result });
+          } catch (parseError) {
+            console.log(`XHR Upload successful (type ${imageType}) - No JSON response`);
+            resolve({ success: true, data: { message: 'آپلود موفقیت‌آمیز' } });
+          }
+        } else {
+          console.error(`XHR Upload failed:`, xhr.status, xhr.responseText);
+          reject(new Error(`آپلود ناموفق: ${xhr.status} - ${xhr.responseText}`));
+        }
+      };
+
+      xhr.onerror = (error) => {
+        console.error('XHR Upload error:', error);
+        reject(new Error('خطا در ارتباط با سرور'));
+      };
+
+      xhr.ontimeout = () => {
+        console.error('XHR Upload timeout');
+        reject(new Error('تایم‌اوت در آپلود'));
+      };
+
+      // تنظیم timeout
+      xhr.timeout = 30000; // 30 ثانیه
+
+      console.log('Starting XHR upload for type:', imageType);
+      xhr.send(formData);
+    });
+  };
+
+  // تابع آپلود تک عکس با retry
+  const uploadImageWithRetry = async (productId, imageData, imageType, maxRetries = 2) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Uploading image attempt ${attempt}/${maxRetries}, type: ${imageType}`);
+        console.log('Image data:', {
+          uri: imageData.uri,
+          type: imageData.type,
+          fileName: imageData.fileName
+        });
+
+        // ایجاد FormData با تنظیمات صحیح
+        const formData = new FormData();
+
+        // در React Native باید به این شکل فایل را append کنیم
+        formData.append('ProductImageFile', {
+          uri: imageData.uri,
+          type: imageData.type || 'image/jpeg',
+          name: imageData.fileName || `product_image_${imageType}_${Date.now()}.jpg`,
+        } as any);
+
+        const uploadUrl = `${appConfig.mobileApi}Product/AddProductImage?productId=${productId}&type=${imageType}`;
+        console.log('Upload URL:', uploadUrl);
+        console.log('FormData keys:', Object.keys(formData));
+
+        const response = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Accept': 'application/json',
+          },
+          body: formData,
+        });
+
+        console.log('Upload response status:', response.status);
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`Image upload successful (type ${imageType}):`, result);
+          return { success: true, data: result };
+        } else {
+          const errorText = await response.text();
+          console.error(`Upload failed (attempt ${attempt}):`, response.status, errorText);
+
+          if (attempt === maxRetries) {
+            throw new Error(`آپلود ناموفق: ${response.status} - ${errorText}`);
+          }
+        }
+      } catch (error) {
+        console.error(`Upload attempt ${attempt} failed:`, error);
+        console.error('Error details:', {
+          message: error.message,
+          name: error.name,
+          stack: error.stack
+        });
+
+        if (attempt === maxRetries) {
+          throw error;
+        }
+
+        // کمی صبر کردن قبل از retry
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
     }
   };
 
-  // Image upload functions remain the same...
-  const uploadImageWithRetry = async (uploadUrl, imageData, maxRetries = 2) => {
-    // ... (same as original)
-  };
-
+  // تابع اصلی آپلود عکس‌ها
   const uploadImages = async (productId, featuredImages, productImages) => {
-    // ... (same as original)
+    try {
+      console.log('Starting image upload process...');
+      console.log('Product ID:', productId);
+      console.log('Featured images:', featuredImages);
+      console.log('Product images:', productImages);
+
+      const results = [];
+
+      // آپلود عکس شاخص (type = 0)
+      if (featuredImages && featuredImages.length > 0) {
+        console.log('Uploading featured image...');
+        showToast('در حال آپلود عکس شاخص...', 'info');
+
+        try {
+          // ابتدا fetch را امتحان کنیم
+          let result;
+          try {
+            result = await uploadImageWithRetry(productId, featuredImages[0], 0, 1);
+          } catch (fetchError) {
+            console.log('Fetch failed, trying XHR method...');
+            result = await uploadImageWithXHR(productId, featuredImages[0], 0);
+          }
+
+          results.push({ type: 'featured', success: true, data: result.data });
+          showToast('عکس شاخص آپلود شد', 'success');
+        } catch (error) {
+          console.error('Featured image upload failed:', error);
+          results.push({ type: 'featured', success: false, error: error.message });
+          showToast('خطا در آپلود عکس شاخص', 'error');
+        }
+      }
+
+      // آپلود عکس‌های محصول (type = 1 تا 5)
+      if (productImages && productImages.length > 0) {
+        console.log(`Uploading ${productImages.length} product images...`);
+
+        for (let i = 0; i < Math.min(productImages.length, 5); i++) {
+          const imageType = i + 1; // type 1 تا 5
+
+          try {
+            showToast(`در حال آپلود عکس ${i + 1} از ${productImages.length}...`, 'info');
+
+            // ابتدا fetch را امتحان کنیم
+            let result;
+            try {
+              result = await uploadImageWithRetry(productId, productImages[i], imageType, 1);
+            } catch (fetchError) {
+              console.log(`Fetch failed for image ${i + 1}, trying XHR method...`);
+              result = await uploadImageWithXHR(productId, productImages[i], imageType);
+            }
+
+            results.push({ type: `product_${i + 1}`, success: true, data: result.data });
+            console.log(`Product image ${i + 1} uploaded successfully`);
+
+            // کمی صبر بین آپلودها
+            if (i < productImages.length - 1) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          } catch (error) {
+            console.error(`Product image ${i + 1} upload failed:`, error);
+            results.push({ type: `product_${i + 1}`, success: false, error: error.message });
+          }
+        }
+      }
+
+      // بررسی نتایج نهایی
+      const successfulUploads = results.filter(r => r.success).length;
+      const totalUploads = results.length;
+
+      if (successfulUploads === totalUploads && totalUploads > 0) {
+        showToast('همه عکس‌ها با موفقیت آپلود شدند', 'success');
+      } else if (successfulUploads > 0) {
+        showToast(`${successfulUploads} از ${totalUploads} عکس آپلود شد`, 'warning');
+      } else if (totalUploads > 0) {
+        throw new Error('هیچ عکسی آپلود نشد');
+      }
+
+      console.log('Image upload process completed:', results);
+      return results;
+
+    } catch (error) {
+      console.error('Image upload process failed:', error);
+      showToast('خطا در فرآیند آپلود عکس‌ها', 'error');
+      throw error;
+    }
+  };
+  const testSingleImageUpload = async (productId, imageData) => {
+    try {
+      console.log('Testing single image upload...');
+      console.log('Product ID:', productId);
+      console.log('Image data:', imageData);
+
+      const result = await uploadImageWithXHR(productId, imageData, 0);
+      console.log('Test upload result:', result);
+      return result;
+    } catch (error) {
+      console.error('Test upload failed:', error);
+      throw error;
+    }
   };
 
   const submitProduct = async (values, { setErrors, resetForm }) => {
@@ -210,7 +414,7 @@ const AddProductScreen = () => {
       console.log('✅ Starting product submission with validated data:', values);
 
       const userData = await AuthService.getUserData();
-      const memberId = userData?.MemberGroupList?.[0]?.MemberId || 1;
+      const memberId = userData?.MemberGroupList?.[0]?.MemberId || userData?.MemberId ;
 
       const categoryIdList = values.productCategoryIds || [];
 
@@ -222,8 +426,8 @@ const AddProductScreen = () => {
         Description: values.description?.trim() || "",
         Price: parseFloat(values.price) || 0,
         SpecialSalePrice: parseFloat(values.specialPrice) || 0,
-        ProductCategories: "", // خالی می‌گذاریم چون ProductCategoryIdList استفاده می‌شود
-        ProductCategoryIdList: categoryIdList, // آرایه ID های دسته‌بندی
+        ProductCategories: "",
+        ProductCategoryIdList: categoryIdList,
         FeaturedImageFileName: "",
         FeaturedImageURL: "",
         FirstImageFileName: "",
@@ -239,7 +443,7 @@ const AddProductScreen = () => {
         LikeCount: 0,
         Rating: 0,
         Active: values.active !== undefined ? values.active : true,
-        ActiveStr: values.active !== undefined ? (values.active ? "موجود" : "ناموجود") : "موجود", // تغییر به موجود/ناموجود
+        ActiveStr: values.active !== undefined ? (values.active ? "موجود" : "ناموجود") : "موجود",
         InsertDate: new Date().toISOString()
       };
 
@@ -248,6 +452,8 @@ const AddProductScreen = () => {
         : `${appConfig.mobileApi}Product/Add`;
 
       const method = isEditMode ? 'PUT' : 'POST';
+
+      console.log('Sending product data:', productData);
 
       const response = await fetch(url, {
         method: method,
@@ -261,7 +467,8 @@ const AddProductScreen = () => {
         const result = await response.json();
         console.log('Product creation result:', result);
 
-        const productId = result.ProductId || result.productId || productData.ProductId;
+        // استخراج ProductId از پاسخ سرور
+        const productId = result.ProductId || result.productId || result.Data?.ProductId || productData.ProductId;
         console.log('Extracted Product ID:', productId);
 
         if (!productId) {
@@ -273,12 +480,13 @@ const AddProductScreen = () => {
           'success'
         );
 
+        // آپلود عکس‌ها اگر موجود است
         if ((featuredImage && featuredImage.length > 0) || (productImages && productImages.length > 0)) {
           console.log('Starting image upload process...');
           setUploadingImages(true);
           showToast('شروع آپلود عکس‌ها...', 'info');
 
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 1000));
 
           try {
             await uploadImages(productId, featuredImage, productImages);
@@ -351,8 +559,7 @@ const AddProductScreen = () => {
             </TouchableOpacity>
           </Animated.View>
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false}>
             <Animated.View
               style={[
                 styles.iconContainer,
@@ -398,10 +605,8 @@ const AddProductScreen = () => {
                     description: isEditMode ? editProductData?.Description || "" : "",
                     price: isEditMode ? editProductData?.Price?.toString() || "" : "",
                     specialPrice: isEditMode ? editProductData?.SpecialSalePrice?.toString() || "" : "",
-                    // 🔥 تصحیح اصلی: استفاده از ProductCategories مشابه بلاگ پست
                     productCategoryIds: isEditMode ?
                       (editProductData?.ProductCategories ?
-                        // تبدیل نام دسته‌ها به ID ها بر اساس categories - مشابه بلاگ پست
                         editProductData.ProductCategories.split("،").map(categoryName => {
                           const trimmedName = categoryName.trim();
                           const foundCategory = categories.find(cat => cat.label === trimmedName);
@@ -475,30 +680,27 @@ const AddProductScreen = () => {
                           }}
                         />
 
-                        {/* 🔥 تصحیح اصلی: AppPicker مشابه بلاگ پست */}
                         <AppPicker
                           items={categories}
                           onSelectItem={(item) => {
                             // این callback دیگر استفاده نمی‌شود در حالت multi-select
                           }}
                           onMultiSelectChange={(selectedItems) => {
-                            // callback جدید برای multi-select
                             const selectedIds = selectedItems ? selectedItems.map(item => item.value) : [];
                             console.log('Selected product categories:', selectedIds);
                             console.log('Selected category objects:', selectedItems);
                             setFieldValue("productCategoryIds", selectedIds);
                           }}
                           selectedItems={
-                            // 🔥 تبدیل آرایه ID ها به آرایه آبجکت‌ها برای نمایش - مشابه بلاگ پست
                             (values.productCategoryIds && Array.isArray(values.productCategoryIds)) ?
                               values.productCategoryIds
-                                .filter(id => id !== null && id !== undefined && id !== 0) // فیلتر کردن مقادیر نامعتبر
+                                .filter(id => id !== null && id !== undefined && id !== 0)
                                 .map(id => {
                                   const category = categories.find(cat => cat.value === id);
                                   console.log(`Finding category for ID ${id}:`, category);
                                   return category || null;
                                 })
-                                .filter(item => item !== null) // حذف موارد null
+                                .filter(item => item !== null)
                               : []
                           }
                           icon="category"
@@ -513,7 +715,6 @@ const AddProductScreen = () => {
                           multiSelect={true}
                         />
 
-                        {/* 🔥 اضافه کردن فاصله و picker برای وضعیت موجود/ناموجود */}
                         <View style={styles.spacer} />
 
                         <AppPicker

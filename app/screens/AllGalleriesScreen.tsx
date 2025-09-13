@@ -809,21 +809,20 @@ const styles = StyleSheet.create({
   list: {
     padding: 15,
     paddingBottom: 20,
-    flexDirection: 'row-reverse',
+    flexDirection: 'row-reverse', 
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
   },
   flatListContainer: {
-    // RTL support using transform
-    transform: [{ scaleX: -1 }],
+    // // RTL support using transform
+    // transform: [{ scaleX: 1 }],
   },
   gridItem: {
-    width: (width - 60) / 2, // Fixed width instead of flex: 1
+    width: (width - 60) / 2,
     margin: 8,
     height: 200,
     borderRadius: 20,
-    // Reverse the transform to show content normally
-    transform: [{ scaleX: -1 }],
+
   },
   imageContainer: {
     width: "100%",
@@ -856,8 +855,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
     letterSpacing: 0.5,
     maxWidth: '100%',
-    includeFontPadding: false, // برای Android
-    textAlignVertical: 'center', // برای Android
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   topOverlay: {
     position: "absolute",

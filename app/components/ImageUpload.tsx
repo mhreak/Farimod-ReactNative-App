@@ -10,7 +10,6 @@ import {
   Platform,
   Modal,
   Pressable,
-  FlatList,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -38,6 +37,7 @@ interface ImageUploadProps {
   allowEditing?: boolean;
   allowVideos?: boolean;
   onShowToast?: (message: string, type: 'success' | 'error' | 'warning') => void;
+  loading?: boolean;
 }
 
 interface ImageItem {
@@ -66,6 +66,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   allowEditing = true,
   allowVideos = false,
   onShowToast,
+  loading = false,
 }) => {
   const [images, setImages] = useState<ImageItem[]>(isMultiple ? initialImages : []);
   const [singleImage, setSingleImage] = useState<ImageItem | null>(isMultiple ? null : initialImage);
@@ -75,14 +76,16 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const [imageToDelete, setImageToDelete] = useState<string | null>(null);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [selectedImageForView, setSelectedImageForView] = useState<ImageItem | null>(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+
+  // Animation refs
+  const loadingRotation = useRef(new Animated.Value(0)).current;
   const modalSlideAnim = useRef(new Animated.Value(300)).current;
   const modalOpacityAnim = useRef(new Animated.Value(0)).current;
   const deleteModalSlideAnim = useRef(new Animated.Value(0)).current;
   const deleteModalBackdropAnim = useRef(new Animated.Value(0)).current;
   const imageViewerScaleAnim = useRef(new Animated.Value(0)).current;
   const imageViewerOpacityAnim = useRef(new Animated.Value(0)).current;
+
   const insets = useSafeAreaInsets();
 
   const currentImages = isMultiple ?
@@ -103,21 +106,22 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     }
   };
 
+  // Loading animation
   React.useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(scaleAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+    if (isUploading || loading) {
+      Animated.loop(
+        Animated.timing(loadingRotation, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        })
+      ).start();
+    } else {
+      loadingRotation.setValue(0);
+    }
+  }, [isUploading, loading]);
 
+  // Modal animations
   React.useEffect(() => {
     if (modalVisible) {
       Animated.parallel([
@@ -212,11 +216,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const requestPermissions = async () => {
     try {
       if (Platform.OS !== 'web') {
-        console.log('🔐 Requesting permissions...');
-
         const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        console.log('📚 Library permission:', libraryStatus);
-
         if (libraryStatus !== 'granted') {
           showToastMessage('برای انتخاب فایل، مجوز دسترسی به گالری لازم است');
           return false;
@@ -224,19 +224,15 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
         if (allowCamera) {
           const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
-          console.log('📷 Camera permission:', cameraStatus);
-
           if (cameraStatus !== 'granted') {
             showToastMessage('برای ضبط ویدئو، مجوز دسترسی به دوربین لازم است');
             return false;
           }
         }
       }
-
-      console.log('✅ All permissions granted');
       return true;
     } catch (error) {
-      console.error('💥 Permission request error:', error);
+      console.error('Permission request error:', error);
       showToastMessage('مشکل در درخواست مجوزها');
       return false;
     }
@@ -247,8 +243,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   };
 
   const updateImages = (newImages: ImageItem[]) => {
-    console.log('📝 Updating images:', { newImages, isMultiple });
-
     const validImages = (newImages || []).filter(img => img && img.uri);
 
     if (isMultiple) {
@@ -269,30 +263,18 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   };
 
   const validateFileSize = (assets: any[]) => {
-    console.log('📊 Validating file sizes for', assets.length, 'assets');
-
-    const validAssets = assets.filter((asset, index) => {
-      console.log(`📁 Asset ${index + 1}:`, {
-        type: asset.type,
-        size: asset.fileSize,
-        sizeInMB: asset.fileSize ? (asset.fileSize / (1024 * 1024)).toFixed(2) + ' MB' : 'Unknown'
-      });
-
+    const validAssets = assets.filter((asset) => {
       if (asset.fileSize) {
         let maxSize;
-
         if (asset.type?.includes('video')) {
-          maxSize = 60 * 1024 * 1024;
+          maxSize = 60 * 1024 * 1024; // 60MB for videos
         } else {
-          maxSize = 5 * 1024 * 1024;
+          maxSize = 5 * 1024 * 1024; // 5MB for images
         }
 
         if (asset.fileSize > maxSize) {
           const fileSizeInMB = (asset.fileSize / (1024 * 1024)).toFixed(1);
           const maxSizeInMB = asset.type?.includes('video') ? '۶۰' : '۵';
-
-          console.log(`❌ File too large: ${fileSizeInMB}MB > ${maxSizeInMB}MB`);
-
           showToastMessage(
             `حجم ${asset.type?.includes('video') ? 'ویدئو' : 'تصویر'} (${fileSizeInMB} مگابایت) نباید بیشتر از ${maxSizeInMB} مگابایت باشد`
           );
@@ -301,8 +283,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       }
       return true;
     });
-
-    console.log(`✅ ${validAssets.length} of ${assets.length} assets are valid`);
     return validAssets;
   };
 
@@ -317,25 +297,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         mediaTypes = 'All';
       } else if (allowVideos && !allowImages) {
         mediaTypes = 'Videos';
-      } else if (!allowVideos && allowImages) {
-        mediaTypes = 'Images';
       } else {
         mediaTypes = 'Images';
       }
 
       const shouldEnableEditing = !isMultiple && allowEditing && !allowVideos;
-
       const enableMultipleSelection = isMultiple && maxImages > 1 && !shouldEnableEditing;
       const selectionCount = isMultiple ? Math.max(1, Math.min(maxImages - currentImages.length, maxImages)) : 1;
-
-      console.log('📚 Gallery picker config:', {
-        mediaTypes,
-        allowsEditing: shouldEnableEditing,
-        shouldEnableMultiple: isMultiple,
-        maxImages,
-        enableMultipleSelection,
-        selectionCount
-      });
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: mediaTypes,
@@ -344,27 +312,17 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         quality: imageQuality,
         allowsMultipleSelection: enableMultipleSelection,
         selectionLimit: selectionCount,
-        videoMaxDuration: allowVideos ? undefined : undefined,
-      });
-
-      console.log('📚 Gallery result:', {
-        canceled: result.canceled,
-        assets: result.assets?.length || 0
       });
 
       if (!result.canceled && result.assets) {
         const validAssets = validateFileSize(result.assets);
-
         if (validAssets.length === 0) {
           setIsUploading(false);
           return;
         }
 
         const newImages = validAssets.map((asset, index) => {
-          if (!asset || !asset.uri) {
-            console.warn(`Asset ${index} is invalid:`, asset);
-            return null;
-          }
+          if (!asset || !asset.uri) return null;
 
           const imageItem: ImageItem = {
             id: Date.now().toString() + index,
@@ -373,8 +331,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             type: asset.type || (allowVideos && !allowImages ? 'video/mp4' : 'image/jpeg'),
             size: asset.fileSize,
           };
-
-          console.log(`📁 Gallery image ${index + 1}:`, imageItem);
           return imageItem;
         }).filter(item => item !== null);
 
@@ -391,7 +347,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         }
       }
     } catch (error) {
-      console.error('💥 Gallery picker error:', error);
+      console.error('Gallery picker error:', error);
       showToastMessage('مشکلی در انتخاب فایل پیش آمد');
     } finally {
       setIsUploading(false);
@@ -404,82 +360,39 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
     setIsUploading(true);
     try {
-      console.log('📷 Starting camera capture...');
-
       let mediaTypes;
       if (allowVideos && allowImages) {
         mediaTypes = 'All';
       } else if (allowVideos && !allowImages) {
         mediaTypes = 'Videos';
-      } else if (!allowVideos && allowImages) {
-        mediaTypes = 'Images';
       } else {
         mediaTypes = 'Images';
       }
 
       const shouldEnableEditing = !isMultiple && allowEditing && !allowVideos;
 
-      console.log('📋 Camera settings:', {
-        allowVideos,
-        allowImages,
-        allowsEditing: shouldEnableEditing,
-        isMultipleMode: isMultiple
-      });
-
-      console.log('🎬 Media types allowed:', mediaTypes);
-
-      const cameraOptions = {
+      const result = await ImagePicker.launchCameraAsync({
         mediaTypes: mediaTypes,
         allowsEditing: shouldEnableEditing,
         aspect: shouldEnableEditing ? aspectRatio : undefined,
         quality: allowVideos && !allowImages ? 1.0 : imageQuality,
-        videoMaxDuration: allowVideos ? undefined : undefined,
-        videoQuality: allowVideos ? 'highest' : undefined,
-      };
-
-      console.log('📷 Final camera options:', cameraOptions);
-
-      const result = await ImagePicker.launchCameraAsync(cameraOptions);
-
-      console.log('📹 Camera result:', {
-        canceled: result.canceled,
-        assets: result.assets?.length || 0
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
-        console.log('📁 Captured asset:', {
-          uri: asset.uri,
-          type: asset.type,
-          fileName: asset.fileName,
-          fileSize: asset.fileSize,
-          duration: asset.duration,
-          width: asset.width,
-          height: asset.height
-        });
-
         if (!asset.uri) {
-          console.error('❌ Asset URI is null or undefined');
           showToastMessage('خطا در دریافت فایل از دوربین');
           setIsUploading(false);
           return;
         }
 
         const validAssets = validateFileSize(result.assets);
-
         if (validAssets.length === 0) {
           setIsUploading(false);
           return;
         }
 
         const validAsset = validAssets[0];
-        if (!validAsset || !validAsset.uri) {
-          console.error('❌ Valid asset is null or has no URI');
-          showToastMessage('خطا در پردازش فایل');
-          setIsUploading(false);
-          return;
-        }
-
         const newImage: ImageItem = {
           id: Date.now().toString(),
           uri: validAsset.uri,
@@ -488,8 +401,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           size: validAsset.fileSize,
         };
 
-        console.log('✅ Final camera image item:', newImage);
-
         if (isMultiple) {
           const updatedImages = [...currentImages, newImage].slice(0, maxImages);
           updateImages(updatedImages);
@@ -497,20 +408,12 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           updateImages([newImage]);
         }
         setModalVisible(false);
-
         showToastMessage(`${validAsset.type?.includes('video') ? 'ویدئو' : 'عکس'} با موفقیت ضبط شد`, 'success');
-      } else {
-        console.log('⚠️ Camera operation was canceled or no asset received');
       }
     } catch (error) {
-      console.error('💥 Camera capture error:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
-
+      console.error('Camera capture error:', error);
       if (error.message.includes('User cancelled') || error.message.includes('cancelled')) {
-        console.log('ℹ️ User cancelled camera operation');
+        // User cancelled, no need to show error
       } else if (error.message.includes('Camera permission')) {
         showToastMessage('مجوز دسترسی به دوربین لازم است');
       } else if (error.message.includes('not available')) {
@@ -522,6 +425,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       setIsUploading(false);
     }
   };
+  const isValidVideoFormat = (uri) => {
+    const supportedFormats = ['.mp4', '.mov', '.m4v'];
+    return supportedFormats.some(format =>
+      uri.toLowerCase().includes(format)
+    );
+  };
+
 
   const removeImage = (imageId: string) => {
     setImageToDelete(imageId);
@@ -625,90 +535,19 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     return `${width}:${height}`;
   };
 
-  // رندر آیتم برای FlatList
-  const renderImageItem = ({ item, index }: { item: ImageItem; index: number }) => (
-    <View style={styles.imageItem}>
-      <TouchableOpacity
-        onPress={() => item && handleImagePress(item)}
-        activeOpacity={0.8}
-      >
-        <View style={styles.imageWrapper}>
-          {item && item.uri && isVideo(item.uri) ? (
-            <View style={styles.videoContainer}>
-              <VideoView
-                style={styles.image}
-                player={{
-                  source: { uri: item.uri },
-                }}
-                showsTimecodes={false}
-                allowsFullscreen={false}
-                allowsPictureInPicture={false}
-                contentFit="cover"
-              />
-              <View style={styles.videoPlayIcon}>
-                <MaterialIcons name="play-arrow" size={24} color="white" />
-              </View>
-              <View style={styles.videoBadge}>
-                <MaterialIcons name="videocam" size={12} color="white" />
-                <AppText style={styles.videoBadgeText}>فیلم</AppText>
-              </View>
-            </View>
-          ) : item && item.uri ? (
-            <Image source={{ uri: item.uri }} style={styles.image} />
-          ) : (
-            <View style={styles.errorImageContainer}>
-              <MaterialIcons name="broken-image" size={40} color={colors.medium} />
-              <AppText style={styles.errorImageText}>خطا در بارگذاری</AppText>
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={styles.removeButton}
-            onPress={() => item && removeImage(item.id)}
-            activeOpacity={0.7}
-          >
-            <LinearGradient
-              colors={['#ff4757', '#ff3742']}
-              style={styles.removeButtonGradient}
-            >
-              <MaterialIcons name="close" size={16} color="white" />
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <View style={styles.imageInfo}>
-            <View style={styles.imageInfoContent}>
-              <AppText style={styles.imageName} numberOfLines={1}>
-                {item?.name || (item && item.uri && isVideo(item.uri) ? 'فیلم' : 'تصویر')}
-              </AppText>
-              {item?.size && (
-                <AppText style={styles.imageSize}>
-                  {formatFileSize(item.size)}
-                </AppText>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.imageBadge}>
-            <AppText style={styles.imageBadgeText}>
-              {index + 1}
-            </AppText>
-          </View>
-        </View>
-      </TouchableOpacity>
-    </View>
-  );
+  const getUploadTypeText = () => {
+    if (allowVideos && allowImages) {
+      return isMultiple ? 'تکی و چندتایی' : 'تکی';
+    } else if (allowVideos && !allowImages) {
+      return isMultiple ? 'ویدئو (تکی و چندتایی)' : 'ویدئو (تکی)';
+    } else if (!allowVideos && allowImages) {
+      return isMultiple ? 'تصویر (تکی و چندتایی)' : 'تصویر (تکی)';
+    }
+    return isMultiple ? 'تکی و چندتایی' : 'تکی';
+  };
 
   return (
-    <Animated.View
-      style={[
-        styles.container,
-        style,
-        {
-          opacity: fadeAnim,
-          transform: [{ scale: scaleAnim }],
-        }
-      ]}
-    >
+    <View style={[styles.container, style]}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <MaterialIcons
@@ -722,6 +561,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
               <AppText style={styles.aspectRatioText}>{getAspectRatioText()}</AppText>
             </View>
           )}
+          <View style={styles.uploadTypeBadge}>
+            <AppText style={styles.uploadTypeText}>{getUploadTypeText()}</AppText>
+          </View>
         </View>
         {isMultiple && (
           <AppText style={styles.imageCounter}>
@@ -732,9 +574,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
       {canAddMore && (
         <TouchableOpacity
-          style={[styles.uploadArea, isUploading && styles.uploadingArea]}
+          style={[styles.uploadArea, (isUploading || loading) && styles.uploadingArea]}
           onPress={showImageSourceOptions}
-          disabled={isUploading}
+          disabled={isUploading || loading}
           activeOpacity={0.7}
         >
           <LinearGradient
@@ -742,15 +584,24 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             style={styles.uploadGradient}
           >
             <View style={styles.uploadContent}>
-              {isUploading ? (
-                <>
-                  <View style={styles.loadingContainer}>
-                    <Animated.View style={[styles.loadingDot, { opacity: fadeAnim }]} />
-                    <Animated.View style={[styles.loadingDot, { opacity: fadeAnim }]} />
-                    <Animated.View style={[styles.loadingDot, { opacity: fadeAnim }]} />
-                  </View>
-                  <AppText style={styles.uploadText}>در حال آپلود...</AppText>
-                </>
+              {(isUploading || loading) ? (
+                <Animated.View
+                  style={[
+                    styles.loadingIcon,
+                    {
+                      transform: [
+                        {
+                          rotate: loadingRotation.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['0deg', '360deg'],
+                          }),
+                        },
+                      ],
+                    },
+                  ]}
+                >
+                  <MaterialIcons name="refresh" size={32} color={colors.primary} />
+                </Animated.View>
               ) : (
                 <>
                   <View style={styles.uploadIconContainer}>
@@ -785,8 +636,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
               contentContainerStyle={styles.imagesContent}
               scrollEnabled={true}
               nestedScrollEnabled={Platform.OS === 'android'}
-              overScrollMode="always"
-              persistentScrollbar={false}
               style={styles.scrollViewStyle}
             >
               {currentImages.map((item, index) =>
@@ -797,18 +646,31 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                       activeOpacity={0.8}
                     >
                       <View style={styles.imageWrapper}>
-                        {item.uri && isVideo(item.uri) ? (
-                          <View style={styles.videoContainer}>
+                        {item.uri && isVideo(item.uri) && isValidVideoFormat(item.uri) ? (                          <View style={styles.videoContainer}>
+                            <TouchableOpacity
+                              style={styles.image}
+                              onPress={() => {
+                                // کد پخش ویدئو
+                              }}
+                              activeOpacity={1}
+                            >
                             <VideoView
                               style={styles.image}
                               player={{
                                 source: { uri: item.uri },
                               }}
-                              showsTimecodes={false}
-                              allowsFullscreen={false}
-                              allowsPictureInPicture={false}
-                              contentFit="cover"
+                              onLoad={(data) => {
+                                console.log('Video loaded:', data);
+                              }}
+                              onError={(error) => {
+                                console.log('Video error:', error);
+                              }}
+                              onPlaybackStatusUpdate={(status) => {
+                                console.log('Playback status:', status);
+                              }}
+                            // باقی props
                             />
+                            </TouchableOpacity>
                             <View style={styles.videoPlayIcon}>
                               <MaterialIcons name="play-arrow" size={24} color="white" />
                             </View>
@@ -817,7 +679,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                               <AppText style={styles.videoBadgeText}>فیلم</AppText>
                             </View>
                           </View>
-                        ) : item.uri ? (
+                        ) :  item.uri ? (
                           <Image source={{ uri: item.uri }} style={styles.image} />
                         ) : (
                           <View style={styles.errorImageContainer}>
@@ -872,16 +734,25 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                 <View style={getImageItemStyle()}>
                   {singleImage && singleImage.uri && isVideo(singleImage.uri) ? (
                     <View style={styles.videoContainer}>
-                      <VideoView
-                        style={styles.image}
-                        player={{
-                          source: { uri: singleImage.uri },
-                        }}
-                        showsTimecodes={false}
-                        allowsFullscreen={false}
-                        allowsPictureInPicture={false}
-                        contentFit="cover"
-                      />
+                        <VideoView
+                          ref={setVideoRef}
+                          style={styles.image}
+                          player={{
+                            source: { uri: item.uri },
+                            shouldPlay: false,  // اضافه کنید
+                          }}
+                          showsTimecodes={true}
+                          allowsFullscreen={true}
+                          allowsPictureInPicture={true}
+                          contentFit="cover"
+                          nativeControls={true}
+                          onLoad={() => {
+                            // ویدئو لود شد
+                          }}
+                          onError={(error) => {
+                            console.log('Video error:', error);
+                          }}
+                        />
                       <View style={styles.videoPlayIcon}>
                         <MaterialIcons name="play-arrow" size={24} color="white" />
                       </View>
@@ -962,8 +833,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           • {isMultiple ? `حداکثر ${maxImages} فایل` : `یک فایل`}
           {!isMultiple && allowEditing && !allowVideos && ` • نسبت ابعاد: ${getAspectRatioText()}`}
           • فرمت‌های مجاز: {allowImages && allowVideos ? 'JPG, PNG, MP4, MOV' :
-            allowVideos && !allowImages ? 'MP4, MOV' :
-              'JPG, PNG'}
+            allowVideos && !allowImages ? 'MP4, MOV' : 'JPG, PNG'}
           • حداکثر حجم: {allowVideos && !allowImages ? '۶۰ مگابایت' :
             !allowVideos && allowImages ? '۵ مگابایت' :
               'تصویر: ۵ مگابایت، ویدئو: ۶۰ مگابایت'}
@@ -971,6 +841,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         </AppText>
       </View>
 
+      {/* Modal for selecting image source */}
       <Modal
         visible={modalVisible}
         transparent={true}
@@ -1048,6 +919,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         </Pressable>
       </Modal>
 
+      {/* Delete confirmation modal */}
       <Modal
         visible={deleteModalVisible}
         transparent={true}
@@ -1131,6 +1003,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         </View>
       </Modal>
 
+      {/* Image viewer modal */}
       <Modal
         visible={imageViewerVisible}
         transparent={true}
@@ -1198,6 +1071,8 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                       allowsFullscreen={true}
                       allowsPictureInPicture={true}
                       contentFit="contain"
+                      nativeControls={true}  // اضافه کنید
+                      startsPaused={false}   // اضافه کنید
                     />
                   ) : selectedImageForView.uri ? (
                     <Image
@@ -1261,7 +1136,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           </Animated.View>
         </View>
       </Modal>
-    </Animated.View>
+    </View>
   );
 };
 
@@ -1280,6 +1155,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     flex: 1,
+    flexWrap: 'wrap',
   },
   headerTitle: {
     fontSize: 18,
@@ -1299,39 +1175,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Yekan_Bakh_Bold',
     color: colors.primary,
   },
-  videoContainer: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-  },
-  videoPlayIcon: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: [{ translateX: -12 }, { translateY: -12 }],
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  uploadTypeBadge: {
+    backgroundColor: 'rgba(34, 139, 173, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 12,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginRight: 8,
   },
-  videoBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 40,
-    backgroundColor: 'rgba(220, 38, 127, 0.9)',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 8,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-  },
-  videoBadgeText: {
-    fontSize: 9,
-    fontFamily: 'Yekan_Bakh_Bold',
-    color: 'white',
-    marginRight: 2,
+  uploadTypeText: {
+    fontSize: 10,
+    fontFamily: 'Yekan_Bakh_Regular',
+    color: '#228BAD',
   },
   imageCounter: {
     fontSize: 14,
@@ -1390,24 +1244,42 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 5,
   },
-  uploadSubtext: {
-    fontSize: 14,
-    fontFamily: 'Yekan_Bakh_Regular',
-    color: colors.medium,
-    textAlign: 'center',
+  loadingIcon: {
+    marginBottom: 15,
   },
-  loadingContainer: {
-    flexDirection: 'row',
+  videoContainer: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+  },
+  videoPlayIcon: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -12 }, { translateY: -12 }],
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
-    gap: 5,
   },
-  loadingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.primary,
+  videoBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 40,
+    backgroundColor: 'rgba(220, 38, 127, 0.9)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+  },
+  videoBadgeText: {
+    fontSize: 9,
+    fontFamily: 'Yekan_Bakh_Bold',
+    color: 'white',
+    marginRight: 2,
   },
   imagesContainer: {
     marginBottom: 15,
@@ -1649,7 +1521,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 4,
-    position: 'relative',
   },
   pickerLabel: {
     fontSize: 16,

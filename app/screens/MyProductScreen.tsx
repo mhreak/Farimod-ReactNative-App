@@ -20,6 +20,7 @@ import Toast from "../components/Toast";
 import { toPersianDigits, safeNumber, formatPrice, safeString } from "../utils/converters";
 import appConfig from "../config/config";
 import AuthService from "../services/AuthService";
+import { useAuth } from '../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -50,6 +51,7 @@ const useProductsWithPagination = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { user } = useAuth();
 
   const fetchProducts = async (page = 1, pageSize = ITEMS_PER_PAGE) => {
     try {
@@ -57,10 +59,27 @@ const useProductsWithPagination = () => {
       setError(null);
 
       // Get user data from AuthService to get MemberId
-      const userData = await AuthService.getUserData();
-      const memberId = userData?.MemberGroupList?.[0]?.MemberId || 1;
+      const userData = user || await AuthService.getUserData(); 
+      if (!userData) {
+        throw new Error('کاربر وارد نشده است');
+      }
+
+      // استخراج MemberId از userData
+      let memberId = null;
+
+      if (userData.MemberGroupList && userData.MemberGroupList.length > 0) {
+        memberId = userData.MemberGroupList[0].MemberId;
+      } else if (userData.MemberId) {
+        memberId = userData.MemberId;
+      }
+
+      if (!memberId) {
+        throw new Error('شناسه عضو یافت نشد');
+      }
 
       let queryParams = `filterMemberId=${memberId}&currentPage=${page}&pageSize=${pageSize}`;
+
+      console.log('Fetching products for MemberId:', memberId);
 
       const response = await fetch(
         `${appConfig.mobileApi}Product/GetAll?${queryParams}`
@@ -75,6 +94,7 @@ const useProductsWithPagination = () => {
       setData(result.Data || []);
       setTotal(result.Total || 0);
     } catch (err) {
+      console.error('Error fetching products:', err);
       setError(err.message);
       setData([]);
       setTotal(0);
@@ -157,11 +177,43 @@ const ProductCardSkeleton = () => {
 
 // ProductCard Component
 const ProductCard = ({ item, onPress }) => {
+  const [imageError, setImageError] = useState(false);
+
   const price = safeNumber(item.Price);
   const specialPrice = safeNumber(item.SpecialSalePrice);
   const discountPercentage = specialPrice > 0 && price > 0
     ? Math.round(((price - specialPrice) / price) * 100)
     : 0;
+
+  // تعیین منبع تصویر بر اساس فیلدهای موجود
+  const getImageSource = () => {
+    // اگر خطای بارگذاری رخ داده، از تصویر پیش‌فرض استفاده کن
+    if (imageError) {
+      return require("../../assets/Product_icon.jpg");
+    }
+
+    // اولویت اول: FeaturedImageURL (اگر موجود باشد)
+    if (item.FeaturedImageURL) {
+      return { uri: item.FeaturedImageURL };
+    }
+
+    // اولویت دوم: FeaturedImageFileName (برای ساخت URL)
+    if (item.FeaturedImageFileName) {
+      return {
+        uri: `${appConfig.mobileApi}Product/GetProductImage/${item.FeaturedImageFileName}`
+      };
+    }
+
+    // اولویت سوم: ProductImageFileName (فیلد قبلی که در کد استفاده می‌شد)
+    if (item.ProductImageFileName) {
+      return {
+        uri: `${appConfig.mobileApi}Product/GetProductImage/${item.ProductImageFileName}`
+      };
+    }
+
+    // در صورت عدم وجود هیچ تصویر، از تصویر پیش‌فرض استفاده کن
+    return require("../../assets/Product_icon.jpg");
+  };
 
   return (
     <TouchableOpacity
@@ -171,13 +223,20 @@ const ProductCard = ({ item, onPress }) => {
     >
       <View style={styles.productImageContainer}>
         <Image
-          source={
-            item.ProductImageFileName
-              ? { uri: `${appConfig.mobileApi}Product/GetProductImage/${item.ProductImageFileName}` }
-              : require("../../assets/Product_icon.jpg")
-          }
+          source={getImageSource()}
           style={styles.productImage}
           resizeMode="cover"
+          // مدیریت خطای بارگذاری تصویر
+          onError={() => {
+            console.log('خطا در بارگذاری تصویر محصول:', item.ProductName);
+            setImageError(true);
+          }}
+          onLoad={() => {
+            // بازنشانی وضعیت خطا در صورت بارگذاری موفق
+            if (imageError) {
+              setImageError(false);
+            }
+          }}
         />
         {discountPercentage > 0 && (
           <View style={styles.discountBadge}>

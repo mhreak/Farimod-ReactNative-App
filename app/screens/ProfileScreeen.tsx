@@ -67,14 +67,14 @@ const profileItems = [
     color: "#10b981",
     permission: "allowAddDocument",
   },
-  {
-    id: 3,
-    title: "گالری من",
-    icon: "image",
-    screenName: "MyGallery",
-    color: "#f59e0b",
-    permission: "allowAddImageGallery",
-  },
+  // {
+  //   id: 3,
+  //   title: "گالری من",
+  //   icon: "image",
+  //   screenName: "MyGallery",
+  //   color: "#f59e0b",
+  //   permission: "allowAddImageGallery",
+  // },
   {
     id: 4,
     title: "پست های منتشر شده",
@@ -368,7 +368,7 @@ const ProfileScreen = () => {
     try {
       const result = await refreshSubscription();
       if (result.success) {
-        showToast('اطلاعات اشتراک بروزرسانی شد', 'success');
+        // showToast('اطلاعات اشتراک بروزرسانی شد', 'success');
       } else {
         showToast('خطا در بروزرسانی اطلاعات', 'error');
       }
@@ -563,7 +563,7 @@ const ProfileScreen = () => {
           {/* Header with back, edit, and logout buttons */}
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate("خانه")} // یا نام صفحه خانه شما
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons
@@ -855,8 +855,8 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   cardsContainer: {
-    marginBottom: 30,
-    marginTop: 50,
+    marginBottom: 45,
+    marginTop: 20,
   },
   horizontalScrollContainer: {
     paddingHorizontal: 15,

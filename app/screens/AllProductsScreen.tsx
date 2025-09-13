@@ -50,7 +50,7 @@ const useProductsWithPagination = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
+  const [imageError, setImageError] = useState(false);
   const fetchProducts = async (page = 1, pageSize = ITEMS_PER_PAGE, filters = {}) => {
     try {
       setLoading(true);
@@ -168,12 +168,45 @@ const ProductCardSkeleton = () => {
 };
 
 // ProductCard Component
+// ProductCard Component - Updated for Featured Images
 const ProductCard = ({ item, onPress }) => {
+  const [imageError, setImageError] = useState(false);
+
   const price = safeNumber(item.Price);
   const specialPrice = safeNumber(item.SpecialSalePrice);
   const discountPercentage = specialPrice > 0 && price > 0
     ? Math.round(((price - specialPrice) / price) * 100)
     : 0;
+
+  // تعیین منبع تصویر بر اساس فیلدهای موجود
+  const getImageSource = () => {
+    // اگر خطای بارگذاری رخ داده، از تصویر پیش‌فرض استفاده کن
+    if (imageError) {
+      return require("../../assets/Product_icon.jpg");
+    }
+
+    // اولویت اول: FeaturedImageURL (اگر موجود باشد)
+    if (item.FeaturedImageURL) {
+      return { uri: item.FeaturedImageURL };
+    }
+
+    // اولویت دوم: FeaturedImageFileName (برای ساخت URL)
+    if (item.FeaturedImageFileName) {
+      return {
+        uri: `${appConfig.mobileApi}Product/GetProductImage/${item.FeaturedImageFileName}`
+      };
+    }
+
+    // اولویت سوم: ProductImageFileName (فیلد قبلی که در کد استفاده می‌شد)
+    if (item.ProductImageFileName) {
+      return {
+        uri: `${appConfig.mobileApi}Product/GetProductImage/${item.ProductImageFileName}`
+      };
+    }
+
+    // در صورت عدم وجود هیچ تصویر، از تصویر پیش‌فرض استفاده کن
+    return require("../../assets/Product_icon.jpg");
+  };
 
   return (
     <TouchableOpacity
@@ -183,13 +216,20 @@ const ProductCard = ({ item, onPress }) => {
     >
       <View style={styles.productImageContainer}>
         <Image
-          source={
-            item.ProductImageFileName
-              ? { uri: `${appConfig.mobileApi}Product/GetProductImage/${item.ProductImageFileName}` }
-              : require("../../assets/Product_icon.jpg")
-          }
+          source={getImageSource()}
           style={styles.productImage}
           resizeMode="cover"
+          // مدیریت خطای بارگذاری تصویر
+          onError={() => {
+            console.log('خطا در بارگذاری تصویر محصول:', item.ProductName);
+            setImageError(true);
+          }}
+          onLoad={() => {
+            // بازنشانی وضعیت خطا در صورت بارگذاری موفق
+            if (imageError) {
+              setImageError(false);
+            }
+          }}
         />
         {discountPercentage > 0 && (
           <View style={styles.discountBadge}>

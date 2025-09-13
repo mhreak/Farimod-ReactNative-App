@@ -11,6 +11,7 @@ import {
   FlatList,
   RefreshControl,
   Image,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
@@ -47,19 +48,21 @@ const modernColors = {
 
 const ITEMS_PER_PAGE = 15;
 
-const useMembersWithPagination = () => {
+const useMembersWithInfiniteLoading = () => {
   const [data, setData] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchMembers = async (page = 1, pageSize = ITEMS_PER_PAGE) => {
+  const fetchMembers = async (newPage = 1, pageSize = ITEMS_PER_PAGE, isLoadMore = false) => {
     try {
       setLoading(true);
       setError(null);
 
       const response = await fetch(
-        `${appConfig.mobileApi}Member/GetAll?currentPage=${page}&pageSize=${pageSize}`
+        `${appConfig.mobileApi}Member/GetAll?currentPage=${newPage}&pageSize=${pageSize}`
       );
 
       if (!response.ok) {
@@ -68,15 +71,41 @@ const useMembersWithPagination = () => {
 
       const result = await response.json();
 
-      setData(result.Data || []);
+      if (isLoadMore) {
+        // برای load more، اطلاعات جدید را به انتهای لیست اضافه کن
+        setData(prevData => [...prevData, ...(result.Data || [])]);
+      } else {
+        // برای refresh، لیست را جایگزین کن
+        setData(result.Data || []);
+      }
+
       setTotal(result.Total || 0);
+      setPage(newPage);
+
+      // بررسی اینکه آیا صفحه بعدی وجود دارد یا نه
+      setHasMore((result.Data || []).length === pageSize && (result.Data || []).length > 0);
+
     } catch (err) {
       setError(err.message);
-      setData([]);
-      setTotal(0);
+      if (!isLoadMore) {
+        setData([]);
+        setTotal(0);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadMore = () => {
+    if (!loading && hasMore) {
+      fetchMembers(page + 1, ITEMS_PER_PAGE, true);
+    }
+  };
+
+  const refresh = () => {
+    setPage(1);
+    setHasMore(true);
+    fetchMembers(1, ITEMS_PER_PAGE, false);
   };
 
   return {
@@ -85,6 +114,10 @@ const useMembersWithPagination = () => {
     loading,
     error,
     fetchMembers,
+    loadMore,
+    refresh,
+    hasMore,
+    page,
   };
 };
 
@@ -202,16 +235,13 @@ const Avatar = ({ name, size = 80, onPress, member }) => {
         ]}
       >
         {hasProfileImage ? (
-          // حذف View اضافی و استفاده مستقیم از Image
           <Image
             source={{ uri: member.AvatarImageURL }}
             style={{
               width: size,
               height: size,
               borderRadius: size / 2,
-              // حذف کامل border
               borderWidth: 0,
-              // اضافه کردن shadow برای زیبایی
               shadowColor: '#000',
               shadowOffset: {
                 width: 0,
@@ -220,7 +250,6 @@ const Avatar = ({ name, size = 80, onPress, member }) => {
               shadowOpacity: 0.1,
               shadowRadius: 4,
               elevation: 3,
-              // اطمینان از cover شدن کامل عکس
               backgroundColor: 'transparent',
             }}
             resizeMode="cover"
@@ -316,157 +345,6 @@ const MemberCard = ({ member, onPress }) => {
   );
 };
 
-const PaginationComponent = ({
-  currentPage,
-  totalPages,
-  onPageChange,
-  style = {}
-}) => {
-  const pageButtonAnim = useRef(new Animated.Value(1)).current;
-  const [animatingPage, setAnimatingPage] = useState(null);
-
-  const animatePageChange = (page) => {
-    if (page === currentPage) return;
-
-    setAnimatingPage(page);
-    Animated.sequence([
-      Animated.timing(pageButtonAnim, {
-        toValue: 0.8,
-        duration: 100,
-        useNativeDriver: true,
-      }),
-      Animated.timing(pageButtonAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setAnimatingPage(null);
-      onPageChange(page);
-    });
-  };
-
-  const renderPageButton = (page, isActive = false) => {
-    const isAnimating = animatingPage === page;
-
-    return (
-      <TouchableOpacity
-        key={page}
-        style={[
-          styles.pageButton,
-          isActive && styles.activePageButton,
-        ]}
-        onPress={() => animatePageChange(page)}
-        activeOpacity={0.7}
-      >
-        <Animated.View
-          style={[
-            styles.pageButtonContent,
-            isActive && styles.activePageButtonContent,
-            isAnimating && { transform: [{ scale: pageButtonAnim }] },
-          ]}
-        >
-          <AppText style={[
-            styles.pageButtonText,
-            isActive && styles.activePageButtonText,
-          ]}>
-            {page}
-          </AppText>
-        </Animated.View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderPaginationItems = () => {
-    const items = [];
-    const maxVisiblePages = 5;
-    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-
-    if (endPage - startPage + 1 < maxVisiblePages) {
-      startPage = Math.max(1, endPage - maxVisiblePages + 1);
-    }
-
-    if (currentPage > 1) {
-      items.push(
-        <TouchableOpacity
-          key="prev"
-          style={styles.navButton}
-          onPress={() => animatePageChange(currentPage - 1)}
-          activeOpacity={0.7}
-        >
-          <LinearGradient
-            colors={[modernColors.primary, modernColors.primaryDark]}
-            style={styles.navButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <MaterialIcons name="keyboard-arrow-right" size={20} color="#ffffff" />
-          </LinearGradient>
-        </TouchableOpacity>
-      );
-    }
-
-    if (startPage > 1) {
-      items.push(renderPageButton(1, currentPage === 1));
-      if (startPage > 2) {
-        items.push(
-          <View key="ellipsis-start" style={styles.ellipsis}>
-            <AppText style={styles.ellipsisText}>...</AppText>
-          </View>
-        );
-      }
-    }
-
-    for (let i = startPage; i <= endPage; i++) {
-      items.push(renderPageButton(i, i === currentPage));
-    }
-
-    if (endPage < totalPages) {
-      if (endPage < totalPages - 1) {
-        items.push(
-          <View key="ellipsis-end" style={styles.ellipsis}>
-            <AppText style={styles.ellipsisText}>...</AppText>
-          </View>
-        );
-      }
-      items.push(renderPageButton(totalPages, currentPage === totalPages));
-    }
-
-    if (currentPage < totalPages) {
-      items.push(
-        <TouchableOpacity
-          key="next"
-          style={styles.navButton}
-          onPress={() => animatePageChange(currentPage + 1)}
-          activeOpacity={0.7}
-        >
-          <LinearGradient
-            colors={[modernColors.primary, modernColors.primaryDark]}
-            style={styles.navButtonGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-          >
-            <MaterialIcons name="keyboard-arrow-left" size={20} color="#ffffff" />
-          </LinearGradient>
-        </TouchableOpacity>
-      );
-    }
-
-    return items;
-  };
-
-  if (totalPages <= 1) return null;
-
-  return (
-    <View style={[styles.paginationContainer, style]}>
-      <View style={styles.paginationWrapper}>
-        {renderPaginationItems()}
-      </View>
-    </View>
-  );
-};
-
 const chunkData = (data, chunkSize) => {
   const chunks = [];
   for (let i = 0; i < data.length; i += chunkSize) {
@@ -482,10 +360,16 @@ const AllMembersScreen = () => {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  const { data: members, total, loading: membersLoading, error: membersError, fetchMembers } = useMembersWithPagination();
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+  const {
+    data: members,
+    total,
+    loading: membersLoading,
+    error: membersError,
+    fetchMembers,
+    loadMore,
+    refresh,
+    hasMore
+  } = useMembersWithInfiniteLoading();
 
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -494,8 +378,8 @@ const AllMembersScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchMembers(currentPage, ITEMS_PER_PAGE);
-  }, [currentPage]);
+    fetchMembers(1, ITEMS_PER_PAGE);
+  }, []);
 
   useEffect(() => {
     Animated.parallel([
@@ -543,29 +427,23 @@ const AllMembersScreen = () => {
     });
   };
 
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    Animated.timing(slideAnim, {
-      toValue: 20,
-      duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    });
-  };
-
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchMembers(currentPage, ITEMS_PER_PAGE);
+    await refresh();
     setRefreshing(false);
   };
 
+  const handleLoadMore = () => {
+    if (!membersLoading && hasMore) {
+      loadMore();
+    }
+  };
+
   const createSkeletonData = () => {
-    return Array.from({ length: ITEMS_PER_PAGE }, (_, index) => ({ id: `skeleton-${index}` }));
+    return Array.from({ length: ITEMS_PER_PAGE }, (_, index) => ({
+      id: `skeleton-${index}`,
+      isSkeleton: true
+    }));
   };
 
   const renderRowItem = ({ item: rowData, index }) => {
@@ -596,8 +474,19 @@ const AllMembersScreen = () => {
     );
   };
 
+  const renderFooter = () => {
+    if (!membersLoading || members.length === 0) return null;
+
+    return (
+      <View style={styles.loadingFooter}>
+        <ActivityIndicator size="small" color={modernColors.primary} />
+        <AppText style={styles.loadingMoreText}>در حال بارگذاری...</AppText>
+      </View>
+    );
+  };
+
   const renderEmptyComponent = () => {
-    if (membersLoading) return null;
+    if (membersLoading && members.length === 0) return null;
 
     return (
       <View style={styles.emptyContainer}>
@@ -619,7 +508,7 @@ const AllMembersScreen = () => {
       </AppText>
       <TouchableOpacity
         style={styles.retryButton}
-        onPress={() => fetchMembers(currentPage, ITEMS_PER_PAGE)}
+        onPress={() => fetchMembers(1, ITEMS_PER_PAGE)}
       >
         <MaterialIcons name="refresh" size={20} color={colors.white} />
         <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
@@ -628,12 +517,10 @@ const AllMembersScreen = () => {
   );
 
   const renderMembersInfo = () => {
-    if (membersLoading || membersError || total === 0) return null;
+    if (membersLoading && members.length === 0 || membersError || total === 0) return null;
 
     return (
-      <View>
-
-      </View>
+      <View></View>
     );
   };
 
@@ -724,35 +611,32 @@ const AllMembersScreen = () => {
           {membersError ? (
             renderErrorComponent()
           ) : (
-            <>
-              <FlatList
-                key="members-list"
-                data={chunkData(membersLoading ? createSkeletonData() : members, 2)}
-                renderItem={renderRowItem}
-                keyExtractor={(item, index) => `row-${index}`}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.listContainer}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    colors={[modernColors.primary]}
-                    tintColor={modernColors.primary}
-                  />
-                }
-                ListEmptyComponent={renderEmptyComponent}
-                numColumns={1}
-              />
-
-              {!membersLoading && !membersError && totalPages > 1 && (
-                <PaginationComponent
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                  style={styles.pagination}
-                />
+            <FlatList
+              key="members-list"
+              data={chunkData(
+                membersLoading && members.length === 0
+                  ? createSkeletonData()
+                  : members,
+                2
               )}
-            </>
+              renderItem={renderRowItem}
+              keyExtractor={(item, index) => `row-${index}`}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContainer}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={[modernColors.primary]}
+                  tintColor={modernColors.primary}
+                />
+              }
+              ListEmptyComponent={renderEmptyComponent}
+              ListFooterComponent={renderFooter}
+              onEndReached={handleLoadMore}
+              onEndReachedThreshold={0.3}
+              numColumns={1}
+            />
           )}
         </Animated.View>
 
@@ -892,9 +776,6 @@ const styles = StyleSheet.create({
     width: (width - 64) / 2,
     marginHorizontal: 8,
   },
-  pagination: {
-    marginBottom: 40,
-  },
   memberCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 16,
@@ -911,14 +792,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     flex: 1,
   },
-
   avatarGradient: {
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#fff', // فقط برای gradient avatarها
+    borderColor: '#fff',
   },
-
   blueTickContainer: {
     position: 'absolute',
     backgroundColor: '#ffffff',
@@ -983,118 +862,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
-  joinDateText: {
-    fontSize: 11,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#999',
-    marginRight: 6,
-  },
-  memberStatus: {
-    alignItems: 'center',
-    marginTop: 8,
-    minHeight: 28,
-  },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  statusText: {
-    fontSize: 11,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#fff',
-  },
-  paginationContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-  },
-  paginationWrapper: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 1,
-    marginBottom: 12,
-  },
-  pageButton: {
-    marginHorizontal: 4,
-    marginVertical: 4,
-  },
-  pageButtonContent: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  activePageButton: {
-  },
-  activePageButtonContent: {
-    backgroundColor: modernColors.primary,
-    borderColor: modernColors.primary,
-    shadowColor: modernColors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  pageButtonText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#666',
-  },
-  activePageButtonText: {
-    color: '#ffffff',
-  },
-  navButton: {
-    marginHorizontal: 6,
-    marginVertical: 4,
-  },
-  navButtonGradient: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: modernColors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
-  },
-  ellipsis: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginHorizontal: 4,
-  },
-  ellipsisText: {
-    fontSize: 18,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#999',
-  },
   memberSkeletonContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 16,
@@ -1106,6 +873,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     flex: 1,
+  },
+  loadingFooter: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  loadingMoreText: {
+    marginLeft: 10,
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#666',
   },
   emptyContainer: {
     flex: 1,

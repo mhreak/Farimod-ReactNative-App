@@ -23,10 +23,10 @@ import Toast from "../components/Toast";
 import { formatPersianDate, formatPrice, safeString, safeNumber, toPersianDigits } from "../utils/converters";
 import MultiOptionRatingComponent, { StarDisplay } from "../components/RatingComponent";
 import appConfig from "../config/config";
+import { useAuth } from "../contexts/AuthContext"; // Add this import
 
 const { width, height } = Dimensions.get('window');
 
-const CURRENT_MEMBER_ID = 1;
 
 const modernColors = {
   ...colors,
@@ -96,6 +96,95 @@ const transformContentReviewToRatingOptions = (contentReviewList) => {
       showOrder: item.ShowOrder,
       averageRating: item.CalculatedAverageRating || 0
     }));
+};
+
+const getProductImages = (productData) => {
+  const images = [];
+
+  // لیست فیلدهای URL تصاویر
+  const imageUrlFields = [
+    'FeaturedImageURL',
+    'FirstImageURL',
+    'SecondImageURL',
+    'ThirdImageURL',
+    'FourthImageURL',
+    'FifthImageURL'
+  ];
+
+  // اضافه کردن URLهای معتبر به آرایه
+  imageUrlFields.forEach(field => {
+    if (productData[field] &&
+      productData[field] !== 'string' &&
+      productData[field] !== null &&
+      productData[field].trim() !== '') {
+      images.push(productData[field]);
+    }
+  });
+
+  // اگر هیچ تصویر URLی وجود نداشت، تصویر پیش‌فرض را اضافه کن
+  if (images.length === 0) {
+    images.push(require("../../assets/Product_icon.jpg"));
+  }
+
+  return images;
+};
+// Custom hook for product details API
+const useProductDetails = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchProductDetails = async (productId) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log('Fetching product details for ID:', productId);
+
+      const response = await fetch(
+        `${appConfig.mobileApi}Product/Get?productId=${productId}`
+      );
+
+      console.log('API Response Status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('API Response Data:', result);
+
+      // Transform the data to include necessary fields
+      const transformedData = {
+        ...result.Product,
+        IsMemberLiked: result.IsMemberLiked || false,
+        ContentReviewItemList: result.ContentReviewItemList || [],
+        LikeCount: result.Product?.LikeCount || 0,
+        AverageRating: result.Product?.Rating || 0,
+        RatingCount: 0,
+        UserRating: 0,
+        UserDetailedRatings: {},
+        DetailedRatingsAverages: {}
+      };
+
+      console.log('Transformed Product Data:', transformedData);
+      setData(transformedData);
+    } catch (err) {
+      console.error('Product Details API Error:', err);
+      setError(err.message);
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    data,
+    loading,
+    error,
+    fetchProductDetails,
+    setData,
+  };
 };
 
 // Skeleton Component for loading states
@@ -203,141 +292,26 @@ const ProductDetailsSkeleton = () => {
   );
 };
 
-// Custom hook for product details API
-const useProductDetails = () => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const fetchProductDetails = async (productId) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      console.log('Fetching product details for ID:', productId);
-
-      const response = await fetch(
-        `${appConfig.mobileApi}Product/Get?productId=${productId}`
-      );
-
-      console.log('API Response Status:', response.status);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('API Response Data:', result);
-
-      // Transform the data to include necessary fields
-      const transformedData = {
-        ...result.Product, // استفاده از result.Product به جای result.Data
-        IsMemberLiked: result.IsMemberLiked || false,
-        ContentReviewItemList: result.ContentReviewItemList || [],
-        LikeCount: result.Product?.LikeCount || 0,
-        AverageRating: result.Product?.Rating || 0,
-        RatingCount: 0,
-        UserRating: 0,
-        UserDetailedRatings: {},
-        DetailedRatingsAverages: {}
-      };
-
-      console.log('Transformed Product Data:', transformedData);
-      setData(transformedData);
-    } catch (err) {
-      console.error('Product Details API Error:', err);
-      setError(err.message);
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return {
-    data,
-    loading,
-    error,
-    fetchProductDetails,
-    setData,
-  };
-};
-
-// Helper function to get product description
-const getProductDescription = (productData) => {
-  const description = [];
-
-  // Base description
-  description.push(`محصول ${productData.ProductName || 'نامشخص'} یکی از محصولات با کیفیت و قابل اعتماد است که با بهترین مواد اولیه تولید شده است.`);
-
-  // Seller info
-  if (productData.MemberName) {
-    description.push(`این محصول توسط ${productData.MemberName} عرضه می‌شود.`);
-  }
-
-  // Status info
-  if (productData.Active) {
-    description.push("این محصول در حال حاضر موجود بوده و آماده ارسال است.");
-  } else {
-    description.push("این محصول در حال حاضر موجود نمی‌باشد.");
-  }
-
-  // Price info
-  if (productData.SpecialSalePrice > 0) {
-    const discountPercent = Math.round(((productData.Price - productData.SpecialSalePrice) / productData.Price) * 100);
-    description.push(`این محصول دارای ${discountPercent}% تخفیف ویژه می‌باشد.`);
-  }
-
-  // Like info
-  if (productData.LikeCount > 0) {
-    description.push(`تاکنون ${toPersianDigits(productData.LikeCount.toString())} نفر این محصول را پسندیده‌اند.`);
-  }
-
-  return description.join(' ');
-};
-
-// Helper function to get available product images
-const getProductImages = (productData) => {
-  const images = [];
-
-  const imageFields = [
-    'ProductImageFileName',
-    'FirstProductImageFileName',
-    'SecondProductImageFileName',
-    'ThirdProductImageFileName',
-    'ForthProductImageFileName',
-    'FifthProductImageFileName',
-    'FeaturedProductImageFileName'
-  ];
-
-  imageFields.forEach(field => {
-    if (productData[field] && productData[field] !== 'string' && productData[field] !== null) {
-      images.push(`${appConfig.mobileApi}Product/GetProductImage/${productData[field]}`);
-    }
-  });
-
-  // If no images found, return default image
-  if (images.length === 0) {
-    images.push(require("../../assets/Product_icon.jpg"));
-  }
-
-  return images;
-};
-
 const ProductDetailsScreen = ({ route }) => {
   const navigation = useNavigation();
+ 
+  const { user } = useAuth(); // Add this line
+  const currentMemberId = user?.MemberId || user?.memberId || null;
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
-
+  const [showMainImage, setShowMainImage] = useState(true);
+  const [selectedImageForDisplay, setSelectedImageForDisplay] = useState(0);
   // Toast states
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('info');
 
-  // Image gallery state
+  // Image gallery state - Enhanced for scrolling
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Like states
   const [likeCount, setLikeCount] = useState(0);
@@ -398,6 +372,7 @@ const ProductDetailsScreen = ({ route }) => {
 
   const productId = getProductId();
 
+  // useFocusEffect for fetching data
   useFocusEffect(
     useCallback(() => {
       if (productId) {
@@ -422,9 +397,14 @@ const ProductDetailsScreen = ({ route }) => {
       const ratingOptions = transformContentReviewToRatingOptions(productData.ContentReviewItemList);
       setDynamicRatingOptions(ratingOptions);
       console.log('Dynamic Rating Options:', ratingOptions);
+
+      // Reset image index when new product loads
+      setCurrentImageIndex(0);
+      setSelectedImageIndex(0);
     }
   }, [productData]);
 
+  // Animation effects
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -463,6 +443,13 @@ const ProductDetailsScreen = ({ route }) => {
     ).start();
   }, []);
 
+  // Show error toast when API call fails
+  useEffect(() => {
+    if (error) {
+      showToast('خطا در دریافت اطلاعات محصول. لطفاً دوباره تلاش کنید.', 'error');
+    }
+  }, [error]);
+
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -474,7 +461,20 @@ const ProductDetailsScreen = ({ route }) => {
     setToastType(type);
     setToastVisible(true);
   };
+  const handleThumbnailPress = (index) => {
+    setCurrentImageIndex(index);
+    setSelectedImageIndex(index);
+    setSelectedImageForDisplay(index);
 
+    // اسکرول کردن به تصویر انتخاب شده در ScrollView اصلی
+    if (mainImageScrollRef.current) {
+      mainImageScrollRef.current.scrollTo({
+        x: index * (width - 40),
+        animated: true
+      });
+    }
+  };
+  const mainImageScrollRef = useRef(null);
   // Refresh functionality
   const onRefresh = async () => {
     setRefreshing(true);
@@ -483,9 +483,169 @@ const ProductDetailsScreen = ({ route }) => {
     }
     setRefreshing(false);
   };
+  const ProductImage = ({ source, style, resizeMode = "cover", onError, onLoad }) => {
+    const [imageError, setImageError] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const handleImageError = (error) => {
+      console.log('Product image error:', error.nativeEvent?.error);
+      setImageError(true);
+      setIsLoading(false);
+      if (onError) {
+        onError(error);
+      }
+    };
+
+    const handleImageLoad = () => {
+      setIsLoading(false);
+      setImageError(false);
+      if (onLoad) {
+        onLoad();
+      }
+    };
+
+    // اگر تصویر ارور داشته باشد، تصویر پیش‌فرض نمایش بده
+    if (imageError) {
+      return (
+        <Image
+          source={require("../../assets/Product_icon.jpg")}
+          style={[style, { backgroundColor: '#f5f5f5' }]}
+          resizeMode={resizeMode}
+        />
+      );
+    }
+
+    return (
+      <>
+        <Image
+          source={typeof source === 'string' ? { uri: source } : source}
+          style={style}
+          resizeMode={resizeMode}
+          onError={handleImageError}
+          onLoad={handleImageLoad}
+          onLoadStart={() => setIsLoading(true)}
+        />
+        {isLoading && (
+          <View style={[style, {
+            position: 'absolute',
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: '#f5f5f5'
+          }]}>
+            <ActivityIndicator size="small" color="#ccc" />
+          </View>
+        )}
+      </>
+    );
+  };
+  const renderMainImages = () => {
+    const productImages = getProductImages(productData);
+    const isDefaultImage = productImages.length === 1 &&
+      productImages[0] === require("../../assets/Product_icon.jpg");
+
+    if (productImages.length > 1 && !isDefaultImage) {
+      return (
+        <>
+          <ScrollView
+            ref={mainImageScrollRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            pagingEnabled
+            style={styles.imageScrollView}
+            onMomentumScrollEnd={handleImageScroll}
+            scrollEventThrottle={16}
+          >
+            {productImages.map((image, index) => (
+              <View key={index} style={styles.imageSlide}>
+                <ProductImage
+                  source={image}
+                  style={styles.headerImageSquare} // استفاده از style مربعی
+                  resizeMode="cover"
+                />
+              </View>
+            ))}
+          </ScrollView>
+
+          <View style={styles.imageDots}>
+            {productImages.map((_, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.imageDot,
+                  index === currentImageIndex && styles.imageDotActive
+                ]}
+              />
+            ))}
+          </View>
+        </>
+      );
+    } else {
+      return (
+        <ProductImage
+          source={productImages[0]}
+          style={styles.headerImageSquare} // استفاده از style مربعی
+          resizeMode="cover"
+        />
+      );
+    }
+  };
+
+  const ImageGallery = ({ images, selectedIndex, onImageSelect }) => {
+    const renderImageItem = ({ item, index }) => {
+      return (
+        <TouchableOpacity
+          style={[
+            styles.thumbnailContainer,
+            selectedIndex === index && styles.selectedThumbnail
+          ]}
+          onPress={() => handleThumbnailPress(index)}
+          activeOpacity={0.7}
+        >
+          <ProductImage
+            source={item}
+            style={styles.thumbnailImageSquare} // استفاده از style مربعی
+            resizeMode="cover"
+          />
+        </TouchableOpacity>
+      );
+    };
+
+    const displayImages = images.filter(img =>
+      img !== require("../../assets/Product_icon.jpg") || images.length === 1
+    );
+
+    if (displayImages.length <= 1) {
+      return null;
+    }
+
+    return (
+      <View style={styles.imageGalleryContainer}>
+        <FlatList
+          data={displayImages}
+          renderItem={renderImageItem}
+          keyExtractor={(item, index) => index.toString()}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.thumbnailsContainer}
+          ItemSeparatorComponent={() => <View style={{ width: 8 }} />}
+        />
+      </View>
+    );
+  };
+
 
   // Check if current user owns the product
-  const isOwnProduct = productData && productData.MemberId === CURRENT_MEMBER_ID;
+  const isOwnProduct = productData && currentMemberId && productData.MemberId === currentMemberId;
+
+  // Handle image scroll for main gallery
+  const handleImageScroll = (event) => {
+    const slideIndex = Math.round(event.nativeEvent.contentOffset.x / (width - 40));
+    const productImages = getProductImages(productData);
+
+    if (slideIndex >= 0 && slideIndex < productImages.length) {
+      setCurrentImageIndex(slideIndex);
+    }
+  };
 
   // Modal functions
   const handleShowActions = () => {
@@ -720,13 +880,6 @@ const ProductDetailsScreen = ({ route }) => {
     }
   };
 
-  // Show error toast when API call fails
-  useEffect(() => {
-    if (error) {
-      showToast('خطا در دریافت اطلاعات محصول. لطفاً دوباره تلاش کنید.', 'error');
-    }
-  }, [error]);
-
   // Show loading skeleton while data is being fetched
   if (loading) {
     return <ProductDetailsSkeleton />;
@@ -877,38 +1030,7 @@ const ProductDetailsScreen = ({ route }) => {
   // Get product images
   const productImages = getProductImages(productData);
 
-  // Image gallery component
-  const ImageGallery = ({ images, selectedIndex, onImageSelect }) => {
-    const renderImageItem = ({ item, index }) => (
-      <TouchableOpacity
-        style={[
-          styles.thumbnailContainer,
-          selectedIndex === index && styles.selectedThumbnail
-        ]}
-        onPress={() => onImageSelect(index)}
-      >
-        <Image
-          source={typeof item === 'string' ? { uri: item } : item}
-          style={styles.thumbnailImage}
-          resizeMode="cover"
-        />
-      </TouchableOpacity>
-    );
 
-    return (
-      <View style={styles.imageGalleryContainer}>
-        <FlatList
-          data={images}
-          renderItem={renderImageItem}
-          keyExtractor={(item, index) => index.toString()}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.thumbnailsContainer}
-          ItemSeparatorComponent={() => <View style={{ width: 8 }} />}
-        />
-      </View>
-    );
-  };
 
   return (
     <>
@@ -1005,22 +1127,18 @@ const ProductDetailsScreen = ({ route }) => {
             </View>
           </Animated.View>
 
+          {/* Enhanced Image Header Container with Scrolling */}
           <Animated.View
             style={[
-              styles.imageHeaderContainer,
+              styles.imageHeaderContainer, // استفاده از style مربعی
               {
                 opacity: fadeAnim,
                 transform: [{ translateY: slideAnim }],
               },
             ]}
           >
-            <Image
-              style={styles.headerImage}
-              source={typeof productImages[selectedImageIndex] === 'string'
-                ? { uri: productImages[selectedImageIndex] }
-                : productImages[selectedImageIndex]
-              }
-            />
+            {renderMainImages()}
+
             <LinearGradient
               colors={['transparent', 'rgba(102, 126, 234, 0.9)', 'rgba(118, 75, 162, 0.95)']}
               style={styles.overlay}
@@ -1092,7 +1210,7 @@ const ProductDetailsScreen = ({ route }) => {
             </View>
           </Animated.View>
 
-          {/* Image Gallery */}
+          {/* Thumbnail Gallery - Show only if multiple images exist */}
           {productImages.length > 1 && (
             <Animated.View
               style={[
@@ -1105,8 +1223,8 @@ const ProductDetailsScreen = ({ route }) => {
             >
               <ImageGallery
                 images={productImages}
-                selectedIndex={selectedImageIndex}
-                onImageSelect={setSelectedImageIndex}
+                selectedIndex={currentImageIndex}
+                onImageSelect={handleThumbnailPress} // استفاده از تابع جدید
               />
             </Animated.View>
           )}
@@ -1114,7 +1232,7 @@ const ProductDetailsScreen = ({ route }) => {
           {/* Product Info Section */}
           <Animated.View
             style={[
-              styles.productInfoContainer,
+              styles.productInfoContainer, // استفاده از style جدید
               {
                 opacity: fadeAnim,
                 transform: [{ translateY: slideAnim }],
@@ -1123,22 +1241,23 @@ const ProductDetailsScreen = ({ route }) => {
           >
             <View style={styles.priceSection}>
               {discountPercentage > 0 ? (
-                <View style={styles.priceContainer}>
-                  <AppText style={styles.originalPrice}>
+                <View style={styles.priceInOverlay}>
+                  <AppText style={styles.originalPriceOverlay}>
                     {formatPrice(safeNumber(productData.Price))}
                   </AppText>
-                  <AppText style={styles.specialPrice}>
+                  <AppText style={styles.specialPriceOverlay}>
                     {formatPrice(safeNumber(productData.SpecialSalePrice))}
                   </AppText>
                 </View>
               ) : (
-                <AppText style={styles.productPrice}>
-                  {formatPrice(safeNumber(productData.Price))}
-                </AppText>
+                <View style={styles.priceContainer}>
+                  <AppText style={styles.productPrice}>
+                    {formatPrice(safeNumber(productData.Price))}
+                  </AppText>
+                </View>
               )}
             </View>
           </Animated.View>
-
           <Animated.View
             style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]}
           />
@@ -1342,35 +1461,7 @@ const ProductDetailsScreen = ({ route }) => {
               },
             ]}
           >
-            {/* <TouchableOpacity
-              style={styles.primaryButton}
-              disabled={!productData.Active}
-            >
-              <LinearGradient
-                colors={productData.Active ?
-                  ['#E91E63', '#AD1457', '#880E4F'] :
-                  ['#9e9e9e', '#757575', '#616161']
-                }
-                style={styles.buttonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <MaterialIcons name="shopping-cart" size={22} color="white" />
-                <AppText style={styles.primaryButtonText}>
-                  {productData.Active ? "افزودن به سبد خرید" : "محصول موجود نیست"}
-                </AppText>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.secondaryButton}>
-              <LinearGradient
-                colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0.1)']}
-                style={styles.secondaryButtonGradient}
-              >
-                <MaterialIcons name="share" size={20} style={{ marginRight: 8 }} />
-                <AppText style={styles.secondaryButtonText}>اشتراک گذاری محصول</AppText>
-              </LinearGradient>
-            </TouchableOpacity> */}
+            {/* Action buttons can be uncommented when needed */}
           </Animated.View>
 
           <View style={styles.decorativeElements}>
@@ -1573,7 +1664,6 @@ const ProductDetailsScreen = ({ route }) => {
     </>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1657,25 +1747,28 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     pointerEvents: 'none',
   },
-  imageHeaderContainer: {
-    position: 'relative',
-    height: 320,
-    margin: 20,
-    borderRadius: 30,
-    overflow: 'hidden',
-    shadowColor: modernColors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 15,
-    },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 20,
+
+
+
+  imageDots: {
+    position: 'absolute',
+    bottom: 15,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
   },
-  headerImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 30,
+  imageDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  imageDotActive: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 20,
   },
   overlay: {
     position: 'absolute',
@@ -1806,16 +1899,19 @@ const styles = StyleSheet.create({
   imageGalleryWrapper: {
     marginHorizontal: 20,
     marginBottom: 20,
+
   },
   imageGalleryContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
     borderRadius: 20,
-    padding: 15,
-    borderWidth: 1,
+    padding: 20,
+
+  borderWidth: 1,
     borderColor: 'rgba(203, 213, 225, 0.3)',
   },
   thumbnailsContainer: {
-    paddingHorizontal: 10,
+    padding: 10,
+  
   },
   thumbnailContainer: {
     width: 70,
@@ -1833,18 +1929,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  productInfoContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginBottom: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 20,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(203, 213, 225, 0.3)',
-  },
+ 
   priceSection: {
     flex: 1,
     alignItems: 'flex-end',
@@ -1858,20 +1943,8 @@ const styles = StyleSheet.create({
     color: modernColors.priceIcon,
     textAlign: 'right',
   },
-  originalPrice: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#999',
-    textAlign: 'right',
-    textDecorationLine: 'line-through',
-    marginBottom: 4,
-  },
-  specialPrice: {
-    fontSize: 20,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#ff6b6b',
-    textAlign: 'right',
-  },
+
+
   likeSectionContainer: {
     flexDirection: 'column',
     alignItems: 'center',
@@ -2019,9 +2092,9 @@ const styles = StyleSheet.create({
   descriptionValue: {
     fontSize: 16,
     color: "#374151",
-    textAlign: 'justify', 
+    textAlign: 'justify',
     lineHeight: 26,
-    direction:"rtl",
+    direction: "rtl",
     fontFamily: "Yekan_Bakh_Regular",
   },
   featureAccent: {
@@ -2471,6 +2544,153 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
     color: '#6c757d',
+  },
+  imageHeaderContainer: {
+    position: 'relative',
+    height: width - 40, // ارتفاع برابر با عرض برای مربعی کردن
+    margin: 20,
+    borderRadius: 20, // کاهش radius برای ظاهر مربعی‌تر
+    overflow: 'hidden',
+    shadowColor: modernColors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 15,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+
+  },
+
+  // Style تصویر اصلی مربعی
+  headerImageSquare: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 20,
+  },
+
+  // ScrollView برای تصاویر مربعی
+  imageScrollView: {
+    height: width - 40, // ارتفاع مربعی
+  },
+
+  // هر slide تصویر مربعی
+  imageSlide: {
+    width: width - 40,
+    height: width - 40, // ارتفاع مربعی
+  },
+
+  // Container thumbnail مربعی
+  thumbnailContainer: {
+    width: 80, // اندازه بزرگ‌تر برای نمایش بهتر
+    height: 80,
+    borderRadius: 12, // radius کمتر برای مربعی‌تر بودن
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+
+  // تصویر thumbnail مربعی
+  thumbnailImageSquare: {
+    width: '100%',
+    height: '100%',
+  },
+
+  // تصحیح selected thumbnail
+  selectedThumbnail: {
+    borderColor: modernColors.primary,
+    transform: [{ scale: 1.05 }], // کمتر از قبل برای ظاهر بهتر
+  
+  },
+
+  // تصحیح container gallery
+  imageGalleryContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 15,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(203, 213, 225, 0.4)',
+
+
+  },
+
+  // تصحیح قیمت برای مرکز قرار گیری
+  priceSection: {
+    flex: 1,
+    alignItems: 'center', // مرکز قرار گیری
+    justifyContent: 'center',
+  },
+
+  // بهبود نمایش قیمت
+  priceContainer: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+
+  productPrice: {
+    fontSize: 22,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: modernColors.priceIcon,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  originalPrice: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
+    textDecorationLine: 'line-through',
+    marginBottom: 4,
+  },
+
+  specialPrice: {
+    fontSize: 22,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#ff6b6b',
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  // بهبود productInfoContainer
+  productInfoContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center', // تغییر از space-between به center
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(203, 213, 225, 0.3)',
+
+  },
+  priceInOverlay: {
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  originalPriceOverlay: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+   color:"#a1a1a1",
+    textAlign: 'center',
+    textDecorationLine: 'line-through',
+    marginBottom: 4,
+  },
+  specialPriceOverlay: {
+    fontSize: 20,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#ff6b6b',
+    textAlign: 'center',
   },
 });
 

@@ -9,9 +9,10 @@ import {
   Image,
   Animated,
   ActivityIndicator,
+  SafeAreaView,
+  Dimensions,
 } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
-import Screen from "../components/Screen";
 import AppButton from "../components/Button";
 import { Formik } from "formik";
 import AppTextInput from "../components/TextInput";
@@ -28,6 +29,10 @@ import { MemberGroup } from "../config/type";
 import Toast from "../components/Toast";
 import ChipsUI from '../components/ChipsUI';
 import appConfig from '../config/config';
+import Screen from "../components/Screen";
+import OTPInput from "../components/OTPInput";
+
+const { height: screenHeight } = Dimensions.get('window');
 
 interface IFormData {
   firstName: string;
@@ -51,10 +56,10 @@ const SignupScreen: React.FC = () => {
     mobileNumber: "",
   });
 
-  const [otp, setOtp] = useState(["", "", "", "", ""]);
+  const [otp, setOtp] = useState("");
   const otpInputs = useRef<TextInput[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [signupToken, setSignupToken] = useState<string>(""); // Store signup token
+  const [signupToken, setSignupToken] = useState<string>("");
 
   // Timer states
   const [resendTimer, setResendTimer] = useState(0);
@@ -67,76 +72,75 @@ const SignupScreen: React.FC = () => {
 
   const { data: memberGroups, loading: groupsLoading, error: groupsError, refetch } = useMemberGroups();
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+  // Animation values
   const iconFadeAnim = useRef(new Animated.Value(0)).current;
-  const iconSlideAnim = useRef(new Animated.Value(-50)).current;
+  const iconSlideAnim = useRef(new Animated.Value(-30)).current;
   const formFadeAnim = useRef(new Animated.Value(0)).current;
-  const formSlideAnim = useRef(new Animated.Value(40)).current;
+  const formSlideAnim = useRef(new Animated.Value(30)).current;
+  const backButtonAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
+    // Sequential animations for better effect
+    Animated.sequence([
+      // Back button appears first
+      Animated.timing(backButtonAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      // Icon appears
       Animated.parallel([
         Animated.timing(iconFadeAnim, {
           toValue: 1,
-          duration: 800,
+          duration: 600,
           useNativeDriver: true,
         }),
         Animated.timing(iconSlideAnim, {
           toValue: 0,
-          duration: 800,
+          duration: 600,
           useNativeDriver: true,
         }),
       ]),
+      // Form appears
       Animated.parallel([
         Animated.timing(formFadeAnim, {
           toValue: 1,
-          duration: 900,
+          duration: 700,
           useNativeDriver: true,
         }),
         Animated.timing(formSlideAnim, {
           toValue: 0,
-          duration: 900,
+          duration: 700,
           useNativeDriver: true,
         }),
       ]),
     ]).start();
 
+    // Continuous pulse animation for icon
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.08,
-          duration: 2500,
+          toValue: 1.05,
+          duration: 2000,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 2500,
+          duration: 2000,
           useNativeDriver: true,
         }),
       ])
-    ).start();
-
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 10000,
-        useNativeDriver: true,
-      })
     ).start();
   }, []);
 
   // Clear OTP when moving to step 3
   useEffect(() => {
     if (currentStep === 3) {
-      setOtp(["", "", "", "", ""]);
-      // Start timer when entering OTP step
+      setOtp(""); // تغییر از array به string
       startResendTimer();
     }
   }, [currentStep]);
-
   // Show toast when there's an error loading groups
   useEffect(() => {
     if (groupsError) {
@@ -155,11 +159,6 @@ const SignupScreen: React.FC = () => {
     };
   }, []);
 
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
   const validationSchemaStep2 = Yup.object().shape({
     otp: Yup.string()
       .length(5, "کد باید ۵ رقمی باشد")
@@ -167,7 +166,7 @@ const SignupScreen: React.FC = () => {
   });
 
   // Timer functions
-  const startResendTimer = (duration: number = 120) => { // 2 minutes default
+  const startResendTimer = (duration: number = 120) => {
     setResendTimer(duration);
     setCanResend(false);
 
@@ -209,7 +208,7 @@ const SignupScreen: React.FC = () => {
           FirstName: userData.firstName,
           LastName: userData.lastName,
           Mobile: userData.mobileNumber,
-          MemberGroupIdList: userData.selectedGroups // گروه‌ها در مرحله ۲ ارسال می‌شوند
+          MemberGroupIdList: userData.selectedGroups
         }),
       });
 
@@ -217,15 +216,10 @@ const SignupScreen: React.FC = () => {
       console.log('SignupFirstStep API Response:', response.status, result);
 
       if (response.status >= 200 && response.status < 300 && result.SignupToken) {
-        // Success - store token and form data
         setSignupToken(result.SignupToken);
         setFormData(userData);
-
-        // Automatically proceed to send SMS
         await sendSignupOTPSMS(result.SignupToken);
-
       } else {
-        // Error response
         let errorMessage = "خطا در ارسال اطلاعات";
         if (result.Message) {
           errorMessage = result.Message;
@@ -276,7 +270,6 @@ const SignupScreen: React.FC = () => {
         setToastType('success');
         setToastVisible(true);
 
-        // Move to step 3 for OTP verification
         setTimeout(() => {
           setCurrentStep(3);
         }, 1000);
@@ -317,12 +310,10 @@ const SignupScreen: React.FC = () => {
         setToastType('success');
         setToastVisible(true);
 
-        // Clear timer
         if (timerRef.current) {
           clearInterval(timerRef.current);
         }
 
-        // Move to step 4 (final success step)
         setTimeout(() => {
           setCurrentStep(4);
         }, 1000);
@@ -341,13 +332,11 @@ const SignupScreen: React.FC = () => {
     }
   };
 
-  // Handle step 1 (personal data) - just store temporarily and move to step 2
   const handleStep1Submit = (values: Omit<IFormData, "selectedGroups">) => {
     setTempPersonalData(values);
     setCurrentStep(2);
   };
 
-  // Handle step 2 (groups + API call)
   const handleStep2Submit = async () => {
     if (formData.selectedGroups.length === 0) {
       setToastMessage("لطفاً حداقل یک گروه انتخاب کنید");
@@ -364,28 +353,19 @@ const SignupScreen: React.FC = () => {
     await sendSignupFirstStep(submitData);
   };
 
-  const handleOtpChange = (text: string, index: number) => {
-    if (/^\d?$/.test(text)) {
-      const newOtp = [...otp];
-      newOtp[index] = text;
-      setOtp(newOtp);
-
-      if (text && index < 4) {
-        otpInputs.current[index + 1].focus();
-      }
-    }
+  const handleOtpChange = (code) => {
+    setOtp(code);
   };
 
   const handleOtpSubmit = () => {
-    const otpCode = otp.join("");
-    if (otpCode.length !== 5) {
+    if (otp.length !== 5) {
       setToastMessage("لطفاً کد ۵ رقمی را کامل وارد کنید");
       setToastType('error');
       setToastVisible(true);
       return;
     }
 
-    validateSignupOTP(otpCode);
+    validateSignupOTP(otp);
   };
 
   const handleOtpKeyPress = (e: any, index: number, currentValue: string) => {
@@ -407,13 +387,11 @@ const SignupScreen: React.FC = () => {
     setToastVisible(false);
   };
 
-  // Resend OTP function with timer restart
   const resendOTP = async () => {
     if (signupToken && canResend) {
       setCanResend(false);
       await sendSignupOTPSMS(signupToken);
-      // Restart timer after successful resend
-      startResendTimer(120); // 2 minutes
+      startResendTimer(120);
     }
   };
 
@@ -474,10 +452,6 @@ const SignupScreen: React.FC = () => {
         </View>
         <Text style={styles.stepLabel}>تأیید تلفن همراه</Text>
       </View>
-
-      
-
-
     </View>
   );
 
@@ -603,6 +577,7 @@ const SignupScreen: React.FC = () => {
             selectedGroups={formData.selectedGroups}
             onToggleGroup={toggleGroup}
             allowMultipleSelection={true}
+                sortType="length-asc" 
           />
         </View>
       )}
@@ -632,24 +607,15 @@ const SignupScreen: React.FC = () => {
         کد ۵ رقمی ارسال شده به شماره {formData.mobileNumber} را وارد کنید
       </AppText>
 
-      <View style={styles.otpContainer}>
-        {otp.map((digit, index) => (
-          <TextInput
-            key={index}
-            ref={(ref) => (otpInputs.current[index] = ref!)}
-            style={styles.otpInput}
-            value={digit}
-            onChangeText={(text) => handleOtpChange(text, index)}
-            onKeyPress={(e) => handleOtpKeyPress(e, index, digit)}
-            keyboardType="numeric"
-            maxLength={1}
-            textAlign="center"
-            autoFocus={index === 0}
-          />
-        ))}
+      {/* استفاده از کامپوننت OTP جدید */}
+      <View style={styles.otpWrapper}>
+        <OTPInput
+          onCodeChange={handleOtpChange}
+          code={otp}
+          length={5}
+        />
       </View>
 
-      {/* Resend OTP with timer */}
       <View style={styles.resendContainer}>
         {canResend ? (
           <TouchableOpacity onPress={resendOTP}>
@@ -676,7 +642,7 @@ const SignupScreen: React.FC = () => {
           style={[styles.submitButton, { width: "48%" }]}
           title={isSubmitting ? "در حال تایید..." : "تایید کد"}
           onPress={handleOtpSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || otp.length !== 5}
         />
       </View>
     </View>
@@ -699,8 +665,6 @@ const SignupScreen: React.FC = () => {
         <AppText style={styles.successSubText}>
           شماره موبایل شما با موفقیت تایید شد
         </AppText>
-
-
       </View>
 
       <AppButton
@@ -713,6 +677,7 @@ const SignupScreen: React.FC = () => {
 
   return (
     <View style={styles.backgroundContainer}>
+      {/* Background */}
       <View style={styles.backgroundWrapper}>
         <Image
           source={require('../../assets/backgrounds/background-1.jpg')}
@@ -725,40 +690,45 @@ const SignupScreen: React.FC = () => {
         style={styles.gradientOverlay}
       >
         <Screen style={styles.container}>
-          <Animated.View
-            style={[
-              styles.iconContainer,
-              {
-                opacity: iconFadeAnim,
-                transform: [
-                  { translateY: iconSlideAnim },
-                  { scale: pulseAnim },
-                ],
-              },
-            ]}
-          >
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark || colors.primary]}
-              style={styles.iconCircle}
-            >
-              <View style={styles.iconInnerCircle}>
-                <MaterialIcons name="person-add" color={colors.white} size={65} />
-              </View>
-              <Animated.View
-                style={[
-                  styles.iconRing,
-                  {
-                    transform: [{ rotate: spin }],
-                  },
-                ]}
-              />
-            </LinearGradient>
-          </Animated.View>
+          {/* Toast خارج از ScrollView */}
+          <Toast
+            visible={toastVisible}
+            message={toastMessage}
+            type={toastType}
+            onHide={hideToast}
+            duration={3000}
+          />
 
-          <View style={styles.centerContainer}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {/* آیکون */}
             <Animated.View
               style={[
-                styles.loginBox,
+                styles.iconContainer,
+                {
+                  opacity: iconFadeAnim,
+                  transform: [
+                    { translateY: iconSlideAnim },
+                    { scale: pulseAnim },
+                  ],
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.primaryDark || colors.primary]}
+                style={styles.iconCircle}
+              >
+                <View style={styles.iconInnerCircle}>
+                  <MaterialIcons name="person-add" color={colors.white} size={50} />
+                </View>
+                {/* Decorative ring */}
+                <View style={styles.iconRing} />
+              </LinearGradient>
+            </Animated.View>
+
+            {/* محتوای اصلی */}
+            <Animated.View
+              style={[
+                styles.formBox,
                 {
                   opacity: formFadeAnim,
                   transform: [{ translateY: formSlideAnim }],
@@ -769,42 +739,25 @@ const SignupScreen: React.FC = () => {
               <View style={styles.glassOverlay} />
 
               {/* Content */}
-              <ScrollView
-                style={styles.contentScrollContainer}
-                contentContainerStyle={styles.contentContainer}
-                showsVerticalScrollIndicator={true}
-                keyboardShouldPersistTaps="handled"
-                nestedScrollEnabled={true}
-              >
-                <AppText style={styles.logingText}>ثبت نام</AppText>
+              <View style={styles.contentContainer}>
+                <AppText style={styles.titleText}>ثبت نام</AppText>
 
                 {renderStepIndicator()}
-                {currentStep === 1
-                  ? renderStep1()
-                  : currentStep === 2
-                    ? renderStep2()
-                    : currentStep === 3
-                      ? renderStep3()
-                      : renderStep4()}
-              </ScrollView>
+
+                {currentStep === 1 && renderStep1()}
+                {currentStep === 2 && renderStep2()}
+                {currentStep === 3 && renderStep3()}
+                {currentStep === 4 && renderStep4()}
+              </View>
             </Animated.View>
-          </View>
+          </ScrollView>
         </Screen>
       </LinearGradient>
-
-      <Toast
-        visible={toastVisible}
-        message={toastMessage}
-        type={toastType}
-        onHide={hideToast}
-        duration={3000}
-      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  // Background and Layout
   backgroundContainer: {
     flex: 1,
   },
@@ -824,28 +777,54 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   container: {
-    flex: 1,
     padding: 10,
-    justifyContent: "center",
-    fontFamily: "Yekan_Bakh_Regular",
     backgroundColor: 'transparent',
   },
-  scrollContainer: {
-    flexGrow: 1,
-    padding: 10,
-    justifyContent: "center",
-    minHeight: '100%',
-  },
-  centerContainer: {
+
+  // Icon Section
+  iconContainer: {
     justifyContent: "center",
     alignItems: "center",
+    marginBottom: -110,
+    marginTop: 50,
+    zIndex: 1000,
+  },
+  iconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: "center",
+    alignItems: "center",
+
+  },
+  iconInnerCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 206, 232, 0.15)',
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: 'rgba(255, 206, 232, 0.4)',
+    zIndex: 99,
+  },
+  iconRing: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 206, 232, 0.3)',
+    borderStyle: 'dashed',
   },
 
-  // Login Box and Glassmorphism
-  loginBox: {
+  // Form Box
+  formBox: {
     borderRadius: 25,
     padding: 25,
-    width: "100%",
+    margin: 5,
+    marginTop: 65,
+    marginBottom: 80,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -859,78 +838,20 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     borderWidth: 1.5,
     borderColor: 'rgba(255, 206, 232, 1)',
-    shadowColor: 'rgba(255, 255, 255, 1)',
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
+
     zIndex: 1,
   },
-  contentScrollContainer: {
-    position: 'relative',
-    zIndex: 2,
-  },
   contentContainer: {
-    backgroundColor: 'transparent',
-    paddingBottom: 20,
     position: 'relative',
-    zIndex: 2,
-  },
-
-  // Icon Styles
-  iconContainer: {
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: -20,
-    zIndex: 1000,
-  },
-  iconCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: "center",
-    alignItems: "center",
-    position: "absolute",
-    top: -80,
-    shadowColor: 'rgba(255, 206, 232, 0.2)',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  iconInnerCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 206, 232, 0.15)',
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: 'rgba(255, 206, 232, 0.4)',
-    zIndex: 99,
-  },
-  iconRing: {
-    position: 'absolute',
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 206, 232, 0.3)',
-    borderStyle: 'dashed',
+    zIndex: 1,
   },
 
   // Typography
-  logingText: {
-    marginTop: 50,
+  titleText: {
     fontSize: 30,
+    marginTop: 35,
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: 30,
     fontFamily: "Yekan_Bakh_Bold",
     color: colors.primary,
     textShadowColor: 'rgba(255, 206, 232, 0.1)',
@@ -938,26 +859,26 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
   },
 
-  // Step Indicator Styles
+  // Step Indicator
   stepIndicator: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 30,
-    flexWrap: "wrap",
+    flexWrap: 'wrap',
   },
   stepContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginHorizontal: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 5,
   },
   stepCircle: {
     width: 35,
     height: 35,
     borderRadius: 17.5,
     backgroundColor: colors.light,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 2,
     borderColor: colors.medium,
   },
@@ -968,7 +889,7 @@ const styles = StyleSheet.create({
   stepNumber: {
     fontSize: 14,
     color: colors.medium,
-    fontFamily: "Yekan_Bakh_Bold",
+    fontFamily: 'Yekan_Bakh_Bold',
   },
   activeStepText: {
     color: colors.white,
@@ -977,189 +898,182 @@ const styles = StyleSheet.create({
     marginTop: 8,
     fontSize: 10,
     color: colors.medium,
-    fontFamily: "Yekan_Bakh_Regular",
-    textAlign: "center",
-    maxWidth: 60,
+    fontFamily: 'Yekan_Bakh_Regular',
+    textAlign: 'center',
+    maxWidth: 70,
   },
   stepLine: {
-    width: 25,
+    width: 30,
     height: 2,
     backgroundColor: colors.light,
-    marginHorizontal: 3,
+    marginHorizontal: 5,
     marginTop: -20,
   },
   activeStepLine: {
     backgroundColor: colors.primary,
   },
 
-  // Step Content Styles
+  // Step Content
   sectionTitle: {
     fontSize: 18,
-    textAlign: "center",
-    marginBottom: 5,
+    textAlign: 'center',
+    marginBottom: 8,
     color: colors.dark,
-    fontFamily: "Yekan_Bakh_Bold",
+    fontFamily: 'Yekan_Bakh_Bold',
   },
   sectionSubTitle: {
     fontSize: 14,
-    fontFamily: "Yekan_Bakh_Bold",
-    textAlign: "center",
-    color: "#7e7e7e",
-    marginBottom: 20,
-  },
-
-  // Resend and Timer Styles
-  resendContainer: {
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  resendText: {
-    fontSize: 14,
-    color: colors.primary,
-    fontFamily: "Yekan_Bakh_Regular",
-    textDecorationLine: 'underline',
-  },
-  timerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timerText: {
-    fontSize: 14,
-    color: colors.medium,
-    fontFamily: "Yekan_Bakh_Regular",
+    fontFamily: 'Yekan_Bakh_Regular',
     textAlign: 'center',
+    color: '#7e7e7e',
+    marginBottom: 25,
+    lineHeight: 22,
   },
 
-  // Groups Section
-  groupsSection: {
-    marginBottom: 20,
-  },
+  // Groups
   groupsContainer: {
-    marginBottom: 20,
+    marginBottom: 25,
   },
-
-  // Loading and Error States
   loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
+    paddingVertical: 40,
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 15,
     fontSize: 14,
     color: colors.medium,
-    fontFamily: "Yekan_Bakh_Regular",
+    fontFamily: 'Yekan_Bakh_Regular',
   },
   errorContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 120,
-    width: '100%',
-    marginVertical: 20,
+    paddingVertical: 40,
   },
   errorText: {
     fontSize: 14,
-    fontFamily: "Yekan_Bakh_Bold",
+    fontFamily: 'Yekan_Bakh_Bold',
     color: '#9e9e9e',
-    marginTop: 12,
+    marginTop: 15,
     textAlign: 'center',
   },
   retryButton: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     backgroundColor: colors.primary,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginTop: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 15,
   },
   retryButtonText: {
     fontSize: 12,
-    fontFamily: "Yekan_Bakh_Bold",
+    fontFamily: 'Yekan_Bakh_Bold',
     color: colors.white,
     marginRight: 8,
   },
 
-  // Button Styles
+  // OTP
+  otpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 25,
+    paddingHorizontal: 10,
+  },
+  otpInput: {
+    width: 50,
+    height: 55,
+    borderWidth: 2,
+    borderColor: colors.medium,
+    borderRadius: 12,
+    textAlign: 'center',
+    fontSize: 20,
+    backgroundColor: colors.white,
+    fontFamily: 'Yekan_Bakh_Regular',
+  },
+
+  // Resend
+  resendContainer: {
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  resendText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontFamily: 'Yekan_Bakh_Regular',
+    textDecorationLine: 'underline',
+  },
+  timerContainer: {
+    alignItems: 'center',
+  },
+  timerText: {
+    fontSize: 14,
+    color: colors.medium,
+    fontFamily: 'Yekan_Bakh_Regular',
+  },
+
+  // Buttons
   nextButton: {
-    marginTop: 20,
+    marginTop: 25,
   },
   buttonContainer: {
-    flexDirection: "row-reverse",
-    marginTop: 20,
+    flexDirection: 'row-reverse',
+    marginTop: 25,
+    gap: 10,
   },
   backButton: {
+    flex: 1,
     backgroundColor: colors.medium,
   },
-  submitButton: {},
+  submitButton: {
+    flex: 1,
+  },
   finalButton: {
     marginTop: 30,
   },
 
-  // Footer Styles (Login Link)
+  // Footer
   footerContainer: {
-    marginTop: 20,
-    flexDirection: "row-reverse",
-    justifyContent: "center",
-    alignItems: "center",
+    marginTop: 25,
+    flexDirection: 'row-reverse',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   footerText: {
     fontSize: 16,
-    fontFamily: "Yekan_Bakh_Regular",
+    fontFamily: 'Yekan_Bakh_Regular',
     color: colors.medium,
   },
   signupText: {
     fontSize: 16,
     color: colors.primary,
-    textDecorationLine: "underline",
-    fontFamily: "Yekan_Bakh_Regular",
+    textDecorationLine: 'underline',
+    fontFamily: 'Yekan_Bakh_Regular',
   },
 
-  // OTP Input Styles
-  otpContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
-  otpInput: {
-    width: 50,
-    height: 50,
-    borderWidth: 1,
-    borderColor: colors.medium,
-    borderRadius: 10,
-    textAlign: "center",
-    fontSize: 20,
-    backgroundColor: colors.white,
-    fontFamily: "Yekan_Bakh_Regular",
-  },
-
-  // Success Page Styles
+  // Success
   successContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 40,
   },
   successText: {
     fontSize: 18,
-    fontFamily: "Yekan_Bakh_Bold",
+    fontFamily: 'Yekan_Bakh_Bold',
     color: colors.dark,
     textAlign: 'center',
     marginTop: 20,
   },
   successSubText: {
     fontSize: 14,
-    fontFamily: "Yekan_Bakh_Regular",
+    fontFamily: 'Yekan_Bakh_Regular',
     color: colors.medium,
     textAlign: 'center',
     marginTop: 10,
   },
-  successGroupText: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: colors.success,
-    textAlign: 'center',
-    marginTop: 5,
+  otpWrapper: {
+    marginBottom: 25,
+    marginTop: 10,
   },
 });
 
-export default SignupScreen; 
+export default SignupScreen;

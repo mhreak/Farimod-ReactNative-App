@@ -60,7 +60,6 @@ const modernColors = {
   gradientEnd: "#764ba2",
 };
 
-// کامپوننت لایک
 const LikeButton = ({ memberId, initialLikeCount = 0, initialIsLiked = false }) => {
   const [likeCount, setLikeCount] = useState(initialLikeCount);
   const [isLiked, setIsLiked] = useState(initialIsLiked);
@@ -78,11 +77,9 @@ const LikeButton = ({ memberId, initialLikeCount = 0, initialIsLiked = false }) 
     const countChange = newIsLiked ? 1 : -1;
     const newLikeCount = likeCount + countChange;
 
-    // بروزرسانی فوری UI
     setIsLiked(newIsLiked);
     setLikeCount(newLikeCount);
 
-    // انیمیشن لایک
     Animated.sequence([
       Animated.parallel([
         Animated.timing(likeAnim, {
@@ -117,7 +114,6 @@ const LikeButton = ({ memberId, initialLikeCount = 0, initialIsLiked = false }) 
       }),
     ]).start();
 
-    // انیمیشن قلب پرنده برای لایک
     if (newIsLiked) {
       setTimeout(() => {
         Animated.sequence([
@@ -159,21 +155,15 @@ const LikeButton = ({ memberId, initialLikeCount = 0, initialIsLiked = false }) 
       const result = await response.json();
       console.log('Like API Response:', result);
 
-      // اگر سرور لایک کانت واقعی برگردونه، بروزرسانی کنید
       if (result.LikeCount !== undefined) {
         setLikeCount(result.LikeCount);
       }
 
     } catch (error) {
       console.error('Like API Error:', error);
-
-      // در صورت خطا، تغییرات رو برگردونید
       setIsLiked(isLiked);
       setLikeCount(likeCount);
-
-      // نمایش پیام خطا (می‌تونید Toast اضافه کنید)
       console.log('خطا در ثبت لایک');
-
     } finally {
       setIsLiking(false);
     }
@@ -204,7 +194,6 @@ const LikeButton = ({ memberId, initialLikeCount = 0, initialIsLiked = false }) 
         </View>
       </TouchableOpacity>
 
-      {/* قلب پرنده */}
       <Animated.View
         style={[
           styles.floatingHeart,
@@ -235,14 +224,15 @@ const LikeButton = ({ memberId, initialLikeCount = 0, initialIsLiked = false }) 
 
 const VideoSection = ({ userData, animatedValues }) => {
   const [videoError, setVideoError] = useState(false);
+  const [videoLoading, setVideoLoading] = useState(true);
+  const [playerReady, setPlayerReady] = useState(false);
 
   if (!userData.IntroductionVideoFileName && !userData.IntroductionVideoURL) {
     return null;
   }
 
-  const videoSource =
-    userData.VideoURL ||
-    (userData.IntroductionVideoURL ? `${userData.IntroductionVideoURL}` : null);
+  const videoSource = userData.IntroductionVideoURL ||
+    (userData.VideoURL ? userData.VideoURL : null);
 
   if (!videoSource || videoError) {
     return (
@@ -282,18 +272,55 @@ const VideoSection = ({ userData, animatedValues }) => {
         style={styles.videoWrapper}
       >
         <View style={styles.videoShadow}>
+          {videoLoading && (
+            <View style={styles.videoLoadingContainer}>
+              <ActivityIndicator
+                size="large"
+                color={modernColors.primary}
+                style={styles.videoLoadingIndicator}
+              />
+              <AppText style={styles.videoLoadingText}>در حال بارگذاری ویدیو...</AppText>
+            </View>
+          )}
+
           <VideoView
             player={player}
-            style={styles.videoPlayer}
+            style={[
+              styles.videoPlayer,
+              {
+                opacity: videoLoading ? 0 : 1,
+                zIndex: videoLoading ? 1 : 5
+              }
+            ]}
             contentFit="cover"
             nativeControls
             onError={(e) => {
               console.log('Video error:', e);
               setVideoError(true);
+              setVideoLoading(false);
+            }}
+            onLoadStart={() => {
+              console.log('Video load started');
+              setVideoLoading(true);
+              setPlayerReady(false);
+            }}
+            onLoad={(data) => {
+              console.log('Video loaded - basic info available:', data);
+            }}
+            onReadyForDisplay={() => {
+              console.log('Video ready for display - can start playing');
+              setVideoLoading(false);
+              setPlayerReady(true);
+            }}
+            onPlaybackStatusUpdate={(status) => {
+              if (status && status.isLoaded && !videoError && !playerReady) {
+                console.log('Playback status - ready:', status);
+                setVideoLoading(false);
+                setPlayerReady(true);
+              }
             }}
           />
         </View>
-
       </LinearGradient>
     </Animated.View>
   );
@@ -341,7 +368,6 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   );
 };
 
-// اضافه کردن کامپوننت‌های اسکلتون
 const ProfileSkeleton = () => (
   <View style={styles.profileSection}>
     <View style={styles.avatarContainer}>
@@ -507,7 +533,6 @@ const BlogPostCardSkeleton = () => (
   </View>
 );
 
-// کامپوننت‌های کارت با قابلیت کلیک
 const PortfolioCard = ({ item, onPress }) => (
   <TouchableOpacity style={styles.portfolioCard} activeOpacity={0.8} onPress={() => onPress(item)}>
     <Image
@@ -516,7 +541,7 @@ const PortfolioCard = ({ item, onPress }) => (
           ? { uri: `${appConfig.mobileApi}Portfolio/GetImage/${item.ImageFileName}` }
           : item.FeaturedImageURL
             ? { uri: item.FeaturedImageURL }
-            : require("../../assets/portfolio_icon.jpg")  // عکس دیفالت پورتفولیو
+            : require("../../assets/portfolio_icon.jpg")
       }
       style={styles.portfolioImage}
     />
@@ -543,7 +568,7 @@ const CourseCard = ({ item, onPress }) => (
           ? { uri: `${appConfig.mobileApi}Course/GetCourseImage/${item.CourseImageFileName}` }
           : item.FeaturedImageURL
             ? { uri: item.FeaturedImageURL }
-            : require("../../assets/new_course.jpg")  // عکس دیفالت دوره
+            : require("../../assets/new_course.jpg")
       }
       style={styles.courseImage}
     />
@@ -555,7 +580,6 @@ const CourseCard = ({ item, onPress }) => (
         <View style={styles.coursePrice}>
           <MaterialIcons name="attach-money" size={16} color={modernColors.success} />
           <AppText style={styles.coursePriceText}>
-            {/* اصلاح خواندن قیمت از API */}
             {item.SpecialSalePrice && item.SpecialSalePrice > 0
               ? formatPrice(item.SpecialSalePrice)
               : item.Price && item.Price > 0
@@ -586,7 +610,7 @@ const ProductCard = ({ item, onPress }) => {
               ? { uri: `${appConfig.mobileApi}Product/GetProductImage/${item.ProductImageFileName}` }
               : item.FeaturedImageURL
                 ? { uri: item.FeaturedImageURL }
-                : require("../../assets/Product_icon.jpg")  // عکس دیفالت محصول
+                : require("../../assets/Product_icon.jpg")
           }
           style={styles.productImage}
         />
@@ -630,7 +654,7 @@ const GalleryCard = ({ item, onPress }) => (
           ? { uri: `${appConfig.mobileApi}ImageGallery/GetImage/${item.ImageFileName}` }
           : item.FeaturedImageURL
             ? { uri: item.FeaturedImageURL }
-            : require("../../assets/main-icon.png")  // عکس دیفالت گالری
+            : require("../../assets/main-icon.png")
       }
       style={styles.galleryImage}
     />
@@ -668,7 +692,7 @@ const BlogImageComponent = ({ item }) => {
       <View style={styles.blogImagePlaceholder}>
         <Image
           style={styles.postImage}
-          source={require("../../assets/blogPost_icon.jpg")}  // عکس دیفالت بلاگ
+          source={require("../../assets/blogPost_icon.jpg")}
         />
       </View>
     );
@@ -717,7 +741,6 @@ const BlogPostCard = ({ item, onPress }) => (
   </TouchableOpacity>
 );
 
-// بقیه کامپوننت‌ها
 const ContactItem = ({ icon, text, type, onPress, shimmerAnim }) => (
   <TouchableOpacity
     style={styles.modernContactItem}
@@ -826,21 +849,25 @@ const ExpandableText = ({ text, maxLines = 3 }) => {
   };
 
   if (!textReady) {
-    return <JustifiedText style={styles.bioText}>{text}</JustifiedText>;
+    return (
+      <View style={{ minHeight: 80, position: 'relative', zIndex: 1 }}>
+        <JustifiedText style={styles.bioText}>{text}</JustifiedText>
+      </View>
+    );
   }
 
   return (
-    <View>
+    <View style={{ position: 'relative', zIndex: 1 }}>
       {!isExpanded && showMoreButton ? (
         <View>
-          <JustifiedText style={styles.bioText}>
+          <JustifiedText style={[styles.bioText, { marginBottom: 15 }]}>
             {getTruncatedText()}
             <AppText style={styles.ellipsisText}>...</AppText>
           </JustifiedText>
 
           <TouchableOpacity
             onPress={toggleExpanded}
-            style={styles.showMoreButton}
+            style={[styles.showMoreButton, { marginBottom: 10 }]}
             activeOpacity={0.7}
           >
             <AppText style={styles.showMoreText}>نمایش بیشتر</AppText>
@@ -853,14 +880,14 @@ const ExpandableText = ({ text, maxLines = 3 }) => {
         </View>
       ) : (
         <View>
-          <JustifiedText style={styles.bioText}>
+          <JustifiedText style={[styles.bioText, { marginBottom: 15 }]}>
             {text}
           </JustifiedText>
 
           {showMoreButton && isExpanded && (
             <TouchableOpacity
               onPress={toggleExpanded}
-              style={styles.showLessButton}
+              style={[styles.showLessButton, { marginBottom: 10 }]}
               activeOpacity={0.7}
             >
               <AppText style={styles.showLessText}>نمایش کمتر</AppText>
@@ -893,11 +920,10 @@ const UserProfileScreen = () => {
   const route = useRoute();
   const { userData } = route.params || {};
 
-  const memberId = userData?.MemberId || userData?.id || null;
+  const memberId = userData?.MemberId || null;
 
   const { data: memberProfile, loading, error, refetch } = useMemberProfile(memberId);
 
-  // توابع ناوبری به جزئیات
   const handleNavigateToFilteredContent = (contentType, memberId, memberName) => {
     const navigationMap = {
       blog: 'MagScreen',
@@ -932,7 +958,6 @@ const UserProfileScreen = () => {
     }
   };
 
-  // توابع کلیک روی آیتم‌ها
   const handlePortfolioPress = (portfolioData) => {
     try {
       const portfolioId = portfolioData.PortfolioId || portfolioData.PotfolioId;
@@ -977,7 +1002,8 @@ const UserProfileScreen = () => {
     try {
       navigation.navigate("GalleryItem", {
         title: galleryData.Title,
-        galleryId: galleryData.ImageGalleryId      });
+        galleryId: galleryData.ImageGalleryId
+      });
     } catch (error) {
       console.error('Navigation error (Gallery):', error);
     }
@@ -1095,6 +1121,8 @@ const UserProfileScreen = () => {
     Mobile: "09123456789",
     CityName: "تهران",
     ProvinceName: "ایران",
+    ShowAboutMeText: true,
+    ShowContactInfo: true,
   };
 
   const handleGoBack = () => {
@@ -1130,10 +1158,11 @@ const UserProfileScreen = () => {
         styles.glassSection,
         {
           opacity: 1,
+          marginVertical: 10,
         },
       ]}
     >
-      <View style={styles.sectionHeaderInfo}>
+      <View style={[styles.sectionHeaderInfo, { marginBottom: 20 }]}>
         <LinearGradient
           colors={[iconColor, iconColor + 'CC']}
           style={styles.iconWrapper}
@@ -1142,7 +1171,9 @@ const UserProfileScreen = () => {
         </LinearGradient>
         <AppText style={styles.sectionTitleInfo}>{title}</AppText>
       </View>
-      {children}
+      <View style={{ position: 'relative', zIndex: 1 }}>
+        {children}
+      </View>
       <View style={[styles.featureAccent, { backgroundColor: iconColor + "40" }]} />
     </View>
   );
@@ -1152,7 +1183,8 @@ const UserProfileScreen = () => {
   const renderProductItem = ({ item }) => <ProductCard item={item} onPress={handleProductPress} />;
   const renderGalleryItem = ({ item }) => <GalleryCard item={item} onPress={handleGalleryPress} />;
   const renderBlogPostItem = ({ item }) => <BlogPostCard item={item} onPress={handleBlogPress} />;
-
+  { console.log('ShowAboutMeText:', user.ShowAboutMeText) }
+  { console.log('ShowContactInfo:', user.ShowContactInfo) }
   if (loading) {
     return (
       <>
@@ -1236,7 +1268,6 @@ const UserProfileScreen = () => {
             />
           </Animated.View>
 
-          {/* دکمه بازگشت */}
           <Animated.View
             style={[
               styles.backButtonContainer,
@@ -1365,48 +1396,51 @@ const UserProfileScreen = () => {
             />
           </Animated.View>
 
-          {/* باکس ویدیو کاربر */}
           <VideoSection userData={user} animatedValues={animatedValues} />
 
           {!shouldShowQuickAccess && <View style={{ height: 50 }} />}
 
-          <InfoSection icon="person" title="درباره من" iconColor={modernColors.info}>
-            <ExpandableText text={safeString(user.AboutMe, 'اطلاعات بیوگرافی موجود نیست')} maxLines={3} />
-          </InfoSection>
+          {user.ShowAboutMeText === true && (
+            <InfoSection icon="person" title="درباره من" iconColor={modernColors.info}>
+              <ExpandableText text={safeString(user.AboutMe, 'اطلاعات بیوگرافی موجود نیست')} maxLines={3} />
+            </InfoSection>
+          )}
 
-          <InfoSection icon="contact-phone" title="اطلاعات تماس" iconColor={modernColors.tertiary}>
-            <View style={styles.contactGrid}>
-              {user.Email && (
-                <ContactItem
-                  icon="email"
-                  text={user.Email}
-                  type="email"
-                  shimmerAnim={shimmerAnim}
-                  onPress={() => console.log('Open Email')}
-                />
-              )}
+          {user.ShowContactInfo === true && (
+            <InfoSection icon="contact-phone" title="اطلاعات تماس" iconColor={modernColors.tertiary}>
+              <View style={styles.contactGrid}>
+                {user.Email && (
+                  <ContactItem
+                    icon="email"
+                    text={user.Email}
+                    type="email"
+                    shimmerAnim={shimmerAnim}
+                    onPress={() => console.log('Open Email')}
+                  />
+                )}
 
-              {user.Mobile && (
-                <ContactItem
-                  icon="phone"
-                  text={user.Mobile}
-                  type="phone"
-                  shimmerAnim={shimmerAnim}
-                  onPress={() => console.log('Call Phone')}
-                />
-              )}
+                {user.Mobile && (
+                  <ContactItem
+                    icon="phone"
+                    text={user.Mobile}
+                    type="phone"
+                    shimmerAnim={shimmerAnim}
+                    onPress={() => console.log('Call Phone')}
+                  />
+                )}
 
-              {(user.CityName || user.ProvinceName) && (
-                <ContactItem
-                  icon="location-on"
-                  text={`${safeString(user.CityName, '')}${user.CityName && user.ProvinceName ? '، ' : ''}${safeString(user.ProvinceName, '')}`}
-                  type="location"
-                  shimmerAnim={shimmerAnim}
-                  onPress={() => console.log('Open Location')}
-                />
-              )}
-            </View>
-          </InfoSection>
+                {(user.CityName || user.ProvinceName) && (
+                  <ContactItem
+                    icon="location-on"
+                    text={`${safeString(user.CityName, '')}${user.CityName && user.ProvinceName ? '، ' : ''}${safeString(user.ProvinceName, '')}`}
+                    type="location"
+                    shimmerAnim={shimmerAnim}
+                    onPress={() => console.log('Open Location')}
+                  />
+                )}
+              </View>
+            </InfoSection>
+          )}
 
           {shouldShowQuickAccess && (
             <Animated.View
@@ -1582,6 +1616,31 @@ const UserProfileScreen = () => {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.horizontalList}
                 ItemSeparatorComponent={() => <View style={{ width: 15 }} />}
+                getItemLayout={(data, index) => ({
+                  length: 300,
+                  offset: 315 * index,
+                  index,
+                })}
+                initialNumToRender={3}
+                maxToRenderPerBatch={2}
+                windowSize={5}
+                removeClippedSubviews={true}
+                bounces={true}
+                decelerationRate="fast"
+                snapToInterval={315}
+                snapToAlignment="start"
+                ListEmptyComponent={() => (
+                  <View style={styles.emptyStateContainer}>
+                    <MaterialIcons name="school" size={40} color={modernColors.medium} />
+                    <AppText style={styles.emptyStateText}>دوره‌ای موجود نیست</AppText>
+                  </View>
+                )}
+                ListHeaderComponent={() => <View style={{ width: 5 }} />}
+                ListFooterComponent={() => <View style={{ width: 5 }} />}
+                scrollEventThrottle={16}
+                onMomentumScrollEnd={(event) => {
+                  console.log('Course scroll ended');
+                }}
               />
             </Animated.View>
           )}
@@ -1702,10 +1761,8 @@ const styles = StyleSheet.create({
   },
   backButtonContainer: {
     alignSelf: 'flex-end',
-    // marginBottom: 10,
-    // marginTop:50,
     marginTop: PROFILE_CONSTANTS.PROFILE_SECTION_TOP + 100,
-    marginBottom: PROFILE_CONSTANTS.PROFILE_SECTION_TOP -1670,
+    marginBottom: PROFILE_CONSTANTS.PROFILE_SECTION_TOP - 1670,
     zIndex: 4,
   },
   backButton: {
@@ -1715,21 +1772,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255,0.51)',
     justifyContent: 'center',
     alignItems: 'center',
-    // borderWidth: 1,
-    // borderColor: 'rgba(255, 255, 255,1)',
   },
   profileSection: {
     alignItems: "center",
     padding: 25,
-    marginBottom: 30,
+    marginBottom: 40,
     marginTop: PROFILE_CONSTANTS.PROFILE_SECTION_TOP,
     zIndex: 2,
     position: 'relative',
+    minHeight: 300,
   },
   avatarContainer: {
-    marginBottom: 20,
+    marginBottom: 25,
     position: 'relative',
     zIndex: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarGlowContainer: {
     position: 'relative',
@@ -1824,28 +1882,38 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontFamily: "Yekan_Bakh_Bold",
     color: modernColors.dark,
-    marginBottom: 2,
+    marginBottom: 8,
     textAlign: 'center',
+    zIndex: 10,
+    position: 'relative',
   },
   userProfession: {
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Regular",
     color: modernColors.medium,
-    marginBottom: 15,
+    marginBottom: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
     borderRadius: 50,
-    backdropFilter: "blur(20px)",
-    WebkitBackdropFilter: "blur(20px)",
-    borderColor: "rgba(255, 255, 255, 0.8)",
-    borderWidth: 1,
     textAlign: 'center',
+    zIndex: 9,
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   likeSection: {
     position: 'relative',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 15,
+    zIndex: 8,
+    paddingVertical: 10,
   },
   likeButton: {
     borderRadius: 25,
@@ -1862,6 +1930,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.3)",
   },
+  likeText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    marginRight: 8,
+  },
   floatingHeart: {
     position: 'absolute',
     top: -10,
@@ -1870,22 +1943,46 @@ const styles = StyleSheet.create({
   },
   videoSection: {
     marginHorizontal: 0,
-    marginBottom: 50,
+    marginBottom: 60,
+    marginTop: 20,
+    zIndex: 1,
+    position: 'relative',
   },
   videoWrapper: {
     borderRadius: 20,
     overflow: 'hidden',
     padding: 4,
-
   },
   videoShadow: {
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#000',
+    position: 'relative',
   },
   videoPlayer: {
     width: '100%',
     height: 220,
+  },
+  videoLoadingContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+    borderRadius: 16,
+  },
+  videoLoadingIndicator: {
+    marginBottom: 15,
+  },
+  videoLoadingText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#ffffff',
+    textAlign: 'center',
   },
   videoPlaceholder: {
     aspectRatio: 1,
@@ -1905,23 +2002,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   glassSection: {
-    marginBottom: 15,
-    backgroundColor: "rgba(248, 250, 252, 0.3)",
-    backdropFilter: "blur(15px)",
+    marginBottom: 20,
+    backgroundColor: "rgba(248, 250, 252, 0.5)",
     borderRadius: 22,
     padding: 20,
     borderWidth: 1,
     borderColor: "rgba(203, 213, 225, 0.4)",
     position: "relative",
     overflow: "hidden",
-    shadowColor: "rgba(0, 0, 0, 0.1)",
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 12,
+
+    zIndex: 1,
+    minHeight: 80,
   },
   sectionHeaderInfo: {
     flexDirection: "row-reverse",
@@ -1954,6 +2045,8 @@ const styles = StyleSheet.create({
     textAlign: "left",
     letterSpacing: 0.3,
     wordSpacing: 2,
+    marginBottom: 10,
+    paddingVertical: 5,
     writingDirection: 'ltr',
     ...(Platform.OS === 'ios' && {
       writingDirection: 'rtl',
@@ -2026,14 +2119,16 @@ const styles = StyleSheet.create({
   modernContactItem: {
     flexDirection: "row-reverse",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.4)",
+    backgroundColor: "rgba(255, 255, 255, 0.8)",
     paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingVertical: 20,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.6)",
     position: 'relative',
     overflow: 'hidden',
+    marginBottom: 8,
+    minHeight: 70,
   },
   contactIconContainer: {
     width: 44,
@@ -2066,8 +2161,11 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   quickAccessContainer: {
-    marginBottom: 25,
-    paddingVertical: 10,
+    marginBottom: 30,
+    marginTop: 15,
+    paddingVertical: 15,
+    zIndex: 1,
+    position: 'relative',
   },
   quickAccessGrid: {
     flexDirection: 'row-reverse',
@@ -2101,7 +2199,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 5,
-    marginBottom: 15,
+    marginBottom: 20,
+    marginTop: 10,
+    minHeight: 40,
   },
   sectionTitleContainer: {
     flexDirection: 'row-reverse',
@@ -2405,6 +2505,20 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Regular",
     color: '#666',
     marginRight: 8,
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    width: width - 40,
+  },
+  emptyStateText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: modernColors.medium,
+    marginTop: 10,
+    textAlign: 'center',
   },
   decorativeElements: {
     position: "absolute",

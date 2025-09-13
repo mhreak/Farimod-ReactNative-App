@@ -697,6 +697,8 @@ const MagDetailesScreen = ({ route }) => {
           <AppText style={styles.titleText}>
             {toPersianDigits(blogPost.Title)}
           </AppText>
+   
+          {renderContentItems()}
           {blogPost.MemberName && (
             <View style={styles.authorContainer}>
               <View style={styles.authorCardBorder}>
@@ -704,13 +706,11 @@ const MagDetailesScreen = ({ route }) => {
                   <MaterialIcons name="person" size={18} color="#816bff" />
                 </View>
                 <AppText style={styles.authorText}>
-                 {toPersianDigits(blogPost.MemberName)}
+                  {toPersianDigits(blogPost.MemberName)}
                 </AppText>
               </View>
             </View>
           )}
-          {renderContentItems()}
-
           {blogPost.BlogPostCategoriesStr && blogPost.BlogPostCategoriesStr.trim() !== '' && (
             <View style={styles.categoriesContainer}>
               <View style={styles.categoriesList}>

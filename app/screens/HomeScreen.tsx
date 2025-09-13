@@ -30,6 +30,8 @@ import MenuModal from "../components/MenuModal";
 import { useAuth } from "../contexts/AuthContext";
 import { CommonActions } from "@react-navigation/native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppUpdate } from "../contexts/AppUpdateContext";
+
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -47,7 +49,7 @@ interface Portfolio {
   PotfolioId?: number;
   Title: string;
   Description: string;
-  InsertDate: string;
+  ShamsiInsertDate: string;
   Active: boolean;
   LikeCount: number;
   Rating: number | null;
@@ -376,9 +378,8 @@ const PortfolioCard = ({ item, onPress }: { item: Portfolio; onPress?: (portfoli
             <MaterialIcons name="calendar-month" size={14} color="#666" />
             <AppText style={styles.dateText}>
               {toPersianDigits(
-                item.InsertDate
-                  ? new Date(item.InsertDate).toLocaleDateString('fa-IR')
-                  : 'بدون تاریخ'
+                item.ShamsiInsertDate
+                 
               )}
             </AppText>
           </View>
@@ -873,6 +874,7 @@ const AvatarSkeleton = ({ size = 100 }) => {
 const HomeScreen = () => {
   const navigation = useNavigation();
   const { logout } = useAuth();
+  const { setHomeScreenStatus } = useAppUpdate();
 
   const [selectedScreen, setSelectedScreen] = useState("Home");
 
@@ -956,6 +958,13 @@ const HomeScreen = () => {
       showToast('خطا در دریافت اطلاعات مقالات. لطفاً دوباره تلاش کنید.', 'error');
     }
   }, [blogPostsError]);
+  useEffect(() => {
+    setHomeScreenStatus(true);
+    return () => {
+      setHomeScreenStatus(false);
+    };
+  }, [setHomeScreenStatus]);
+
 
   const totalMemberPages = Math.ceil(members.length / 3);
   const totalProductPages = Math.ceil(products.length / 2);

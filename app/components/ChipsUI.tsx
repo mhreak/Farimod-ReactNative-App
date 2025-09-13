@@ -5,12 +5,15 @@ import AppText from '../components/Text';
 import colors from '../config/colors';
 import { MemberGroup } from '../config/type';
 
+type SortType = 'length-asc' | 'length-desc' | 'alphabetical' | 'none';
+
 interface ChipsUIProps {
   groups: MemberGroup[];
   selectedGroups: number[];
   onToggleGroup: (groupId: number) => void;
   maxSelectable?: number;
   allowMultipleSelection?: boolean;
+  sortType?: SortType;
 }
 
 const ChipsUI: React.FC<ChipsUIProps> = ({
@@ -19,12 +22,45 @@ const ChipsUI: React.FC<ChipsUIProps> = ({
   onToggleGroup,
   maxSelectable,
   allowMultipleSelection = true,
+  sortType = 'length-asc',
 }) => {
+  // مرتب‌سازی گروه‌ها بر اساس نوع انتخاب شده
+  const sortedGroups = React.useMemo(() => {
+    const activeGroups = groups.filter(group => group.Active);
+
+    switch (sortType) {
+      case 'length-asc':
+        return [...activeGroups].sort((a, b) => a.GroupName.length - b.GroupName.length);
+
+      case 'length-desc':
+        return [...activeGroups].sort((a, b) => b.GroupName.length - a.GroupName.length);
+
+      case 'alphabetical':
+        return [...activeGroups].sort((a, b) => a.GroupName.localeCompare(b.GroupName, 'fa'));
+
+      case 'none':
+      default:
+        return activeGroups;
+    }
+  }, [groups, sortType]);
+
+  // محاسبه فونت سایز بر اساس طول متن
+  const getFontSize = (groupName: string) => {
+    const textLength = groupName.length;
+
+    if (textLength < 5) return 15;
+    if (textLength < 10) return 14;
+    if (textLength < 15) return 13;
+    return 12;
+  };
+
   const renderChip = (group: MemberGroup) => {
     const isSelected = selectedGroups.includes(group.MemberGroupId);
     const canSelect = allowMultipleSelection
       ? !maxSelectable || selectedGroups.length < maxSelectable || isSelected
       : selectedGroups.length === 0 || isSelected;
+
+    const dynamicFontSize = getFontSize(group.GroupName);
 
     return (
       <TouchableOpacity
@@ -50,9 +86,11 @@ const ChipsUI: React.FC<ChipsUIProps> = ({
           <AppText
             style={[
               styles.chipText,
+              { fontSize: dynamicFontSize },
               isSelected && styles.selectedChipText,
               !canSelect && styles.disabledChipText,
             ]}
+            numberOfLines={1}
           >
             {group.GroupName}
           </AppText>
@@ -76,9 +114,7 @@ const ChipsUI: React.FC<ChipsUIProps> = ({
         contentContainerStyle={styles.scrollContainer}
       >
         <View style={styles.chipsContainer}>
-          {groups
-            .filter(group => group.Active)
-            .map(group => renderChip(group))}
+          {sortedGroups.map(group => renderChip(group))}
         </View>
       </ScrollView>
 
@@ -97,23 +133,23 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     paddingHorizontal: 0,
-    paddingVertical: 5,
+    paddingVertical: 0,
   },
   chipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'flex-end',
-    alignItems: 'flex-end',
+    alignItems: 'flex-start',
   },
   chip: {
     backgroundColor: colors.light,
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
     borderWidth: 1,
     borderColor: colors.medium,
     marginRight: 8,
     marginBottom: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -123,9 +159,11 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 1,
     alignSelf: 'flex-start',
+    flexShrink: 0,
+    // حذف minWidth و maxWidth برای عدم محدودیت عرض
   },
   selectedChip: {
-    backgroundColor: colors.success, 
+    backgroundColor: colors.success,
     borderColor: colors.success,
     shadowColor: colors.success,
     shadowOpacity: 0.3,
@@ -141,12 +179,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    // اضافه کردن flexShrink: 0 تا از فشرده شدن محتوا جلوگیری شود
+    flexShrink: 0,
   },
   chipText: {
-    fontSize: 14,
     color: colors.dark,
     fontFamily: 'Yekan_Bakh_Regular',
     textAlign: 'center',
+    // حذف محدودیت‌های عرض و اضافه کردن flexShrink: 0
+    flexShrink: 0,
   },
   selectedChipText: {
     color: colors.white,
@@ -157,9 +198,11 @@ const styles = StyleSheet.create({
   },
   checkIcon: {
     marginRight: 6,
+    flexShrink: 0,
   },
   addIcon: {
     marginLeft: 6,
+    flexShrink: 0,
   },
   helperText: {
     fontSize: 12,

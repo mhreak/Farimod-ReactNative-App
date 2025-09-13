@@ -152,9 +152,7 @@ const usePortfolioDetail = () => {
         Description: result.Portfolio.Description || "توضیحات موجود نیست",
         Category: "نمونه کار",
         MemberName: result.Portfolio.MemberName || "نام طراح نامشخص",
-        CreatedDate: result.Portfolio.InsertDate ?
-          new Date(result.Portfolio.InsertDate).toLocaleDateString('fa-IR') :
-          "تاریخ نامشخص",
+        ShamsiInsertDate: result.Portfolio.ShamsiInsertDate ||  "تاریخ نامشخص",
         ViewCount: 0,
         LikeCount: result.Portfolio.LikeCount || 0,
         Images: images,
@@ -1084,7 +1082,7 @@ const PortfolioDetailScreen = ({ route }) => {
               <View style={styles.dateSection}>
                 <MaterialIcons name="calendar-today" size={16} color="#9e9e9e" />
                 <AppText style={styles.dateText}>
-                  {toPersianDigits(portfolio.CreatedDate)}
+                  {toPersianDigits(portfolio.ShamsiInsertDate)}
                 </AppText>
               </View>
             </View>
@@ -1481,7 +1479,7 @@ const styles = StyleSheet.create({
   portfolioImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 12,
+    // borderRadius: 12,
   },
   defaultImageStyle: {
     // borderRadius: 200,
@@ -1578,12 +1576,11 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
+    
+
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e9ecef',
+
     overflow: 'hidden',
   },
   imageText: {
@@ -1649,7 +1646,7 @@ const styles = StyleSheet.create({
   defaultPortfolioImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 12,
+
   },
   noImageText: {
     fontSize: 18,
