@@ -2,8 +2,8 @@
 const appInfo = {
   name: "farimod",
   slug: "farimod-2",
-  version: "1.0.0",
-  versionNumber: 1.0, 
+  version: "1.1.0",
+  versionNumber: 1.1, 
   packageName: "com.yeganeh0.farimod2",
   owner: "yeganeh0",
 
