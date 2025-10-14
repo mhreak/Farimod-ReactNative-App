@@ -286,145 +286,164 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     return validAssets;
   };
 
-  const pickImageFromGallery = async () => {
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) return;
+// تغییرات در ImageUpload.tsx
 
-    setIsUploading(true);
-    try {
-      let mediaTypes;
-      if (allowVideos && allowImages) {
-        mediaTypes = 'All';
-      } else if (allowVideos && !allowImages) {
-        mediaTypes = 'Videos';
-      } else {
-        mediaTypes = 'Images';
-      }
+// در تابع pickImageFromGallery، بعد از دریافت asset:
+const pickImageFromGallery = async () => {
+  const hasPermission = await requestPermissions();
+  if (!hasPermission) return;
 
-      const shouldEnableEditing = !isMultiple && allowEditing && !allowVideos;
-      const enableMultipleSelection = isMultiple && maxImages > 1 && !shouldEnableEditing;
-      const selectionCount = isMultiple ? Math.max(1, Math.min(maxImages - currentImages.length, maxImages)) : 1;
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: mediaTypes,
-        allowsEditing: shouldEnableEditing,
-        aspect: shouldEnableEditing ? aspectRatio : undefined,
-        quality: imageQuality,
-        allowsMultipleSelection: enableMultipleSelection,
-        selectionLimit: selectionCount,
-      });
-
-      if (!result.canceled && result.assets) {
-        const validAssets = validateFileSize(result.assets);
-        if (validAssets.length === 0) {
-          setIsUploading(false);
-          return;
-        }
-
-        const newImages = validAssets.map((asset, index) => {
-          if (!asset || !asset.uri) return null;
-
-          const imageItem: ImageItem = {
-            id: Date.now().toString() + index,
-            uri: asset.uri,
-            name: asset.fileName || `${asset.type?.includes('video') ? 'video' : 'image'}_${Date.now()}.${asset.type?.includes('video') ? 'mp4' : 'jpg'}`,
-            type: asset.type || (allowVideos && !allowImages ? 'video/mp4' : 'image/jpeg'),
-            size: asset.fileSize,
-          };
-          return imageItem;
-        }).filter(item => item !== null);
-
-        if (isMultiple && enableMultipleSelection) {
-          const updatedImages = [...currentImages, ...newImages].slice(0, maxImages);
-          updateImages(updatedImages);
-        } else {
-          updateImages(newImages);
-        }
-        setModalVisible(false);
-
-        if (validAssets.length < result.assets.length) {
-          showToastMessage('برخی فایل‌ها به دلیل حجم زیاد نادیده گرفته شدند', 'warning');
-        }
-      }
-    } catch (error) {
-      console.error('Gallery picker error:', error);
-      showToastMessage('مشکلی در انتخاب فایل پیش آمد');
-    } finally {
-      setIsUploading(false);
+  setIsUploading(true);
+  try {
+    let mediaTypes;
+    if (allowVideos && allowImages) {
+      mediaTypes = 'All';
+    } else if (allowVideos && !allowImages) {
+      mediaTypes = 'Videos';
+    } else {
+      mediaTypes = 'Images';
     }
-  };
 
-  const takePhoto = async () => {
-    const hasPermission = await requestPermissions();
-    if (!hasPermission) return;
+    const shouldEnableEditing = !isMultiple && allowEditing && !allowVideos;
+    const enableMultipleSelection = isMultiple && maxImages > 1 && !shouldEnableEditing;
+    const selectionCount = isMultiple ? Math.max(1, Math.min(maxImages - currentImages.length, maxImages)) : 1;
 
-    setIsUploading(true);
-    try {
-      let mediaTypes;
-      if (allowVideos && allowImages) {
-        mediaTypes = 'All';
-      } else if (allowVideos && !allowImages) {
-        mediaTypes = 'Videos';
-      } else {
-        mediaTypes = 'Images';
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: mediaTypes,
+      allowsEditing: shouldEnableEditing,
+      aspect: shouldEnableEditing ? aspectRatio : undefined,
+      quality: imageQuality,
+      allowsMultipleSelection: enableMultipleSelection,
+      selectionLimit: selectionCount,
+    });
+
+    if (!result.canceled && result.assets) {
+      const validAssets = validateFileSize(result.assets);
+      if (validAssets.length === 0) {
+        setIsUploading(false);
+        return;
       }
 
-      const shouldEnableEditing = !isMultiple && allowEditing && !allowVideos;
+      const newImages = validAssets.map((asset, index) => {
+        if (!asset || !asset.uri) return null;
 
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: mediaTypes,
-        allowsEditing: shouldEnableEditing,
-        aspect: shouldEnableEditing ? aspectRatio : undefined,
-        quality: allowVideos && !allowImages ? 1.0 : imageQuality,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        if (!asset.uri) {
-          showToastMessage('خطا در دریافت فایل از دوربین');
-          setIsUploading(false);
-          return;
+        // فیکس URI برای iOS
+        let processedUri = asset.uri;
+        if (Platform.OS === 'ios' && !asset.uri.startsWith('file://')) {
+          processedUri = `file://${asset.uri}`;
         }
 
-        const validAssets = validateFileSize(result.assets);
-        if (validAssets.length === 0) {
-          setIsUploading(false);
-          return;
-        }
-
-        const validAsset = validAssets[0];
-        const newImage: ImageItem = {
-          id: Date.now().toString(),
-          uri: validAsset.uri,
-          name: validAsset.fileName || `${validAsset.type?.includes('video') ? 'captured_video' : 'captured_photo'}_${Date.now()}.${validAsset.type?.includes('video') ? 'mp4' : 'jpg'}`,
-          type: validAsset.type || (allowVideos && !allowImages ? 'video/mp4' : 'image/jpeg'),
-          size: validAsset.fileSize,
+        const imageItem: ImageItem = {
+          id: Date.now().toString() + index,
+          uri: processedUri, // استفاده از URI پردازش شده
+          name: asset.fileName || `${asset.type?.includes('video') ? 'video' : 'image'}_${Date.now()}.${asset.type?.includes('video') ? 'mp4' : 'jpg'}`,
+          type: asset.type || (allowVideos && !allowImages ? 'video/mp4' : 'image/jpeg'),
+          size: asset.fileSize,
         };
+        return imageItem;
+      }).filter(item => item !== null);
 
-        if (isMultiple) {
-          const updatedImages = [...currentImages, newImage].slice(0, maxImages);
-          updateImages(updatedImages);
-        } else {
-          updateImages([newImage]);
-        }
-        setModalVisible(false);
-        showToastMessage(`${validAsset.type?.includes('video') ? 'ویدئو' : 'عکس'} با موفقیت ضبط شد`, 'success');
-      }
-    } catch (error) {
-      console.error('Camera capture error:', error);
-      if (error.message.includes('User cancelled') || error.message.includes('cancelled')) {
-        // User cancelled, no need to show error
-      } else if (error.message.includes('Camera permission')) {
-        showToastMessage('مجوز دسترسی به دوربین لازم است');
-      } else if (error.message.includes('not available')) {
-        showToastMessage('دوربین در دسترس نیست');
+      if (isMultiple && enableMultipleSelection) {
+        const updatedImages = [...currentImages, ...newImages].slice(0, maxImages);
+        updateImages(updatedImages);
       } else {
-        showToastMessage('مشکلی در ضبط ویدئو پیش آمد: ' + error.message);
+        updateImages(newImages);
       }
-    } finally {
-      setIsUploading(false);
+      setModalVisible(false);
+
+      if (validAssets.length < result.assets.length) {
+        showToastMessage('برخی فایل‌ها به دلیل حجم زیاد نادیده گرفته شدند', 'warning');
+      }
     }
-  };
+  } catch (error) {
+    console.error('Gallery picker error:', error);
+    showToastMessage('مشکلی در انتخاب فایل پیش آمد');
+  } finally {
+    setIsUploading(false);
+  }
+};
+
+// فیکس تابع takePhoto:
+const takePhoto = async () => {
+  const hasPermission = await requestPermissions();
+  if (!hasPermission) return;
+
+  setIsUploading(true);
+  try {
+    let mediaTypes;
+    if (allowVideos && allowImages) {
+      mediaTypes = 'All';
+    } else if (allowVideos && !allowImages) {
+      mediaTypes = 'Videos';
+    } else {
+      mediaTypes = 'Images';
+    }
+
+    const shouldEnableEditing = !isMultiple && allowEditing && !allowVideos;
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: mediaTypes,
+      allowsEditing: shouldEnableEditing,
+      aspect: shouldEnableEditing ? aspectRatio : undefined,
+      quality: allowVideos && !allowImages ? 1.0 : imageQuality,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      if (!asset.uri) {
+        showToastMessage('خطا در دریافت فایل از دوربین');
+        setIsUploading(false);
+        return;
+      }
+
+      const validAssets = validateFileSize(result.assets);
+      if (validAssets.length === 0) {
+        setIsUploading(false);
+        return;
+      }
+
+      const validAsset = validAssets[0];
+      
+      // فیکس URI برای iOS
+      let processedUri = validAsset.uri;
+      if (Platform.OS === 'ios' && !validAsset.uri.startsWith('file://')) {
+        processedUri = `file://${validAsset.uri}`;
+      }
+      
+      const newImage: ImageItem = {
+        id: Date.now().toString(),
+        uri: processedUri, // استفاده از URI پردازش شده
+        name: validAsset.fileName || `${validAsset.type?.includes('video') ? 'captured_video' : 'captured_photo'}_${Date.now()}.${validAsset.type?.includes('video') ? 'mp4' : 'jpg'}`,
+        type: validAsset.type || (allowVideos && !allowImages ? 'video/mp4' : 'image/jpeg'),
+        size: validAsset.fileSize,
+      };
+
+      if (isMultiple) {
+        const updatedImages = [...currentImages, newImage].slice(0, maxImages);
+        updateImages(updatedImages);
+      } else {
+        updateImages([newImage]);
+      }
+      setModalVisible(false);
+      showToastMessage(`${validAsset.type?.includes('video') ? 'ویدئو' : 'عکس'} با موفقیت ضبط شد`, 'success');
+    }
+  } catch (error) {
+    console.error('Camera capture error:', error);
+    if (error.message && (error.message.includes('User cancelled') || error.message.includes('cancelled'))) {
+      // User cancelled, no need to show error
+    } else if (error.message && error.message.includes('Camera permission')) {
+      showToastMessage('مجوز دسترسی به دوربین لازم است');
+    } else if (error.message && error.message.includes('not available')) {
+      showToastMessage('دوربین در دسترس نیست');
+    } else {
+      showToastMessage('مشکلی در ضبط ویدئو پیش آمد: ' + (error.message || 'خطای نامشخص'));
+    }
+  } finally {
+    setIsUploading(false);
+  }
+};
+
+ 
   const isValidVideoFormat = (uri) => {
     const supportedFormats = ['.mp4', '.mov', '.m4v'];
     return supportedFormats.some(format =>

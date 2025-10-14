@@ -12,14 +12,12 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onPress }) => {
     return null;
   }
 
-  // استفاده از فیلد صحیح API برای قیمت
-  const price = safeNumber(course.RegisterAmount); // تغییر از Price به RegisterAmount
+  const price = safeNumber(course.RegisterAmount);
   const specialPrice = safeNumber(course.SpecialSalePrice);
   const discountPercentage = specialPrice > 0 && price > 0
     ? Math.round(((price - specialPrice) / price) * 100)
     : 0;
 
-  // Safe course type handling - استفاده از CourseType number
   const courseTypeNumber = safeNumber(course.CourseType);
   const getCourseTypeInfo = (type: number) => {
     switch (type) {
@@ -75,16 +73,15 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onPress }) => {
         ]}>
           <MaterialIcons
             name={courseTypeInfo.icon as any}
-            size={14}
+            size={12}
             color="#fff"
           />
           <AppText style={styles.typeText}>{courseType}</AppText>
         </View>
 
-        {/* Unavailable overlay */}
-        {!course.RegisterActive && ( // تغییر از Active به RegisterActive
+        {!course.RegisterActive && (
           <View style={styles.unavailableOverlay}>
-            <MaterialIcons name="block" size={30} color="#fff" />
+            <MaterialIcons name="block" size={24} color="#fff" />
             <AppText style={styles.unavailableText}>ثبت‌نام غیرفعال</AppText>
           </View>
         )}
@@ -95,7 +92,7 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onPress }) => {
           <View style={styles.categoryIcon}>
             <MaterialCommunityIcons
               name="school"
-              size={24}
+              size={18}
               color={colors.primary}
             />
           </View>
@@ -104,7 +101,6 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onPress }) => {
               {safeString(course.CourseName, 'نام دوره نامشخص')}
             </AppText>
 
-            {/* Price Section - نمایش قیمت ثبت‌نام */}
             <View style={styles.priceSection}>
               {discountPercentage > 0 ? (
                 <View style={styles.priceContainer}>
@@ -121,30 +117,24 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onPress }) => {
                 </AppText>
               )}
             </View>
-
-
           </View>
         </View>
 
         <View style={styles.courseInfo}>
-          {/* Location Section - استفاده از CourseAddress */}
           <View style={styles.locationSection}>
             <View style={styles.locationHeader}>
               <MaterialIcons
                 name="place"
-                size={16}
+                size={14}
                 color={colors.primary}
                 style={{ marginLeft: 4 }}
               />
               <AppText style={styles.locationLabel}>محل برگزاری:</AppText>
             </View>
-            <AppText style={styles.locationText} numberOfLines={1}>
+            <AppText style={styles.locationText} numberOfLines={2}>
               {safeString(course.CourseAddress, 'اطلاعات محل برگزاری موجود نیست')}
             </AppText>
           </View>
-
-
-
         </View>
       </View>
     </TouchableOpacity>
@@ -153,11 +143,11 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onPress }) => {
 
 const styles = StyleSheet.create({
   container: {
-    width: "100%",
-    minHeight: 380, // کاهش ارتفاع کلی
+    width: "100%", // تغییر از 48% به 65% برای عرض بیشتر
+    minHeight: 410,
     display: "flex",
     flexDirection: "column",
-    borderRadius: 20,
+    borderRadius: 16,
     backgroundColor: colors.white,
     shadowColor: "#797979",
     shadowOffset: {
@@ -172,7 +162,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     position: 'relative',
-    height: 200,
+    height: 250,
     width: "100%",
   },
   courseImage: {
@@ -181,36 +171,35 @@ const styles = StyleSheet.create({
   },
   discountBadge: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 8,
+    right: 8,
     backgroundColor: '#ff6b6b',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
     zIndex: 2,
   },
-
   discountText: {
-    fontSize: 11,
+    fontSize: 9,
     fontFamily: "Yekan_Bakh_Bold",
     color: '#fff',
   },
   typeBadge: {
     position: 'absolute',
-    top: 10,
-    left: 10,
+    top: 8,
+    left: 8,
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 10,
     zIndex: 2,
   },
   typeText: {
-    fontSize: 10,
+    fontSize: 8,
     fontFamily: "Yekan_Bakh_Bold",
     color: '#fff',
-    marginRight: 4,
+    marginRight: 3,
   },
   unavailableOverlay: {
     position: 'absolute',
@@ -224,44 +213,45 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   unavailableText: {
-    fontSize: 14,
+    fontSize: 12,
     fontFamily: "Yekan_Bakh_Bold",
     color: '#fff',
-    marginTop: 8,
+    marginTop: 6,
   },
   courseDetails: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 10,
     flex: 1,
   },
   courseHeader: {
     flexDirection: "row-reverse",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   categoryIcon: {
     backgroundColor: colors.primaryLight,
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 12,
+    marginLeft: 8,
   },
   headerContent: {
     flex: 1,
   },
   courseTitle: {
     fontFamily: "Yekan_Bakh_Bold",
-    fontSize: 16,
+    fontSize: 13,
     color: '#333',
     textAlign: 'right',
     marginBottom: 4,
+    lineHeight: 18,
   },
   categoryText: {
     fontFamily: "Yekan_Bakh_Regular",
-    fontSize: 12,
+    fontSize: 10,
     color: colors.gray,
     textAlign: 'right',
     marginTop: 2,
@@ -270,8 +260,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   priceSection: {
-    marginTop: 4,
-    marginBottom: 6,
+    marginTop: 3,
+    marginBottom: 5,
     alignItems: 'flex-end',
   },
   priceContainer: {
@@ -279,13 +269,13 @@ const styles = StyleSheet.create({
   },
   coursePrice: {
     fontFamily: "Yekan_Bakh_Bold",
-    fontSize: 14,
+    fontSize: 12,
     color: colors.primary,
     textAlign: 'right',
   },
   originalPrice: {
     fontFamily: "Yekan_Bakh_Regular",
-    fontSize: 11,
+    fontSize: 9,
     color: '#999',
     textAlign: 'right',
     textDecorationLine: 'line-through',
@@ -293,15 +283,15 @@ const styles = StyleSheet.create({
   },
   specialPrice: {
     fontFamily: "Yekan_Bakh_Bold",
-    fontSize: 14,
+    fontSize: 12,
     color: '#ff6b6b',
     textAlign: 'right',
   },
   locationSection: {
     borderTopWidth: 1,
     borderTopColor: colors.light,
-    paddingTop: 6,
-    marginBottom: 4,
+    paddingTop: 5,
+    marginBottom: 3,
   },
   locationHeader: {
     flexDirection: "row-reverse",
@@ -310,16 +300,16 @@ const styles = StyleSheet.create({
   },
   locationLabel: {
     fontFamily: "Yekan_Bakh_Bold",
-    fontSize: 15,
+    fontSize: 11,
     color: '#333',
   },
   locationText: {
     fontFamily: "Yekan_Bakh_Bold",
-    fontSize: 15,
+    fontSize: 11,
     color: "#a0a0a0",
     textAlign: 'right',
-    paddingRight: 20,
-    lineHeight: 14,
+    paddingRight: 18,
+    lineHeight: 16,
   },
   additionalInfo: {
     flexDirection: 'row-reverse',
@@ -339,7 +329,6 @@ const styles = StyleSheet.create({
     color: colors.gray,
     marginRight: 4,
   },
-  // استایل‌های جدید برای جلسات
   sessionsSection: {
     marginTop: 12,
     paddingTop: 8,

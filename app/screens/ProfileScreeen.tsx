@@ -67,14 +67,14 @@ const profileItems = [
     color: "#10b981",
     permission: "allowAddDocument",
   },
-  // {
-  //   id: 3,
-  //   title: "گالری من",
-  //   icon: "image",
-  //   screenName: "MyGallery",
-  //   color: "#f59e0b",
-  //   permission: "allowAddImageGallery",
-  // },
+  {
+    id: 3,
+    title: "گالری من",
+    icon: "image",
+    screenName: "MyGallery",
+    color: "#f59e0b",
+    permission: "allowAddImageGallery",
+  },
   {
     id: 4,
     title: "پست های منتشر شده",
@@ -83,14 +83,14 @@ const profileItems = [
     color: "#06b6d4",
     permission: "allowAddBlogPost",
   },
-  {
-    id: 5,
-    title: "دوره های ثبت نام شده",
-    icon: "fact-check",
-    screenName: "MyCourses",
-    color: "#ef4444",
-    permission: null, // همیشه در دسترس
-  },
+  // {
+  //   id: 5,
+  //   title: "دوره های ثبت نام شده",
+  //   icon: "fact-check",
+  //   screenName: "MyCourses",
+  //   color: "#ef4444",
+  //   permission: null, // همیشه در دسترس
+  // },
   {
     id: 9,
     title: "محصولات من",
@@ -563,7 +563,7 @@ const ProfileScreen = () => {
           {/* Header with back, edit, and logout buttons */}
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.navigate("خانه")} // یا نام صفحه خانه شما
+            onPress={() => navigation.navigate("خانه")} 
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons

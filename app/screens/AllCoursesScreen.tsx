@@ -129,7 +129,7 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   );
 };
 
-// Course Skeleton
+// Course Skeleton - Updated for 2 columns
 const CourseCardSkeleton = () => {
   return (
     <View style={styles.courseSkeletonContainer}>
@@ -142,38 +142,24 @@ const CourseCardSkeleton = () => {
       <View style={styles.courseDetailsSkeleton}>
         {/* Header with icon and content */}
         <View style={styles.courseHeaderSkeleton}>
-          <SkeletonLoader width={44} height={44} borderRadius={12} style={{ marginLeft: 12 }} />
+          <SkeletonLoader width={32} height={32} borderRadius={8} style={{ marginLeft: 8 }} />
           <View style={{ flex: 1 }}>
             {/* Title */}
-            <SkeletonLoader width="90%" height={16} style={{ marginBottom: 8, alignSelf: 'flex-end' }} />
-            <SkeletonLoader width="70%" height={16} style={{ marginBottom: 8, alignSelf: 'flex-end' }} />
+            <SkeletonLoader width="90%" height={13} style={{ marginBottom: 4, alignSelf: 'flex-end' }} />
+            <SkeletonLoader width="70%" height={13} style={{ marginBottom: 4, alignSelf: 'flex-end' }} />
             {/* Price */}
-            <SkeletonLoader width="40%" height={14} style={{ marginBottom: 6, alignSelf: 'flex-end' }} />
-            {/* Category */}
-            <SkeletonLoader width="50%" height={12} style={{ alignSelf: 'flex-end' }} />
+            <SkeletonLoader width="40%" height={12} style={{ marginBottom: 3, alignSelf: 'flex-end' }} />
           </View>
         </View>
 
         {/* Location Section */}
         <View style={styles.locationSectionSkeleton}>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', marginBottom: 6 }}>
-            <SkeletonLoader width={20} height={20} borderRadius={10} style={{ marginLeft: 8 }} />
-            <SkeletonLoader width={80} height={13} />
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', marginBottom: 3 }}>
+            <SkeletonLoader width={14} height={14} borderRadius={7} style={{ marginLeft: 4 }} />
+            <SkeletonLoader width={60} height={11} />
           </View>
-          <SkeletonLoader width="85%" height={13} style={{ alignSelf: 'flex-end', marginBottom: 4 }} />
-          <SkeletonLoader width="60%" height={13} style={{ alignSelf: 'flex-end' }} />
-        </View>
-
-        {/* Additional Info */}
-        <View style={styles.additionalInfoSkeleton}>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center' }}>
-            <SkeletonLoader width={16} height={16} borderRadius={8} style={{ marginLeft: 4 }} />
-            <SkeletonLoader width={40} height={11} />
-          </View>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center' }}>
-            <SkeletonLoader width={16} height={16} borderRadius={8} style={{ marginLeft: 4 }} />
-            <SkeletonLoader width={50} height={11} />
-          </View>
+          <SkeletonLoader width="85%" height={11} style={{ alignSelf: 'flex-end', marginBottom: 2 }} />
+          <SkeletonLoader width="60%" height={11} style={{ alignSelf: 'flex-end' }} />
         </View>
       </View>
     </View>
@@ -333,9 +319,6 @@ const PaginationComponent = ({
       <View style={styles.paginationWrapper}>
         {renderPaginationItems()}
       </View>
-
-
-
     </View>
   );
 };
@@ -473,10 +456,10 @@ const AllCoursesScreen = () => {
 
   const handleCoursePress = (courseData) => {
     navigation.navigate("CourseDetails", {
-
       courseId: courseData.CourseId
     });
   };
+  
   const handlePageChange = (page) => {
     setCurrentPage(page);
     // Add smooth scroll to top effect
@@ -499,7 +482,7 @@ const AllCoursesScreen = () => {
     setRefreshing(false);
   };
 
-  // Create skeleton data for loading state
+  // Create skeleton data for loading state - Updated for 2 columns
   const createSkeletonData = () => {
     return Array.from({ length: ITEMS_PER_PAGE }, (_, index) => ({ id: `skeleton-${index}` }));
   };
@@ -562,7 +545,6 @@ const AllCoursesScreen = () => {
 
     return (
       <View>
-
       </View>
     );
   };
@@ -667,6 +649,7 @@ const AllCoursesScreen = () => {
                 keyExtractor={(item, index) =>
                   item.CourseId ? item.CourseId.toString() : `skeleton-${index}`
                 }
+                numColumns={2}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listContainer}
                 refreshControl={
@@ -678,6 +661,7 @@ const AllCoursesScreen = () => {
                   />
                 }
                 ListEmptyComponent={renderEmptyComponent}
+                columnWrapperStyle={styles.row}
               />
 
               {/* Pagination */}
@@ -818,13 +802,17 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingBottom: 20,
     paddingTop: 10,
-    alignItems: 'center',
-    width: '100%',
+    paddingHorizontal: 15,
+  },
+  // Updated for 2 columns
+  row: {
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
   },
   courseItemContainer: {
-    width: width - 40,
-    alignSelf: 'center',
-    marginBottom: 20,
+    width: (width - 70) / 2, // Calculate width for 2 columns with margins
+    marginBottom: 15,
+    marginHorizontal: 5, 
   },
   pagination: {
     marginBottom: 40,
@@ -942,39 +930,43 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
-  // Skeleton styles
+  // Updated Skeleton styles for 2 columns
   courseSkeletonContainer: {
     width: "100%",
-    minHeight: 380,
-    maxHeight: 450,
+    minHeight: 300,
+    maxHeight: 350,
     flexDirection: "column",
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: 'hidden',
+    backgroundColor: colors.white,
+    shadowColor: "#797979",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
   },
   courseImageSkeleton: {
     position: 'relative',
-    height: 200,
+    height: 180,
     width: "100%",
   },
   courseDetailsSkeleton: {
     flex: 1,
-    padding: 16,
+    padding: 12,
   },
   courseHeaderSkeleton: {
     flexDirection: "row-reverse",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   locationSectionSkeleton: {
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
-    paddingTop: 8,
-    marginBottom: 8,
-  },
-  additionalInfoSkeleton: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    marginTop: 'auto',
+    paddingTop: 5,
+    marginBottom: 5,
   },
   // Empty state styles
   emptyContainer: {

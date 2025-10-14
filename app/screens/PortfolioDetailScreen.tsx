@@ -22,10 +22,11 @@ import Toast from "../components/Toast";
 import { toPersianDigits } from "../utils/converters";
 import MultiOptionRatingComponent, { StarDisplay } from "../components/RatingComponent";
 import appConfig from "../config/config";
+import { useAuth } from '../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
-const CURRENT_MEMBER_ID = 1;
+// const CURRENT_MEMBER_ID = 1;
 
 const modernColors = {
   ...colors,
@@ -118,6 +119,7 @@ const portfolioRatingOptions = [
 ];
 
 const usePortfolioDetail = () => {
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -460,7 +462,7 @@ const PortfolioDetailScreen = ({ route }) => {
     }
   };
 
-  const isOwnPortfolio = portfolio && portfolio.MemberId === CURRENT_MEMBER_ID;
+  const isOwnPortfolio = portfolio && portfolio.MemberId === user?.MemberId;
 
   const handleEditPortfolio = () => {
     navigation.navigate("AddNewPortfolio", {

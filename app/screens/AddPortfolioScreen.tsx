@@ -14,11 +14,13 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import appConfig from "../config/config";
 import ImageUpload from "../components/ImageUpload";
+import { useAuth } from '../contexts/AuthContext';
 
-const MEMBER_ID = 1;
+// const MEMBER_ID = 1;
 const ITEMS_PER_PAGE = 10;
 
 const AddPortfolioScreen = () => {
+  const { user } = useAuth();
   const navigation = useNavigation();
   const route = useRoute();
   const { toastVisible, setToastVisible, toastMessage, toastType, showToast } = useToast();
@@ -114,7 +116,7 @@ const AddPortfolioScreen = () => {
 
     try {
       const response = await fetch(
-        `${appConfig.mobileApi}Portfolio/GetAll?page=${page}&pageSize=${ITEMS_PER_PAGE}&memberId=${MEMBER_ID}`
+        `${appConfig.mobileApi}Portfolio/GetAll?page=${page}&pageSize=${ITEMS_PER_PAGE}&memberId=${user?.MemberId}`
       );
 
       if (response.ok) {
@@ -369,7 +371,7 @@ const AddPortfolioScreen = () => {
 
       const portfolioData = {
         PortfolioId: isEditMode ? editPortfolioData.PortfolioId : 0,
-        MemberId: MEMBER_ID,
+        MemberId: user?.MemberId,
         Title: values.title.trim(),
         Description: values.description.trim(),
         FeaturedImageFileName: "",

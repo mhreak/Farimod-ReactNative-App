@@ -22,6 +22,8 @@ import MainBackground from "../components/MainBackground";
 import * as DocumentPicker from 'expo-document-picker';
 import appConfig from "../config/config";
 import { usePostApi, useDeleteApi } from "../config/useApi";
+import { useAuth } from '../contexts/AuthContext';
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -68,9 +70,12 @@ const documentColors = [
 ];
 
 const MyResumeScreen = () => {
+  const { user } = useAuth();
   const navigation = useNavigation();
   const { postData, loading: postLoading, error: postError } = usePostApi();
   const { deleteData, loading: deleteLoading, error: deleteError } = useDeleteApi();
+    // const isOwnContent = contentData.MemberId === user?.MemberId;
+
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -93,10 +98,10 @@ const MyResumeScreen = () => {
     try {
       setLoading(true);
       setError(null);
-      const memberId = 1; // Changed to 1 as requested
-      console.log('🔍 Fetching document types for memberId:', memberId);
+      // const memberId = 1; // Changed to 1 as requested
+      console.log('🔍 Fetching document types for memberId:',  user?.MemberId);
 
-      const response = await fetch(`${appConfig.mobileApi}MemberDocumentType/GetAllByMemberId?memberId=${memberId}`);
+      const response = await fetch(`${appConfig.mobileApi}MemberDocumentType/GetAllByMemberId?memberId=${user?.MemberId}`);
       console.log('📥 Document types response status:', response.status);
 
       if (!response.ok) {
@@ -216,7 +221,7 @@ const MyResumeScreen = () => {
             const addDocumentPayload = {
               MemberDocumentId: 0,
               Title: file.name,
-              MemberId: 1,
+              MemberId: user?.MemberId,
               MemberName: personalData.name,
               MemberDocumentTypeId: documentTypeId,
               MemberDocumentTypeName: documentType.Name,

@@ -1,339 +1,267 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import {
   View,
   StyleSheet,
-  TouchableWithoutFeedback,
-  Modal,
-  Animated,
-  ScrollView,
-  Dimensions,
   TouchableOpacity,
-  Platform,
-  Pressable,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-
-import Text from "./Text";
-import defaultStyles from "../config/styles";
-import AppButton from "./Button";
-import colors from "../config/colors";
 import AppText from "./Text";
-import { toPersianDigits } from "../utils/converters";
+import SimpleDatePicker from "./SimpleDatePicker";
+import colors from "../config/colors";
 
-interface IProps {
-  icon: React.ComponentProps<typeof MaterialIcons>["name"];
-  items: { value: string | number; label: string; price?: number; icon?: string }[];
-  numberOfColumns?: number;
-  onSelectItem: (item: { value: string | number; label: string; price?: number; icon?: string }) => void;
-  PickerItemComponent?: React.ReactNode;
-  placeholder: string;
-  selectedItem?: any;
-  width?: string;
-  error?: string;
-  disabled?: boolean;
-  onPress?: () => void;
-  modalVisible?: boolean;
-  onModalClose?: () => void;
-}
+// تابع تبدیل میلادی به شمسی (باید دقیقاً مثل SimpleDatePicker باشد)
+const gregorianToPersian = (gregorianDate) => {
+  if (!gregorianDate) return null;
 
-const { width, height } = Dimensions.get('window');
+  const gDate = new Date(gregorianDate);
+  let gy = gDate.getFullYear();
+  let gm = gDate.getMonth() + 1;
+  let gd = gDate.getDate();
 
-const modernColors = {
-  primary: "#667eea",
-  primaryDark: "#764ba2",
-  secondary: "#ff6b6b",
-  tertiary: "#4ecdc4",
-  accent: "#45b7d1",
-  surface: "#ffffff",
-  dark: "#2c3e50",
-  medium: "#34495e",
-  light: "#ecf0f1",
-  success: "#2ecc71",
-  warning: "#f39c12",
-  error: "#e74c3c",
-  info: "#3498db",
+  const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+
+  let jy;
+  if (gy > 1600) {
+    jy = 979;
+    gy -= 1600;
+  } else {
+    jy = 0;
+    gy -= 621;
+  }
+
+  const gy2 = (gm > 2) ? (gy + 1) : gy;
+  let days = (365 * gy) + (Math.floor((gy2 + 3) / 4)) - (Math.floor((gy2 + 99) / 100)) +
+    (Math.floor((gy2 + 399) / 400)) - 80 + gd + g_d_m[gm - 1];
+
+  jy += 33 * Math.floor(days / 12053);
+  days %= 12053;
+
+  jy += 4 * Math.floor(days / 1461);
+  days %= 1461;
+
+  if (days > 365) {
+    jy += Math.floor((days - 1) / 365);
+    days = (days - 1) % 365;
+  }
+
+  let jm, jd;
+  if (days < 186) {
+    jm = 1 + Math.floor(days / 31);
+    jd = 1 + (days % 31);
+  } else {
+    jm = 7 + Math.floor((days - 186) / 30);
+    jd = 1 + ((days - 186) % 30);
+  }
+
+  return [jy, jm, jd];
 };
 
-const AppPicker: React.FC<IProps> = ({
-  icon,
-  items,
-  numberOfColumns = 1,
-  onSelectItem,
-  PickerItemComponent,
-  placeholder,
-  selectedItem,
-  width = "100%",
-  error,
-  disabled = false,
-  onPress,
-  modalVisible: externalModalVisible,
-  onModalClose,
-}) => {
-  const [modalVisible, setModalVisible] = useState(false);
-  const [tempSelectedItem, setTempSelectedItem] = useState(selectedItem);
+// تابع تبدیل شمسی به میلادی (الگوریتم دقیق)
+const persianToGregorian = (jy, jm, jd) => {
+  let gy, gm, gd;
 
-  const modalSlideAnim = useRef(new Animated.Value(300)).current;
-  const modalOpacityAnim = useRef(new Animated.Value(0)).current;
+  let jy2 = (jy > 979) ? 1600 : 621;
+  jy -= (jy > 979) ? 979 : 0;
 
-  React.useEffect(() => {
-    if (externalModalVisible !== undefined) {
-      if (externalModalVisible && !modalVisible) {
-        openModalInternal();
-      } else if (!externalModalVisible && modalVisible) {
-        closeModalInternal();
-      }
+  let days = (365 * jy) + (Math.floor(jy / 33) * 8) + Math.floor(((jy % 33) + 3) / 4) + 78 + jd;
+
+  if (jm < 7) {
+    days += (jm - 1) * 31;
+  } else {
+    days += (jm - 7) * 30 + 186;
+  }
+
+  gy = 400 * Math.floor(days / 146097);
+  days %= 146097;
+
+  let flag = true;
+  if (days >= 36525) {
+    days--;
+    gy += 100 * Math.floor(days / 36524);
+    days %= 36524;
+    if (days >= 365) days++;
+    else flag = false;
+  }
+
+  if (flag) {
+    gy += 4 * Math.floor(days / 1461);
+    days %= 1461;
+    if (days >= 366) {
+      flag = false;
+      days--;
+      gy += Math.floor(days / 365);
+      days = days % 365;
     }
-  }, [externalModalVisible]);
+  }
 
-  const openModalInternal = () => {
-    setModalVisible(true);
-    setTempSelectedItem(selectedItem);
+  gy += jy2;
 
-    Animated.parallel([
-      Animated.timing(modalSlideAnim, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(modalOpacityAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  };
+  const sal_a = [0, 31, ((gy % 4 === 0 && gy % 100 !== 0) || (gy % 400 === 0)) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
-  const closeModalInternal = () => {
-    Animated.parallel([
-      Animated.timing(modalSlideAnim, {
-        toValue: 300,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(modalOpacityAnim, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setModalVisible(false);
-      if (onModalClose) {
-        onModalClose();
-      }
-    });
-  };
+  gm = 0;
+  while (gm < 13 && days > sal_a[gm]) {
+    days -= sal_a[gm];
+    gm++;
+  }
 
-  const SAFE_AREA_BOTTOM = Platform.select({
-    ios: height > 736 ? 34 : 0,
-    android: 0,
-    default: 0,
+  gd = days;
+
+  return new Date(gy, gm - 1, gd);
+};
+
+// تبدیل اعداد انگلیسی به فارسی
+const toFarsiDigits = (str) => {
+  if (!str) return "";
+  return str.toString().replace(/[0-9]/g, function (w) {
+    const persian = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
+    return persian[w];
   });
+};
 
-  const openModal = () => {
-    if (disabled) return;
+const persianMonths = [
+  "فروردین",
+  "اردیبهشت",
+  "خرداد",
+  "تیر",
+  "مرداد",
+  "شهریور",
+  "مهر",
+  "آبان",
+  "آذر",
+  "دی",
+  "بهمن",
+  "اسفند",
+];
 
-    if (onPress) {
-      onPress();
-      return;
+// فرمت کردن تاریخ شمسی برای نمایش
+const formatPersianDate = (persianDate) => {
+  if (!persianDate || persianDate.length !== 3) return "";
+
+  const [year, month, day] = persianDate;
+
+  // اضافه کردن صفر به اول اعداد تک رقمی
+  const formattedDay = day < 10 ? `0${day}` : `${day}`;
+  const formattedMonth = month < 10 ? `0${month}` : `${month}`;
+
+  // تبدیل به اعداد فارسی
+  return `${toFarsiDigits(year)}/${toFarsiDigits(formattedMonth)}/${toFarsiDigits(formattedDay)}`;
+};
+interface AppDatePickerProps {
+  icon: React.ComponentProps<typeof MaterialIcons>["name"];
+  placeholder: string;
+  value: Date | null;
+  onDateChange: (date: Date) => void;
+  mode?: "date" | "time";
+  minimumDate?: Date;
+  maximumDate?: Date;
+  disabled?: boolean;
+  error?: string;
+}
+
+const AppDatePicker: React.FC<AppDatePickerProps> = ({
+  icon,
+  placeholder,
+  value,
+  onDateChange,
+  mode = "date",
+  minimumDate,
+  maximumDate,
+  disabled = false,
+  error,
+}) => {
+  const [isPickerVisible, setPickerVisible] = useState(false);
+
+  // تبدیل تاریخ میلادی به شمسی برای نمایش
+  const persianDate = value ? gregorianToPersian(value) : null;
+  const displayText = persianDate ? formatPersianDate(persianDate) : "";
+
+  const handleConfirm = (selectedPersianDate) => {
+    // تبدیل تاریخ شمسی انتخاب شده به میلادی
+    const [year, month, day] = selectedPersianDate;
+    const gregorianDate = persianToGregorian(year, month, day);
+    onDateChange(gregorianDate);
+    setPickerVisible(false);
+  };
+
+  const handlePress = () => {
+    if (!disabled) {
+      setPickerVisible(true);
     }
-
-    openModalInternal();
-  };
-
-  const closeModal = () => {
-    closeModalInternal();
-  };
-
-  const handleConfirm = () => {
-    if (tempSelectedItem) {
-      onSelectItem(tempSelectedItem);
-    }
-    closeModal();
-  };
-
-  const handleItemSelect = (item: { value: string | number; label: string; price?: number; icon?: string }) => {
-    setTempSelectedItem(item);
-  };
-
-  const clearSelection = () => {
-    setTempSelectedItem(null);
   };
 
   return (
     <>
-      <View style={{ 
-        marginBottom: 16, 
-        position: 'absolute',
-        opacity: 0,
-        pointerEvents: 'none'
-      }}>
-        <View style={[
-          styles.container,
-          { width: width as any },
-          disabled && styles.disabledContainer
-        ]}>
+      <TouchableOpacity
+        onPress={handlePress}
+        disabled={disabled}
+        activeOpacity={0.7}
+        style={styles.touchableWrapper}
+      >
+        <View
+          style={[
+            styles.container,
+            disabled && styles.disabledContainer,
+          ]}
+        >
           {icon && (
             <MaterialIcons
               name={icon}
               size={20}
-              color={disabled ? colors.light : "#10B981"}
+              color={disabled ? colors.light : "#666666"}
               style={styles.icon}
             />
           )}
-          {selectedItem && selectedItem.label ? (
-            <Text style={[
-              styles.text,
-              disabled && styles.disabledText
-            ]}>
-              {selectedItem.label}
-            </Text>
+          {displayText ? (
+            <AppText
+              style={[
+                styles.text,
+                disabled && styles.disabledText,
+              ]}
+            >
+              {displayText}
+            </AppText>
           ) : (
-            <Text style={[
-              styles.placeholder,
-              disabled && styles.disabledPlaceholder
-            ]}>
+            <AppText
+              style={[
+                styles.placeholder,
+                disabled && styles.disabledPlaceholder,
+              ]}
+            >
               {placeholder}
-            </Text>
+            </AppText>
           )}
 
           <MaterialIcons
-            name="arrow-drop-down"
+            name="calendar-today"
             size={20}
-            color={disabled ? colors.light : "#10B981"}
+            color={disabled ? colors.light : "#666666"}
           />
         </View>
         {error && <AppText style={styles.errorText}>{error}</AppText>}
-      </View>
+      </TouchableOpacity>
 
-      <Modal
-        visible={modalVisible}
-        transparent={true}
-        animationType="none"
-        onRequestClose={closeModal}
-      >
-        <Pressable style={styles.modalOverlay} onPress={closeModal}>
-          <Animated.View
-            style={[
-              styles.modalContent,
-              {
-                transform: [{ translateY: modalSlideAnim }],
-                opacity: modalOpacityAnim,
-              }
-            ]}
-          >
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHandle} />
-              <View style={styles.headerRow}>
-                <View style={styles.headerTitleContainer}>
-                  <MaterialIcons name={icon} size={24} color={modernColors.primary} />
-                  <AppText style={styles.modalTitle}>{placeholder}</AppText>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.itemsContainer}>
-              <ScrollView
-                style={styles.scrollContainer}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.scrollContent}
-              >
-                {items.map((item, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.selectionOption,
-                      tempSelectedItem && tempSelectedItem.value === item.value && styles.selectedOption,
-                    ]}
-                    onPress={() => handleItemSelect(item)}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.optionContent}>
-                      <View style={styles.optionLeft}>
-                        {item.icon && (
-                          <View style={[
-                            styles.optionIconContainer,
-                            tempSelectedItem && tempSelectedItem.value === item.value && styles.selectedIconContainer
-                          ]}>
-                            <MaterialIcons 
-                              name={item.icon as any} 
-                              size={20} 
-                              color={tempSelectedItem && tempSelectedItem.value === item.value ? "#ffffff" : "#10B981"} 
-                            />
-                          </View>
-                        )}
-                        <View style={styles.optionTextContainer}>
-                          <AppText style={[
-                            styles.selectionOptionText,
-                            tempSelectedItem && tempSelectedItem.value === item.value && styles.selectedOptionText,
-                          ]}>
-                            {item.label}
-                          </AppText>
-                          {item.price !== undefined && (
-                            <AppText style={[
-                              styles.priceText,
-                              tempSelectedItem && tempSelectedItem.value === item.value && styles.selectedPriceText,
-                            ]}>
-                              {toPersianDigits(item.price.toString())} تومان
-                            </AppText>
-                          )}
-                        </View>
-                      </View>
-
-                      {tempSelectedItem && tempSelectedItem.value === item.value && (
-                        <MaterialIcons name="check" size={18} color="#ffffff" />
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-
-            <View style={styles.actionButtons}>
-              <TouchableOpacity
-                style={styles.resetButton}
-                onPress={closeModal}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons name="close" size={20} color={modernColors.medium} />
-                <AppText style={styles.resetButtonText}>انصراف</AppText>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.applyButton}
-                onPress={handleConfirm}
-                activeOpacity={0.8}
-                disabled={!tempSelectedItem}
-              >
-                <LinearGradient
-                  colors={tempSelectedItem ? ["#10B981", "#059669"] : ['#9ca3af', '#6b7280']}
-                  style={styles.applyButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <MaterialIcons name="check" size={20} color="#ffffff" />
-                  <AppText style={styles.applyButtonText}>تأیید انتخاب</AppText>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-
-            <View style={[styles.modalSafeArea, { height: SAFE_AREA_BOTTOM }]} />
-          </Animated.View>
-        </Pressable>
-      </Modal>
+      <SimpleDatePicker
+        isVisible={isPickerVisible}
+        onClose={() => setPickerVisible(false)}
+        onConfirm={handleConfirm}
+        initialDate={persianDate}
+      />
     </>
   );
 };
 
 const styles = StyleSheet.create({
+  touchableWrapper: {
+    marginBottom: 16,
+  },
   container: {
-    backgroundColor: defaultStyles.colors.white,
+    backgroundColor: colors.white,
     borderRadius: 16,
     flexDirection: "row-reverse",
     padding: 15,
-    borderColor: "#10B981",
-    borderWidth: 2,
-    shadowColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: "#ccc",
+    borderWidth: 1,
+    shadowColor: "rgba(16, 185, 129, 0.3)",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -341,21 +269,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
+    alignItems: "center",
   },
   disabledContainer: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
     opacity: 0.6,
   },
   icon: {
     marginLeft: 10,
-    marginVertical: "auto",
     marginRight: -3,
   },
   placeholder: {
-    color: "#10B981",
+    color: "#666666",
     flex: 1,
     fontSize: 16,
-    textAlign: 'right',
+    textAlign: "right",
     fontFamily: "Yekan_Bakh_Bold",
   },
   disabledPlaceholder: {
@@ -366,7 +294,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.dark,
     fontFamily: "Yekan_Bakh_Regular",
-    textAlign: 'right',
+    textAlign: "right",
   },
   disabledText: {
     color: colors.light,
@@ -378,180 +306,6 @@ const styles = StyleSheet.create({
     textAlign: "right",
     marginRight: 5,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    height: '70%',
-  },
-  modalSafeArea: {
-    backgroundColor: '#FFFFFF',
-  },
-  modalHeader: {
-    alignItems: 'center',
-    paddingTop: 12,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  modalHandle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#D1D5DB',
-    borderRadius: 2,
-    marginBottom: 15,
-  },
-  headerRow: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  headerTitleContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontFamily: "Yekan_Bakh_ExtraBold",
-    color: "#1F2937",
-    marginRight: 8,
-  },
-  clearButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  clearButtonContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  clearButtonText: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.medium,
-    marginRight: 4,
-  },
-  itemsContainer: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-  },
-  scrollContainer: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingVertical: 8,
-  },
-  selectionOption: {
-    backgroundColor: '#f8fafc',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
-    marginVertical: 6,
-  },
-  selectedOption: {
-    backgroundColor: "#10B981",
-    borderColor: "#10B981",
-  },
-  optionContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  optionLeft: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    flex: 1,
-  },
-  optionIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  selectedIconContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  optionTextContainer: {
-    flex: 1,
-  },
-  selectionOptionText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.dark,
-    marginBottom: 4,
-  },
-  selectedOptionText: {
-    color: '#ffffff',
-  },
-  priceText: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#9ca3af',
-  },
-  selectedPriceText: {
-    color: 'rgba(255, 255, 255, 0.8)',
-  },
-  actionButtons: {
-    flexDirection: 'row-reverse',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-  },
-  resetButton: {
-    flex: 1,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-    paddingVertical: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  resetButtonText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.medium,
-    marginRight: 6,
-  },
-  applyButton: {
-    flex: 2,
-  },
-  applyButtonGradient: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-  },
-  applyButtonText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#ffffff',
-    marginRight: 6,
-  },
 });
 
-export default AppPicker;
+export default AppDatePicker;

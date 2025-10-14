@@ -16,50 +16,21 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { AppNavigationProp } from "../Navigators";
 import CustomTimePicker from "../components/CustomTimePicker";
+import ImageUpload from "../components/ImageUpload";
 import appConfig from "../config/config";
-
-const AppCheckBox = ({ checked, onPress, label, icon }) => (
-  <TouchableOpacity
-    onPress={onPress}
-    style={{
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 8,
-      paddingHorizontal: 5
-    }}
-  >
-    <MaterialIcons
-      name={checked ? "check-box" : "check-box-outline-blank"}
-      size={24}
-      color={checked ? colors.primary : colors.medium}
-    />
-    <MaterialIcons
-      name={icon}
-      size={20}
-      color={colors.medium}
-      style={{ marginLeft: 8, marginRight: 8 }}
-    />
-    <AppText style={{
-      color: checked ? colors.primary : colors.medium,
-      fontFamily: checked ? "Yekan_Bakh_Bold" : "Yekan_Bakh_Regular"
-    }}>
-      {label}
-    </AppText>
-  </TouchableOpacity>
-);
+import { useAuth } from "../contexts/AuthContext";
 
 const AddNewCourseScreen = () => {
   const navigation = useNavigation<AppNavigationProp>();
   const { toastVisible, setToastVisible, toastMessage, toastType, showToast } = useToast();
+  const { user } = useAuth();
 
-  // State for managing form submission
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // State for provinces and cities
   const [provinces, setProvinces] = useState([]);
   const [cities, setCities] = useState([]);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
+  const [featuredImage, setFeaturedImage] = useState(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -71,12 +42,10 @@ const AddNewCourseScreen = () => {
   const backButtonAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Fetch provinces on component mount
   useEffect(() => {
     fetchProvinces();
   }, []);
 
-  // Fetch provinces function
   const fetchProvinces = async () => {
     setLoadingProvinces(true);
     try {
@@ -84,7 +53,6 @@ const AddNewCourseScreen = () => {
 
       if (response.ok) {
         const data = await response.json();
-        // تبدیل استان‌ها به فرمت مناسب برای AppPicker
         const provinceOptions = data.Items.map(province => ({
           value: province.ProvinceId,
           label: province.ProvinceName,
@@ -102,7 +70,6 @@ const AddNewCourseScreen = () => {
     }
   };
 
-  // Fetch cities when province is selected
   const fetchCities = async (provinceId) => {
     if (!provinceId) {
       setCities([]);
@@ -115,7 +82,6 @@ const AddNewCourseScreen = () => {
 
       if (response.ok) {
         const data = await response.json();
-        // تبدیل شهرها به فرمت مناسب برای AppPicker
         const cityOptions = data.Items ? data.Items.map(city => ({
           value: city.CityId,
           label: city.CityName
@@ -135,15 +101,12 @@ const AddNewCourseScreen = () => {
   };
 
   useEffect(() => {
-    // Sequential animations for better effect
     Animated.sequence([
-      // Back button appears first
       Animated.timing(backButtonAnim, {
         toValue: 1,
         duration: 300,
         useNativeDriver: true,
       }),
-      // Icon appears
       Animated.parallel([
         Animated.timing(iconFadeAnim, {
           toValue: 1,
@@ -156,7 +119,6 @@ const AddNewCourseScreen = () => {
           useNativeDriver: true,
         }),
       ]),
-      // Form appears
       Animated.parallel([
         Animated.timing(formFadeAnim, {
           toValue: 1,
@@ -171,7 +133,6 @@ const AddNewCourseScreen = () => {
       ]),
     ]).start();
 
-    // Continuous pulse animation for icon
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
@@ -201,7 +162,6 @@ const AddNewCourseScreen = () => {
     registerAmount: Yup.number().required("مبلغ ثبت نام الزامی است").min(0, "مبلغ نمی تواند منفی باشد"),
   });
 
-  // تابع برای نمایش اولین ارور در Toast
   const showValidationErrors = (errors) => {
     const errorKeys = Object.keys(errors);
     if (errorKeys.length > 0) {
@@ -214,7 +174,6 @@ const AddNewCourseScreen = () => {
     setIsSubmitting(true);
 
     try {
-      // اعتبارسنجی دستی برای فیلدهای اضافی
       const validationErrors = {};
 
       if (!values.courseName?.trim()) {
@@ -250,7 +209,6 @@ const AddNewCourseScreen = () => {
         validationErrors.registerAmount = "مبلغ نمی تواند منفی باشد";
       }
 
-      // اعتبارسنجی ساعات برای روزهای انتخاب شده
       const weekDays = [
         { key: 'saturday', label: 'شنبه' },
         { key: 'sunday', label: 'یکشنبه' },
@@ -272,7 +230,6 @@ const AddNewCourseScreen = () => {
         }
       });
 
-      // اگر ارور وجود داره، در Toast نمایش بده
       if (Object.keys(validationErrors).length > 0) {
         showValidationErrors(validationErrors);
         setErrors(validationErrors);
@@ -280,55 +237,77 @@ const AddNewCourseScreen = () => {
         return;
       }
 
-      const courseData = {
-        CourseId: 0,
-        CourseName: values.courseName,
-        MemberId: values.memberId,
-        MemberName: values.memberName || "",
-        CourseType: values.courseType,
-        CityId: values.cityId,
-        CityName: values.cityName || "",
-        ProvinceId: values.provinceId,
-        ProvinceName: values.provinceName || "",
-        CourseAddress: values.courseAddress,
-        HasSaturdaySession: values.hasSaturdaySession || false,
-        Saturday_StartTime: values.saturdayStartTime || "",
-        Saturday_FinishTime: values.saturdayFinishTime || "",
-        HasSundaySession: values.hasSundaySession || false,
-        Sunday_StartTime: values.sundayStartTime || "",
-        Sunday_FinishTime: values.sundayFinishTime || "",
-        HasMondaySession: values.hasMondaySession || false,
-        Monday_StartTime: values.mondayStartTime || "",
-        Monday_FinishTime: values.mondayFinishTime || "",
-        HasTuesdaySession: values.hasTuesdaySession || false,
-        Tuesday_StartTime: values.tuesdayStartTime || "",
-        Tuesday_FinishTime: values.tuesdayFinishTime || "",
-        HasWednesdaySession: values.hasWednesdaySession || false,
-        Wednesday_StartTime: values.wednesdayStartTime || "",
-        Wednesday_FinishTime: values.wednesdayFinishTime || "",
-        HasThursdaySession: values.hasThursdaySession || false,
-        Thursday_StartTime: values.thursdayStartTime || "",
-        Thursday_FinishTime: values.thursdayFinishTime || "",
-        HasFridaySession: values.hasFridaySession || false,
-        Friday_StartTime: values.fridayStartTime || "",
-        Friday_FinishTime: values.fridayFinishTime || "",
-        StartDate: values.startDate,
-        FinishDate: values.finishDate,
-        RegisterStartDate: values.registerStartDate,
-        RegisterFinishDate: values.registerFinishDate,
-        RegisterAmount: values.registerAmount,
-        AllowDiscountCode: values.allowDiscountCode || false,
-        RegisterActive: values.registerActive !== undefined ? values.registerActive : true,
-        InsertDate: new Date().toISOString(),
-        LikeCount: 0
-      };
+      // ساخت FormData برای ارسال به API
+      const formData = new FormData();
 
-      const response = await fetch('${appConfig.mobileApi}Course/Add', {
+      formData.append('CourseId', '0');
+      formData.append('CourseName', values.courseName);
+      formData.append('MemberId', user?.MemberId?.toString() || '0');
+      formData.append('MemberName', user?.FullName || user?.Name || '');
+      formData.append('CourseType', values.courseType.toString());
+      formData.append('CityId', values.cityId.toString());
+      formData.append('CityName', values.cityName || '');
+      formData.append('ProvinceId', values.provinceId.toString());
+      formData.append('ProvinceName', values.provinceName || '');
+      formData.append('CourseAddress', values.courseAddress);
+
+      formData.append('HasSaturdaySession', values.hasSaturdaySession || false);
+      formData.append('Saturday_StartTime', values.saturdayStartTime || '');
+      formData.append('Saturday_FinishTime', values.saturdayFinishTime || '');
+
+      formData.append('HasSundaySession', values.hasSundaySession || false);
+      formData.append('Sunday_StartTime', values.sundayStartTime || '');
+      formData.append('Sunday_FinishTime', values.sundayFinishTime || '');
+
+      formData.append('HasMondaySession', values.hasMondaySession || false);
+      formData.append('Monday_StartTime', values.mondayStartTime || '');
+      formData.append('Monday_FinishTime', values.mondayFinishTime || '');
+
+      formData.append('HasTuesdaySession', values.hasTuesdaySession || false);
+      formData.append('Tuesday_StartTime', values.tuesdayStartTime || '');
+      formData.append('Tuesday_FinishTime', values.tuesdayFinishTime || '');
+
+      formData.append('HasWednesdaySession', values.hasWednesdaySession || false);
+      formData.append('Wednesday_StartTime', values.wednesdayStartTime || '');
+      formData.append('Wednesday_FinishTime', values.wednesdayFinishTime || '');
+
+      formData.append('HasThursdaySession', values.hasThursdaySession || false);
+      formData.append('Thursday_StartTime', values.thursdayStartTime || '');
+      formData.append('Thursday_FinishTime', values.thursdayFinishTime || '');
+
+      formData.append('HasFridaySession', values.hasFridaySession || false);
+      formData.append('Friday_StartTime', values.fridayStartTime || '');
+      formData.append('Friday_FinishTime', values.fridayFinishTime || '');
+
+      formData.append('StartDate', values.startDate.toISOString());
+      formData.append('FinishDate', values.finishDate.toISOString());
+      formData.append('RegisterStartDate', values.registerStartDate.toISOString());
+      formData.append('RegisterFinishDate', values.registerFinishDate.toISOString());
+      formData.append('RegisterAmount', values.registerAmount.toString());
+      formData.append('AllowDiscountCode', values.allowDiscountCode || false);
+      formData.append('RegisterActive', values.registerActive !== undefined ? values.registerActive : true);
+      formData.append('InsertDate', new Date().toISOString());
+      formData.append('LikeCount', '0');
+
+      // اضافه کردن پوستر (Featured Image) اگر انتخاب شده باشد
+      if (featuredImage && featuredImage.uri) {
+        const imageUri = featuredImage.uri;
+        const imageName = featuredImage.name || `course_poster_${Date.now()}.jpg`;
+        const imageType = featuredImage.type || 'image/jpeg';
+
+        formData.append('featuredImageFile', {
+          uri: imageUri,
+          name: imageName,
+          type: imageType,
+        });
+      }
+
+      const response = await fetch(`${appConfig.mobileApi}Course/Add`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'multipart/form-data',
         },
-        body: JSON.stringify(courseData),
+        body: formData,
       });
 
       if (response.ok) {
@@ -338,6 +317,8 @@ const AddNewCourseScreen = () => {
           navigation.goBack();
         }, 2000);
       } else {
+        const errorText = await response.text();
+        console.error('Server error:', errorText);
         throw new Error('خطا در ثبت دوره');
       }
     } catch (error) {
@@ -355,6 +336,9 @@ const AddNewCourseScreen = () => {
   ];
 
   const WeeklySchedule = ({ values, setFieldValue }) => {
+    if (!values || !setFieldValue) {
+      return null;
+    }
     const weekDays = [
       { key: 'saturday', label: 'شنبه', icon: 'today' },
       { key: 'sunday', label: 'یکشنبه', icon: 'today' },
@@ -383,7 +367,6 @@ const AddNewCourseScreen = () => {
 
           return (
             <View key={day.key} style={improvedStyles.dayCard}>
-              {/* Header روز */}
               <TouchableOpacity
                 style={[
                   improvedStyles.dayHeader,
@@ -392,7 +375,6 @@ const AddNewCourseScreen = () => {
                 onPress={() => {
                   setFieldValue(hasSessionKey, !hasSession);
                   if (!hasSession) {
-                    // اگر روز غیرفعال می‌شود، ساعات را پاک کن
                     setFieldValue(startTimeKey, "");
                     setFieldValue(finishTimeKey, "");
                   }
@@ -429,11 +411,9 @@ const AddNewCourseScreen = () => {
                 </View>
               </TouchableOpacity>
 
-              {/* ساعات کلاس */}
               {hasSession && (
                 <View style={improvedStyles.timeSection}>
                   <View style={improvedStyles.timeInputsContainer}>
-
                     <View style={improvedStyles.timeInputWrapper}>
                       <AppText style={improvedStyles.timeLabel}>پایان</AppText>
                       <CustomTimePicker
@@ -461,7 +441,6 @@ const AddNewCourseScreen = () => {
                         style={improvedStyles.timeInput}
                       />
                     </View>
-
                   </View>
                 </View>
               )}
@@ -486,7 +465,6 @@ const AddNewCourseScreen = () => {
         style={styles.gradientOverlay}
       >
         <Screen style={styles.container}>
-          {/* Toast خارج از ScrollView */}
           <Toast
             visible={toastVisible}
             message={toastMessage}
@@ -503,21 +481,14 @@ const AddNewCourseScreen = () => {
               },
             ]}
           >
-            <TouchableOpacity
-              onPress={() => navigation.goBack()}
-            >
+            <TouchableOpacity onPress={() => navigation.goBack()}>
               <View style={styles.backButtonGlass}>
-                <MaterialIcons
-                  name="arrow-forward"
-                  size={24}
-                  color="white"
-                />
+                <MaterialIcons name="arrow-forward" size={24} color="white" />
               </View>
             </TouchableOpacity>
           </Animated.View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-
             <Animated.View
               style={[
                 styles.iconContainer,
@@ -537,7 +508,6 @@ const AddNewCourseScreen = () => {
                 <View style={styles.iconInnerCircle}>
                   <MaterialIcons name="school" color={colors.white} size={50} />
                 </View>
-                {/* Decorative ring */}
                 <View style={styles.iconRing} />
               </LinearGradient>
             </Animated.View>
@@ -551,10 +521,8 @@ const AddNewCourseScreen = () => {
                 },
               ]}
             >
-              {/* Glassmorphism overlay */}
               <View style={styles.glassOverlay} />
 
-              {/* Content */}
               <View style={styles.contentContainer}>
                 <AppText style={styles.titleText}>افزودن دوره جدید</AppText>
 
@@ -562,8 +530,6 @@ const AddNewCourseScreen = () => {
                   initialValues={{
                     courseName: "",
                     courseType: null,
-                    memberId: null,
-                    memberName: "",
                     cityId: null,
                     cityName: "",
                     provinceId: null,
@@ -576,7 +542,6 @@ const AddNewCourseScreen = () => {
                     registerAmount: null,
                     allowDiscountCode: null,
                     registerActive: null,
-                    // Weekly sessions
                     hasSaturdaySession: false,
                     saturdayStartTime: "",
                     saturdayFinishTime: "",
@@ -601,14 +566,14 @@ const AddNewCourseScreen = () => {
                   }}
                   onSubmit={submitCourse}
                   validate={(values) => {
-                    // حذف validation schema برای جلوگیری از نمایش ارورها زیر اینپوت‌ها
                     return {};
                   }}
                 >
                   {({ handleChange, handleSubmit, errors, values, setFieldValue }) => (
                     <>
                       <View>
-                        {/* Basic Course Information */}
+                        {/* پوستر دوره */}
+
                         <AppTextInput
                           autoCapitalize="none"
                           autoCorrect={false}
@@ -619,66 +584,57 @@ const AddNewCourseScreen = () => {
                           value={values.courseName}
                         />
 
-                        <AppPicker
-                          items={courseTypeOptions}
-                          onSelectItem={(item) => setFieldValue("courseType", item?.value)}
-                          selectedItem={values.courseType ? courseTypeOptions.find(item => item.value === values.courseType) : null}
-                          icon="computer"
-                          placeholder="نوع دوره"
-                        />
+                        <View style={styles.inputSpacing}>
+                          <AppPicker
+                            items={courseTypeOptions}
+                            onSelectItem={(item) => setFieldValue("courseType", item?.value)}
+                            selectedItem={values.courseType ? courseTypeOptions.find(item => item.value === values.courseType) : null}
+                            icon="computer"
+                            placeholder="نوع دوره"
+                          />
+                        </View>
 
-                        <AppTextInput
-                          autoCapitalize="none"
-                          autoCorrect={false}
-                          icon="person-outline"
-                          keyboardType="default"
-                          placeholder="نام عضو"
-                          onChangeText={handleChange("memberName")}
-                          value={values.memberName}
-                        />
+                        <View style={styles.inputSpacing}>
+                          <AppPicker
+                            items={provinces}
+                            onSelectItem={(item) => {
+                              setFieldValue("provinceId", item?.value);
+                              setFieldValue("provinceName", item?.label);
+                              setFieldValue("cityId", null);
+                              setFieldValue("cityName", "");
+                              if (item?.value) {
+                                fetchCities(item.value);
+                              } else {
+                                setCities([]);
+                              }
+                            }}
+                            selectedItem={values.provinceId ? provinces.find(item => item.value === values.provinceId) : null}
+                            icon="map"
+                            placeholder={loadingProvinces ? "در حال بارگذاری..." : "استان"}
+                          />
+                        </View>
 
-                        {/* Province Picker */}
-                        <AppPicker
-                          items={provinces}
-                          onSelectItem={(item) => {
-                            setFieldValue("provinceId", item?.value);
-                            setFieldValue("provinceName", item?.label);
-                            // Reset city when province changes
-                            setFieldValue("cityId", null);
-                            setFieldValue("cityName", "");
-                            // Fetch cities for selected province
-                            if (item?.value) {
-                              fetchCities(item.value);
-                            } else {
-                              setCities([]);
-                            }
-                          }}
-                          selectedItem={values.provinceId ? provinces.find(item => item.value === values.provinceId) : null}
-                          icon="map"
-                          placeholder={loadingProvinces ? "در حال بارگذاری..." : "استان"}
-
-                        />
-
-                        {/* City Picker */}
-                        <AppPicker
-                          items={cities}
-                          onSelectItem={(item) => {
-                            setFieldValue("cityId", item?.value);
-                            setFieldValue("cityName", item?.label);
-                          }}
-                          selectedItem={values.cityId ? cities.find(item => item.value === values.cityId) : null}
-                          icon="location-city"
-                          placeholder="شهرستان"
-                          onPress={!values.provinceId || loadingCities || cities.length === 0 ? () => {
-                            if (!values.provinceId) {
-                              showToast('ابتدا استان را انتخاب کنید', 'error');
-                            } else if (loadingCities) {
-                              showToast('در حال بارگذاری...', 'info');
-                            } else if (cities.length === 0) {
-                              showToast('شهری یافت نشد', 'error');
-                            }
-                          } : undefined}
-                        />
+                        <View style={styles.inputSpacing}>
+                          <AppPicker
+                            items={cities}
+                            onSelectItem={(item) => {
+                              setFieldValue("cityId", item?.value);
+                              setFieldValue("cityName", item?.label);
+                            }}
+                            selectedItem={values.cityId ? cities.find(item => item.value === values.cityId) : null}
+                            icon="location-city"
+                            placeholder="شهرستان"
+                            onPress={!values.provinceId || loadingCities || cities.length === 0 ? () => {
+                              if (!values.provinceId) {
+                                showToast('ابتدا استان را انتخاب کنید', 'error');
+                              } else if (loadingCities) {
+                                showToast('در حال بارگذاری...', 'info');
+                              } else if (cities.length === 0) {
+                                showToast('شهری یافت نشد', 'error');
+                              }
+                            } : undefined}
+                          />
+                        </View>
 
                         <AppTextInput
                           autoCapitalize="none"
@@ -692,10 +648,8 @@ const AddNewCourseScreen = () => {
                           numberOfLines={3}
                         />
 
-                        {/* Weekly Schedule Section */}
                         <WeeklySchedule values={values} setFieldValue={setFieldValue} />
 
-                        {/* Registration Information */}
                         <AppTextInput
                           autoCapitalize="none"
                           autoCorrect={false}
@@ -706,31 +660,35 @@ const AddNewCourseScreen = () => {
                           value={values.registerAmount?.toString() || ""}
                         />
 
-                        <AppPicker
-                          items={[
-                            { value: true, label: "فعال" },
-                            { value: false, label: "غیرفعال" }
-                          ]}
-                          onSelectItem={(item) => setFieldValue("registerActive", item?.value)}
-                          selectedItem={values.registerActive !== null && values.registerActive !== undefined ?
-                            { value: values.registerActive, label: values.registerActive ? "فعال" : "غیرفعال" } :
-                            null}
-                          icon="check-circle"
-                          placeholder="وضعیت ثبت نام"
-                        />
+                        <View style={styles.inputSpacing}>
+                          <AppPicker
+                            items={[
+                              { value: true, label: "فعال" },
+                              { value: false, label: "غیرفعال" }
+                            ]}
+                            onSelectItem={(item) => setFieldValue("registerActive", item?.value)}
+                            selectedItem={values.registerActive !== null && values.registerActive !== undefined ?
+                              { value: values.registerActive, label: values.registerActive ? "فعال" : "غیرفعال" } :
+                              null}
+                            icon="check-circle"
+                            placeholder="وضعیت ثبت نام"
+                          />
+                        </View>
 
-                        <AppPicker
-                          items={[
-                            { value: true, label: "مجاز" },
-                            { value: false, label: "غیرمجاز" }
-                          ]}
-                          onSelectItem={(item) => setFieldValue("allowDiscountCode", item?.value)}
-                          selectedItem={values.allowDiscountCode !== null && values.allowDiscountCode !== undefined ?
-                            { value: values.allowDiscountCode, label: values.allowDiscountCode ? "مجاز" : "غیرمجاز" } :
-                            null}
-                          icon="local-offer"
-                          placeholder="کد تخفیف"
-                        />
+                        <View style={styles.inputSpacing}>
+                          <AppPicker
+                            items={[
+                              { value: true, label: "دارد" },
+                              { value: false, label: "ندارد" }
+                            ]}
+                            onSelectItem={(item) => setFieldValue("allowDiscountCode", item?.value)}
+                            selectedItem={values.allowDiscountCode !== null && values.allowDiscountCode !== undefined ?
+                              { value: values.allowDiscountCode, label: values.allowDiscountCode ? "مجاز" : "غیرمجاز" } :
+                              null}
+                            icon="local-offer"
+                            placeholder="کد تخفیف"
+                          />
+                        </View>
 
                         <AppDatePicker
                           icon="event"
@@ -767,6 +725,18 @@ const AddNewCourseScreen = () => {
                           mode="date"
                           minimumDate={values.registerStartDate || new Date()}
                           maximumDate={values.startDate}
+                        />
+                        <ImageUpload
+                          onImageChange={(image) => setFeaturedImage(image)}
+                          initialImage={featuredImage}
+                          isMultiple={false}
+                          placeholder="پوستر دوره"
+                          aspectRatio={[16, 9]}
+                          allowEditing={false}
+                          allowVideos={false}
+                          allowImages={true}
+                          onShowToast={showToast}
+                          loading={isSubmitting}
                         />
 
                         <AppButton
@@ -1032,6 +1002,9 @@ const styles = StyleSheet.create({
     position: 'relative',
     zIndex: 1,
   },
+  inputSpacing: {
+    marginBottom: 15,
+  },
   titleText: {
     fontSize: 30,
     marginTop: 35,
@@ -1042,59 +1015,6 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(255, 206, 232, 0.1)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
-  },
-  errorText: {
-    color: colors.danger,
-    fontSize: 12,
-    marginBottom: 10,
-    textAlign: 'right',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: colors.primary,
-    marginTop: 20,
-    marginBottom: 10,
-    textAlign: 'right',
-  },
-  noteText: {
-    fontSize: 14,
-    color: colors.medium,
-    textAlign: 'right',
-    marginBottom: 20,
-    fontStyle: 'italic',
-  },
-  // Weekly Schedule styles
-  scheduleContainer: {
-    marginTop: 25,
-    marginBottom: 25,
-  },
-  dayContainer: {
-    marginBottom: 15,
-    padding: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 206, 232, 0.2)',
-  },
-  dayHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  timeInputsContainer: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 206, 232, 0.2)',
-  },
-  timeInputRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  timeInput: {
-    flex: 1,
   },
 });
 

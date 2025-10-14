@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import AppText from "../components/Text";
 import { Formik } from "formik";
-import { ScrollView, StyleSheet, View, Image, TouchableOpacity, Animated, Text } from "react-native";
+import { ScrollView, StyleSheet, View, Image, TouchableOpacity, Animated, Text, Platform } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Yup from "yup";
 import AppTextInput from "../components/TextInput";
@@ -15,10 +15,10 @@ import { MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import appConfig from "../config/config";
 import ImageUpload from "../components/ImageUpload";
-
-const MEMBER_ID = 1;
+import { useAuth } from '../contexts/AuthContext';
 
 const AddNewPostScreen = () => {
+  const { user } = useAuth();
   const navigation = useNavigation();
   const route = useRoute();
   const { toastVisible, setToastVisible, toastMessage, toastType, showToast } = useToast();
@@ -27,7 +27,9 @@ const AddNewPostScreen = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
-  const [postImages, setPostImages] = useState([]);
+  const [postImages, setPostImages] = useState([]); // state اصلی برای نگهداری تصاویر
+
+  // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const iconFadeAnim = useRef(new Animated.Value(0)).current;
@@ -37,8 +39,14 @@ const AddNewPostScreen = () => {
   const backButtonAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // دیباگ تصاویر
+  useEffect(() => {
+    console.log('📸 postImages state changed:', postImages);
+  }, [postImages]);
+
   useEffect(() => {
     fetchCategories();
+    // Animations...
     Animated.sequence([
       Animated.timing(backButtonAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
       Animated.parallel([
@@ -58,44 +66,20 @@ const AddNewPostScreen = () => {
     ).start();
   }, []);
 
-  // Debug: Log edit data
   useEffect(() => {
     if (isEditMode && editPostData) {
       console.log('Edit Post Data:', editPostData);
       console.log('BlogPostCategoriesStr:', editPostData.BlogPostCategoriesStr);
-      console.log('Available categories:', categories);
-
-      // تبدیل نام دسته‌ها به ID ها
-      if (editPostData.BlogPostCategoriesStr && categories.length > 0) {
-        const categoryNames = editPostData.BlogPostCategoriesStr.split("،").map(name => name.trim());
-        const matchedIds = categoryNames.map(name => {
-          const foundCategory = categories.find(cat => cat.label === name);
-          console.log(`Looking for category "${name}":`, foundCategory);
-          return foundCategory ? foundCategory.value : null;
-        }).filter(id => id !== null);
-
-        console.log('Category names from API:', categoryNames);
-        console.log('Matched category IDs:', matchedIds);
-      }
     }
   }, [isEditMode, editPostData, categories]);
-
-  useEffect(() => {
-    console.log('Categories loaded:', categories);
-  }, [categories]);
 
   const fetchCategories = async () => {
     try {
       setLoadingCategories(true);
-      console.log('Fetching categories from:', `${appConfig.mobileApi}BlogPostCategory`);
-
       const response = await fetch(`${appConfig.mobileApi}BlogPostCategory`);
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Categories API Response:', result);
-
-        // اطمینان از اینکه result یک آرایه است
         const categoriesArray = Array.isArray(result) ? result : [];
 
         if (categoriesArray.length > 0) {
@@ -108,19 +92,14 @@ const AddNewPostScreen = () => {
             label: category.Name || `دسته ${category.BlogPostCategoryId}`
           }));
 
-          console.log('Processed categories:', categoryOptions);
           setCategories(categoryOptions);
         } else {
-          // اگر هیچ دسته‌ای دریافت نشد، از fallback استفاده کن
-          console.log('No categories received, using fallback');
           setCategories([
             { value: 1, label: "معرفی کتاب" },
             { value: 2, label: "معرفی کسب و کار" },
           ]);
         }
       } else {
-        console.log('Categories API failed with status:', response.status);
-        // fallback categories
         setCategories([
           { value: 1, label: "معرفی کتاب" },
           { value: 2, label: "معرفی کسب و کار" },
@@ -128,7 +107,6 @@ const AddNewPostScreen = () => {
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
-      // fallback categories
       setCategories([
         { value: 1, label: "معرفی کتاب" },
         { value: 2, label: "معرفی کسب و کار" },
@@ -152,7 +130,6 @@ const AddNewPostScreen = () => {
     try {
       const validationErrors = {};
 
-      // تصحیح validation
       if (!values.title?.trim()) {
         validationErrors.title = "عنوان پست الزامی است";
       }
@@ -161,7 +138,6 @@ const AddNewPostScreen = () => {
         validationErrors.content = "محتوای پست الزامی است";
       }
 
-      // تصحیح validation دسته‌بندی
       if (!values.blogPostCategoryIds ||
         !Array.isArray(values.blogPostCategoryIds) ||
         values.blogPostCategoryIds.length === 0) {
@@ -178,58 +154,86 @@ const AddNewPostScreen = () => {
 
       const formData = new FormData();
 
-      // اضافه کردن فیلدهای اصلی
       formData.append('BlogPostId', isEditMode ? editPostData.BlogPostId.toString() : '0');
-      formData.append('MemberId', MEMBER_ID.toString());
+      formData.append('MemberId', user?.MemberId.toString());
       formData.append('Title', values.title.trim());
       formData.append('Content', values.content.trim());
       formData.append('CommentEnabled', values.commentEnabled.toString());
       formData.append('Active', values.active.toString());
       formData.append('LikeCount', isEditMode ? (editPostData.LikeCount || 0).toString() : '0');
-      formData.append('FeaturedImageFileName', '');
-      formData.append('FeaturedImageURL', '');
-      formData.append('Rating', '');
+      formData.append('Rating', '0');
 
-      // تصحیح اضافه کردن دسته‌بندی‌ها
-      console.log('Selected category IDs:', values.blogPostCategoryIds);
-
-      // اضافه کردن هر دسته‌بندی به صورت جداگانه
-      values.blogPostCategoryIds.forEach((id, index) => {
-        console.log(`Adding category ${index}:`, id);
+      values.blogPostCategoryIds.forEach((id) => {
         formData.append('cateogoryIdList', id.toString());
       });
 
-      // تبدیل ID ها به نام‌ها برای BlogPostCategoriesStr
       const categoryNames = values.blogPostCategoryIds.map(id => {
         const category = categories.find(cat => cat.value === id);
         return category ? category.label : `دسته ${id}`;
       });
 
-      console.log('Category names for API:', categoryNames);
       formData.append('BlogPostCategoriesStr', categoryNames.join('،'));
-
       formData.append('InsertDate', new Date().toISOString());
       formData.append('ShamsiInsertDate', '');
 
-      // اضافه کردن تصویر
-      if (postImages && postImages.length > 0) {
-        const image = postImages[0];
-        if (image.uri) {
-          const fileExtension = image.uri.split('.').pop()?.toLowerCase() || 'jpg';
-          const mimeType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
-          const imageFile = {
-            uri: image.uri,
-            type: mimeType,
-            name: image.name || `featured-image-${Date.now()}.${fileExtension}`
-          };
-          formData.append('featuredImageFile', imageFile);
-        }
-      }
+      // **بررسی و آپلود تصویر - مشابه AddProductScreen**
+      console.log('📸 Checking images...');
+      console.log('📸 postImages state:', postImages);
+      console.log('📸 values.images from Formik:', values.images);
 
-      // Debug: نمایش محتویات FormData
-      console.log('FormData contents:');
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value);
+      // استفاده از values.images که توسط Formik مدیریت می‌شود
+      const imagesToUpload = values.images && values.images.length > 0 ? values.images : postImages;
+
+      if (imagesToUpload && imagesToUpload.length > 0 && imagesToUpload[0]) {
+        const image = imagesToUpload[0];
+        console.log('📸 Processing image:', image);
+
+        if (image.uri) {
+          // فیکس URI برای iOS (مشابه AddProductScreen)
+          let imageUri = image.uri;
+          if (Platform.OS === 'ios' && !imageUri.startsWith('file://')) {
+            imageUri = `file://${imageUri}`;
+          }
+
+          console.log('📸 Final image URI:', imageUri);
+
+          // تعیین نوع فایل
+          let fileType = image.type || 'image/jpeg';
+          if (!fileType.startsWith('image/')) {
+            const uriParts = imageUri.split('.');
+            const fileExtension = uriParts[uriParts.length - 1].toLowerCase();
+
+            if (fileExtension === 'png') {
+              fileType = 'image/png';
+            } else if (fileExtension === 'jpg' || fileExtension === 'jpeg') {
+              fileType = 'image/jpeg';
+            }
+          }
+
+          // نام فایل
+          const fileName = image.name || `featured-image-${Date.now()}.jpg`;
+
+          // ساختار صحیح برای React Native FormData
+          const imageFile = {
+            uri: imageUri,
+            type: fileType,
+            name: fileName
+          };
+
+          console.log('📸 Image file to upload:', imageFile);
+
+          formData.append('featuredImageFile', imageFile as any);
+          formData.append('FeaturedImageFileName', fileName);
+          formData.append('FeaturedImageURL', '');
+        } else {
+          console.warn('⚠️ Image URI is missing!');
+          formData.append('FeaturedImageFileName', '');
+          formData.append('FeaturedImageURL', '');
+        }
+      } else {
+        console.log('📸 No images to upload');
+        formData.append('FeaturedImageFileName', '');
+        formData.append('FeaturedImageURL', '');
       }
 
       const url = isEditMode
@@ -243,13 +247,21 @@ const AddNewPostScreen = () => {
         method: method,
         body: formData,
         headers: {
-          // حذف Content-Type header تا browser خودش تنظیم کند برای FormData
+          'Accept': 'application/json',
         }
       });
 
+      console.log('Response status:', response.status);
+      const responseText = await response.text();
+      console.log('Response text:', responseText);
+
       if (response.ok) {
-        const responseData = await response.json();
-        console.log('Submit response:', responseData);
+        let responseData;
+        try {
+          responseData = JSON.parse(responseText);
+        } catch (e) {
+          responseData = { message: responseText };
+        }
 
         showToast(
           isEditMode ? 'پست با موفقیت ویرایش شد' : 'پست با موفقیت ثبت شد',
@@ -265,16 +277,14 @@ const AddNewPostScreen = () => {
           navigation.goBack();
         }, 2000);
       } else {
-        const errorText = await response.text();
-        console.error('Submit error response:', errorText);
-
         let errorData;
         try {
-          errorData = JSON.parse(errorText);
+          errorData = JSON.parse(responseText);
         } catch {
-          errorData = { Message: errorText };
+          errorData = { Message: responseText };
         }
 
+        console.error('Submit error response:', errorData);
         throw new Error(errorData.Message || `خطا در ${isEditMode ? 'ویرایش' : 'ثبت'} پست`);
       }
     } catch (error) {
@@ -296,6 +306,7 @@ const AddNewPostScreen = () => {
       <LinearGradient colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0.8)', 'rgba(255,255,255,1)']} style={styles.gradientOverlay}>
         <Screen style={styles.container}>
           <Toast visible={toastVisible} message={toastMessage} type={toastType} onHide={() => setToastVisible(false)} />
+
           <Animated.View style={[styles.backButton, { opacity: backButtonAnim, transform: [{ scale: backButtonAnim }] }]}>
             <TouchableOpacity onPress={() => navigation.goBack()}>
               <View style={styles.backButtonGlass}>
@@ -303,6 +314,7 @@ const AddNewPostScreen = () => {
               </View>
             </TouchableOpacity>
           </Animated.View>
+
           <ScrollView showsVerticalScrollIndicator={false}>
             <Animated.View style={[styles.iconContainer, { opacity: iconFadeAnim, transform: [{ translateY: iconSlideAnim }, { scale: pulseAnim }] }]}>
               <LinearGradient colors={[colors.primary, colors.primaryDark || colors.primary]} style={styles.iconCircle}>
@@ -312,18 +324,18 @@ const AddNewPostScreen = () => {
                 <View style={styles.iconRing} />
               </LinearGradient>
             </Animated.View>
+
             <Animated.View style={[styles.formBox, { opacity: formFadeAnim, transform: [{ translateY: formSlideAnim }] }]}>
               <View style={styles.glassOverlay} />
               <View style={styles.contentContainer}>
                 <AppText style={styles.titleText}>{isEditMode ? 'ویرایش پست' : 'افزودن پست جدید'}</AppText>
+
                 <Formik
                   initialValues={{
                     title: isEditMode ? editPostData?.Title || "" : "",
                     content: isEditMode ? editPostData?.Content || "" : "",
-                    // تصحیح پردازش BlogPostCategoriesStr
                     blogPostCategoryIds: isEditMode ?
                       (editPostData?.BlogPostCategoriesStr ?
-                        // تبدیل نام دسته‌ها به ID ها بر اساس categories
                         editPostData.BlogPostCategoriesStr.split("،").map(categoryName => {
                           const trimmedName = categoryName.trim();
                           const foundCategory = categories.find(cat => cat.label === trimmedName);
@@ -355,33 +367,26 @@ const AddNewPostScreen = () => {
                         }}
                       />
                       {errors.title && (
-                        <Text style={styles.errorText}>
-                          {errors.title}
-                        </Text>
+                        <Text style={styles.errorText}>{errors.title}</Text>
                       )}
 
                       <AppPicker
                         items={categories}
-                        onSelectItem={(item) => {
-                          // این callback دیگر استفاده نمی‌شود در حالت multi-select
-                        }}
+                        onSelectItem={(item) => { }}
                         onMultiSelectChange={(selectedItems) => {
-                          // callback جدید برای multi-select
                           const selectedIds = selectedItems ? selectedItems.map(item => item.value) : [];
                           console.log('Selected categories:', selectedIds);
-                          console.log('Selected category objects:', selectedItems);
                           setFieldValue("blogPostCategoryIds", selectedIds);
                         }}
                         selectedItems={
-                          // تبدیل آرایه ID ها به آرایه آبجکت‌ها برای نمایش
                           (values.blogPostCategoryIds && Array.isArray(values.blogPostCategoryIds)) ?
                             values.blogPostCategoryIds
-                              .filter(id => id !== null && id !== undefined) // فیلتر کردن مقادیر null/undefined
+                              .filter(id => id !== null && id !== undefined)
                               .map(id => {
                                 const category = categories.find(cat => cat.value === id);
-                                return category || null; // اگر دسته یافت نشد، null برگردان
+                                return category || null;
                               })
-                              .filter(item => item !== null) // حذف موارد null
+                              .filter(item => item !== null)
                             : []
                         }
                         icon="category"
@@ -400,9 +405,7 @@ const AddNewPostScreen = () => {
                         }}
                       />
                       {errors.blogPostCategoryIds && (
-                        <Text style={styles.errorText}>
-                          {errors.blogPostCategoryIds}
-                        </Text>
+                        <Text style={styles.errorText}>{errors.blogPostCategoryIds}</Text>
                       )}
 
                       <AppTextInput
@@ -420,12 +423,8 @@ const AddNewPostScreen = () => {
                         error={errors.content}
                       />
                       {errors.content && (
-                        <Text style={styles.errorText}>
-                          {errors.content}
-                        </Text>
+                        <Text style={styles.errorText}>{errors.content}</Text>
                       )}
-
-                
 
                       <AppPicker
                         items={[{ value: true, label: "منتشر شده" }, { value: false, label: "پیش‌نویس" }]}
@@ -436,11 +435,29 @@ const AddNewPostScreen = () => {
                         style={styles.halfWidthPicker}
                       />
 
+                      {/* **اصلاح ImageUpload - مشابه AddProductScreen** */}
                       <ImageUpload
-                        onImageChange={(image) => {
-                          setPostImages(image ? [image] : []);
-                          setFieldValue("images", image ? [image] : []);
+                        onImageChange={(images) => {
+                          console.log('📸 ImageUpload onImageChange called:', images);
+
+                          // پردازش تصاویر مشابه AddProductScreen
+                          let imageArray = [];
+
+                          if (images) {
+                            if (Array.isArray(images)) {
+                              imageArray = images.filter(img => img && img.uri);
+                            } else if (images.uri) {
+                              imageArray = [images];
+                            }
+                          }
+
+                          console.log('📸 Final image array:', imageArray);
+
+                          // آپدیت هر دو state
+                          setPostImages(imageArray);
+                          setFieldValue("images", imageArray);
                         }}
+                        isMultiple={false}
                         multiple={false}
                         imageQuality={1}
                         allowCamera={true}
@@ -449,8 +466,19 @@ const AddNewPostScreen = () => {
                         maxImages={1}
                         placeholder="انتخاب عکس شاخص"
                         style={styles.imageUploadContainer}
-                        initialImage={isEditMode && editPostData?.FeaturedImageURL ? { id: 'existing', uri: editPostData.FeaturedImageURL, name: editPostData.FeaturedImageFileName || 'existing-image.jpg' } : null}
+                        initialImage={isEditMode && editPostData?.FeaturedImageURL ?
+                          {
+                            id: 'existing',
+                            uri: editPostData.FeaturedImageURL,
+                            name: editPostData.FeaturedImageFileName || 'existing-image.jpg',
+                            type: 'image/jpeg'
+                          } : null
+                        }
+                        onShowToast={showToast}
+                        aspectRatio={[16, 9]}
                       />
+
+               
 
                       <View style={styles.buttonContainer}>
                         <AppButton

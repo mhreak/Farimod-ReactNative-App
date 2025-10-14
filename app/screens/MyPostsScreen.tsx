@@ -22,7 +22,7 @@ import Toast from "../components/Toast";
 import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
 import { SafeAreaView } from 'react-native';
-
+import { useAuth } from '../contexts/AuthContext';
 const { width, height } = Dimensions.get('window');
 
 const modernColors = {
@@ -47,9 +47,10 @@ const modernColors = {
 };
 
 const ITEMS_PER_PAGE = 20;
-const MEMBER_ID = 1;
+// const MEMBER_ID = 1;
 
 const useUserPostsWithPagination = () => {
+  const { user } = useAuth();
   const [data, setData] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -63,7 +64,7 @@ const useUserPostsWithPagination = () => {
       setError(null);
 
       const response = await fetch(
-        `${appConfig.mobileApi}BlogPost/GetAll?filterMemberId=${MEMBER_ID}&currentPage=${newPage}&pageSize=${pageSize}`
+        `${appConfig.mobileApi}BlogPost/GetAll?filterMemberId=${user?.MemberId}&currentPage=${newPage}&pageSize=${pageSize}`
       );
 
       if (!response.ok) {

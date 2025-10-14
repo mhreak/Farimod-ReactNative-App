@@ -22,10 +22,11 @@ import Toast from "../components/Toast";
 import { formatPersianDate, formatPrice, toPersianDigits } from "../utils/converters";
 import MultiOptionRatingComponent, { StarDisplay } from "../components/RatingComponent";
 import appConfig from "../config/config";
+import { useAuth } from '../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
-const CURRENT_MEMBER_ID = 1;
+// const user?.MemberId = 1;
 
 const modernColors = {
   ...colors,
@@ -198,6 +199,7 @@ const CourseDetailsSkeleton = () => {
 
 // Custom hook for course details API
 const useCourseDetails = () => {
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -325,7 +327,7 @@ const getCourseDescription = (courseData, coaches) => {
 
 const CourseDetailsScreen = ({ route }) => {
   const navigation = useNavigation();
-
+  const { user } = useAuth();
   // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -364,8 +366,7 @@ const CourseDetailsScreen = ({ route }) => {
   const deleteModalSlideAnim = useRef(new Animated.Value(0)).current;
   const deleteModalBackdropAnim = useRef(new Animated.Value(0)).current;
 
-  const isOwnCourse = courseData && courseData.MemberId === CURRENT_MEMBER_ID;
-
+  const isOwnCourse = courseData?.MemberId === user?.MemberId; 
   // ALL useEffect HOOKS
   useEffect(() => {
     if (courseId) {
@@ -1594,32 +1595,35 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     pointerEvents: 'none',
   },
-  imageHeaderContainer: {
-    position: 'relative',
-    height: 320,
-    margin: 20,
-    borderRadius: 30,
-    overflow: 'hidden',
-    shadowColor: modernColors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 15,
-    },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 20,
+ imageHeaderContainer: {
+  position: 'relative',
+  height: 480, // تغییر از 320 به 480 برای شکل عمودی
+  marginVertical: 20,
+  marginHorizontal: 20, // حفظ حاشیه از دو طرف
+  borderRadius: 30,
+  overflow: 'hidden',
+  shadowColor: modernColors.primary,
+  shadowOffset: {
+    width: 0,
+    height: 15,
   },
+  shadowOpacity: 0.4,
+  shadowRadius: 20,
+  elevation: 20,
+},
   headerImage: {
     width: '100%',
     height: '100%',
     borderRadius: 30,
+    resizeMode: 'cover', // اضافه کردن این خاصیت برای بهتر نمایش دادن تصویر
   },
+
   overlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: '60%',
+    height: '50%', // کاهش از 60% به 50% برای فضای بیشتر تصویر
     padding: 15,
     justifyContent: 'flex-end',
   },

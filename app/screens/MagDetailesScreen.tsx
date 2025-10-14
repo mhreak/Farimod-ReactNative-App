@@ -21,10 +21,11 @@ import Toast from "../components/Toast";
 import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
 import MultiOptionRatingComponent, { StarDisplay } from "../components/RatingComponent";
+import { useAuth } from '../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
-const CURRENT_MEMBER_ID = 1;
+// const user?.MemberId = 1;
 
 const modernColors = {
   ...colors,
@@ -208,6 +209,7 @@ const BlogDetailSkeleton = () => {
 };
 
 const MagDetailesScreen = ({ route }) => {
+  const { user } = useAuth();
   const navigation = useNavigation();
   const { title, blogId } = route.params;
 
@@ -359,7 +361,7 @@ const MagDetailesScreen = ({ route }) => {
     setRefreshing(false);
   };
 
-  const isOwnPost = blogPost && blogPost.MemberId === CURRENT_MEMBER_ID;
+  const isOwnPost = blogPost && blogPost.MemberId === user?.MemberId;
 
   const handleEditPost = () => {
     navigation.navigate("AddNewPost", {

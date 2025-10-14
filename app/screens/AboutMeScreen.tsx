@@ -12,7 +12,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Keyboard
+  Keyboard,
+  ActivityIndicator
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
@@ -144,6 +145,8 @@ const AboutMeScreen = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
 
   // Toast state
   const [toastVisible, setToastVisible] = useState(false);
@@ -222,42 +225,75 @@ const AboutMeScreen = () => {
     }
   }, [user?.MemberId]);
 
-  // Avatar handlers
   const updateAvatar = useCallback(async (imageFile) => {
     try {
+      setUploadingAvatar(true);
       setLoading(true);
       setError(null);
 
+      // نمایش توست در حال آپلود
+      showToast('در حال آپلود تصویر...', 'info');
+
+      if (!imageFile?.uri) {
+        throw new Error('فایل تصویر یافت نشد');
+      }
+
+      // اطمینان از URI صحیح (باید با file:// شروع شود)
+      const fileUri = imageFile.uri.startsWith('file://')
+        ? imageFile.uri
+        : `file://${imageFile.uri}`;
+
+      // تعیین نوع MIME صحیح بر اساس پسوند
+      const getMimeType = (uri) => {
+        const ext = uri.split('.').pop()?.toLowerCase();
+        if (ext === 'png') return 'image/png';
+        if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg';
+        return 'image/jpeg';
+      };
+
+      const mimeType = getMimeType(fileUri);
+
       const formData = new FormData();
       formData.append('avatarImage', {
-        uri: imageFile.uri,
-        type: imageFile.type || 'image/jpeg',
-        name: imageFile.name || 'avatar.jpg',
+        uri: fileUri,
+        name: imageFile.name || `avatar_${Date.now()}.jpg`,
+        type: mimeType,
       });
 
-      const response = await fetch(`${appConfig.mobileApi}MemberInfo/UploadAvatarImage?memberId=${user?.MemberId}`, {
+      const apiUrl = `${appConfig.mobileApi}MemberInfo/UploadAvatarImage?memberId=${user?.MemberId}`;
+
+      console.log('Uploading to:', apiUrl);
+      console.log('FormData:', { uri: fileUri, type: mimeType });
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
         headers: {
-          'Accept': 'application/json',
-        }
+          Accept: '*/*',
+        },
       });
 
       if (!response.ok) {
-        throw new Error(`خطای سرور: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`خطای سرور: ${response.status} - ${errorText}`);
       }
 
-      setProfileData(prev => ({
+      const result = await response.json();
+
+      setProfileData((prev) => ({
         ...prev,
-        avatarUrl: imageFile.uri
+        avatarUrl: result.AvatarImageURL || fileUri,
       }));
 
+      showToast('تصویر با موفقیت آپلود شد', 'success');
       return true;
     } catch (err) {
       console.error('Error updating avatar:', err);
+      showToast('خطا در آپلود تصویر: ' + err.message, 'error');
       setError(err.message);
       return false;
     } finally {
+      setUploadingAvatar(false);
       setLoading(false);
     }
   }, [user?.MemberId]);
@@ -290,47 +326,83 @@ const AboutMeScreen = () => {
     }
   }, [user?.MemberId]);
 
-  // Video handlers
   const updateIntroVideo = useCallback(async (videoFile) => {
     try {
+      setUploadingVideo(true);
       setLoading(true);
       setError(null);
 
+      // نمایش توست در حال آپلود
+      showToast('در حال آپلود ویدیو...', 'info');
+
+      if (!videoFile?.uri) {
+        throw new Error('فایل ویدیو یافت نشد');
+      }
+
+      // اطمینان از URI صحیح
+      const fileUri = videoFile.uri.startsWith('file://')
+        ? videoFile.uri
+        : `file://${videoFile.uri}`;
+
+      // نوع MIME برای ویدیو
+      const getMimeType = (uri) => {
+        const ext = uri.split('.').pop()?.toLowerCase();
+        if (ext === 'mp4') return 'video/mp4';
+        if (ext === 'mov') return 'video/quicktime';
+        if (ext === 'm4v') return 'video/x-m4v';
+        return 'video/mp4';
+      };
+
+      const mimeType = getMimeType(fileUri);
+
+      // ساخت FormData
       const formData = new FormData();
       formData.append('videoFile', {
-        uri: videoFile.uri,
-        type: videoFile.type || 'video/mp4',
-        name: videoFile.name || 'intro_video.mp4',
+        uri: fileUri,
+        name: videoFile.name || `intro_${Date.now()}.mp4`,
+        type: mimeType,
       });
 
-      const response = await fetch(`${appConfig.mobileApi}MemberInfo/UploadIntroductionVideo?memberId=${user?.MemberId}`, {
+      const apiUrl = `${appConfig.mobileApi}MemberInfo/UploadIntroductionVideo?memberId=${user?.MemberId}`;
+
+      console.log('Uploading video to:', apiUrl);
+      console.log('Video file:', { uri: fileUri, type: mimeType });
+
+      const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
         headers: {
-          'Accept': 'application/json',
-        }
+          Accept: '*/*',
+        },
       });
 
       if (!response.ok) {
         if (response.status === 413) {
-          throw new Error('حجم فایل بیش از حد مجاز است');
+          throw new Error('حجم ویدیو بیش از حد مجاز است (۶۰ مگابایت)');
         } else if (response.status === 415) {
-          throw new Error('فرمت فایل پشتیبانی نمی‌شود');
+          throw new Error('فرمت ویدیو پشتیبانی نمی‌شود');
         }
-        throw new Error(`خطای سرور: ${response.status}`);
+
+        const errorText = await response.text();
+        throw new Error(`خطای سرور: ${response.status} - ${errorText}`);
       }
 
-      setProfileData(prev => ({
+      const result = await response.json();
+
+      setProfileData((prev) => ({
         ...prev,
-        introVideo: videoFile.uri
+        introVideo: result.IntroductionVideoURL || fileUri,
       }));
 
+      showToast('ویدیو با موفقیت آپلود شد', 'success');
       return true;
     } catch (err) {
       console.error('Error updating intro video:', err);
+      showToast('خطا در آپلود ویدیو: ' + err.message, 'error');
       setError(err.message);
       return false;
     } finally {
+      setUploadingVideo(false);
       setLoading(false);
     }
   }, [user?.MemberId]);
@@ -434,12 +506,7 @@ const AboutMeScreen = () => {
 
   const handleAvatarChange = useCallback(async (image) => {
     if (image) {
-      const success = await updateAvatar(image);
-      if (success) {
-        showToast('تصویر پروفایل با موفقیت آپلود شد', 'success');
-      } else {
-        showToast('خطا در آپلود تصویر', 'error');
-      }
+      await updateAvatar(image);
     } else {
       const success = await deleteAvatar();
       if (success) {
@@ -452,12 +519,7 @@ const AboutMeScreen = () => {
 
   const handleVideoChange = useCallback(async (video) => {
     if (video) {
-      const success = await updateIntroVideo(video);
-      if (success) {
-        showToast('ویدئوی معرفی با موفقیت آپلود شد', 'success');
-      } else {
-        showToast('خطا در آپلود ویدئو', 'error');
-      }
+      await updateIntroVideo(video);
     } else {
       const success = await deleteIntroVideo();
       if (success) {
@@ -603,6 +665,14 @@ const AboutMeScreen = () => {
               </View>
 
               <View style={styles.contentContainer}>
+                {uploadingVideo && (
+                  <View style={styles.uploadingOverlay}>
+                    <View style={styles.uploadingContent}>
+                      <ActivityIndicator size="large" color={modernColors.tertiary} />
+                      <AppText style={styles.uploadingText}>در حال آپلود ویدیو...</AppText>
+                    </View>
+                  </View>
+                )}
                 <ImageUpload
                   key={`video-${profileData.introVideo || 'no-video'}`}
                   isMultiple={true}
@@ -649,6 +719,14 @@ const AboutMeScreen = () => {
               </View>
 
               <View style={styles.contentContainer}>
+                {uploadingAvatar && (
+                  <View style={styles.uploadingOverlay}>
+                    <View style={styles.uploadingContent}>
+                      <ActivityIndicator size="large" color={modernColors.accent} />
+                      <AppText style={styles.uploadingText}>در حال آپلود تصویر...</AppText>
+                    </View>
+                  </View>
+                )}
                 <ImageUpload
                   key={`avatar-${profileData.avatarUrl || 'no-avatar'}`}
                   isMultiple={false}
@@ -715,9 +793,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 30,
-    marginTop: StatusBar.currentHeight ? StatusBar.currentHeight + 80 : 120,
+    marginTop: 75,
     position: "relative",
-    paddingHorizontal: 20,
   },
   sectionTitle: {
     textAlign: "center",
@@ -734,18 +811,12 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     padding: 18,
     borderWidth: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.4)",
     borderColor: "rgba(203, 213, 225, 0.4)",
     position: "relative",
     overflow: "hidden",
     marginHorizontal: 5,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+ 
   },
   labelContainer: {
     flexDirection: 'row-reverse',
@@ -768,6 +839,7 @@ const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: 15,
     marginTop: 15,
+    position: 'relative',
   },
   descriptionValue: {
     fontSize: 16,
@@ -834,6 +906,28 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 50,
+  },
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+    borderRadius: 12,
+  },
+  uploadingContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  uploadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
   },
 });
 

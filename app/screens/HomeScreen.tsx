@@ -968,7 +968,7 @@ const HomeScreen = () => {
 
   const totalMemberPages = Math.ceil(members.length / 3);
   const totalProductPages = Math.ceil(products.length / 2);
-  const totalCoursePages = Math.max(1, courses.length);
+  const totalCoursePages = Math.ceil(courses.length / 2); // تغییر از courses.length به courses.length / 2
   const totalSlidePages = slides.length || 0;
   const totalGalleryPages = Math.ceil(galleries.length / 2);
   const totalBlogPostPages = Math.max(1, blogPosts.length);
@@ -1246,9 +1246,15 @@ const HomeScreen = () => {
   };
 
   const createCourseSkeletonPages = () => {
-    return Array.from({ length: 3 }, (_, index) => (
-      <View key={`course-skeleton-${index}`} style={{ transform: [{ scaleX: -1 }] }}>
-        <CourseCardSkeleton />
+    return Array.from({ length: 2 }, (_, pageIndex) => (
+      <View key={`course-skeleton-page-${pageIndex}`} style={{ transform: [{ scaleX: -1 }] }}>
+        <View style={styles.courseGrid}>
+          {Array.from({ length: 2 }, (_, cardIndex) => (
+            <View key={`course-skeleton-${pageIndex}-${cardIndex}`} style={styles.courseWrapper}>
+              <CourseCardSkeleton />
+            </View>
+          ))}
+        </View>
       </View>
     ));
   };
@@ -1339,19 +1345,33 @@ const HomeScreen = () => {
       ];
     }
 
+    const pages = [];
     const reversedCourses = [...courses].reverse();
 
-    return reversedCourses.map((course, index) => (
-      <View key={`course-page-${course.CourseId}`} style={{ transform: [{ scaleX: -1 }] }}>
-        <TouchableOpacity
-          onPress={() => handleCoursePress(course)}
-          activeOpacity={0.8}
-        >
-          <CourseCard course={course} onPress={handleCoursePress} />
-        </TouchableOpacity>
-      </View>
-    ));
+    // تقسیم کورس‌ها به صفحات 2تایی
+    for (let i = 0; i < reversedCourses.length; i += 2) {
+      const pageCourses = reversedCourses.slice(i, i + 2);
+      pages.push(
+        <View key={`course-page-${i}`} style={{ transform: [{ scaleX: -1 }] }}>
+          <View style={styles.courseGrid}>
+            {pageCourses.map((course, index) => (
+              <View key={`course-${course.CourseId}-${index}`} style={styles.courseWrapper}>
+                <CourseCard course={course} onPress={handleCoursePress} />
+              </View>
+            ))}
+            {/* اگر فقط یک کورس باشد، یک فضای خالی اضافه می‌کنیم */}
+            {pageCourses.length === 1 && (
+              <View style={styles.courseWrapper} />
+            )}
+          </View>
+        </View>
+      );
+    }
+    return pages;
   };
+
+
+
 
   const createSlidePages = () => {
     if (slides.length === 0) {
@@ -2360,10 +2380,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   courseSkeletonContainer: {
-    width: "97.5%",
-    height: 420,
+    minHeight: 390, 
     flexDirection: "column",
-    borderRadius: 20,
+    borderRadius: 16, 
     backgroundColor: '#fff',
     shadowColor: "#797979",
     shadowOffset: {
@@ -2373,23 +2392,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 4,
-    margin: 8,
+    marginBottom: 8,
     overflow: 'hidden',
-    marginTop: 0,
+    gap:8
   },
   courseImageSkeleton: {
     position: 'relative',
-    height: 200,
+    height: 250, 
     width: "100%",
   },
   courseDetailsSkeleton: {
+    paddingHorizontal: 12, // تناسب با کارت اصلی
+    paddingTop: 12,
+    paddingBottom: 10,
     flex: 1,
-    padding: 16,
   },
   courseHeaderSkeleton: {
     flexDirection: "row-reverse",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   locationSectionSkeleton: {
     borderTopWidth: 1,
@@ -2668,6 +2689,16 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: '#ffffff',
     textAlign: 'center',
+  },
+  courseGrid: {
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    width: '100%',
+    
+  },
+  courseWrapper: {
+    width: '48%',
   },
 });
 
