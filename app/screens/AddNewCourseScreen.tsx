@@ -4,6 +4,7 @@ import { Formik } from "formik";
 import { ScrollView, StyleSheet, View, Image, TouchableOpacity, Animated } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Yup from "yup";
+import jalaali from 'jalaali-js';
 import AppTextInput from "../components/TextInput";
 import colors from "../config/colors";
 import AppButton from "../components/Button";
@@ -251,41 +252,106 @@ const AddNewCourseScreen = () => {
       formData.append('ProvinceName', values.provinceName || '');
       formData.append('CourseAddress', values.courseAddress);
 
+      // تابع تبدیل اعداد فارسی به انگلیسی برای زمان‌ها
+      const toEnglishTime = (time) => {
+        if (!time) return '';
+        return time.toString().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+      };
+
       formData.append('HasSaturdaySession', values.hasSaturdaySession || false);
-      formData.append('Saturday_StartTime', values.saturdayStartTime || '');
-      formData.append('Saturday_FinishTime', values.saturdayFinishTime || '');
+      formData.append('Saturday_StartTime', toEnglishTime(values.saturdayStartTime) || '');
+      formData.append('Saturday_FinishTime', toEnglishTime(values.saturdayFinishTime) || '');
 
       formData.append('HasSundaySession', values.hasSundaySession || false);
-      formData.append('Sunday_StartTime', values.sundayStartTime || '');
-      formData.append('Sunday_FinishTime', values.sundayFinishTime || '');
+      formData.append('Sunday_StartTime', toEnglishTime(values.sundayStartTime) || '');
+      formData.append('Sunday_FinishTime', toEnglishTime(values.sundayFinishTime) || '');
 
       formData.append('HasMondaySession', values.hasMondaySession || false);
-      formData.append('Monday_StartTime', values.mondayStartTime || '');
-      formData.append('Monday_FinishTime', values.mondayFinishTime || '');
+      formData.append('Monday_StartTime', toEnglishTime(values.mondayStartTime) || '');
+      formData.append('Monday_FinishTime', toEnglishTime(values.mondayFinishTime) || '');
 
       formData.append('HasTuesdaySession', values.hasTuesdaySession || false);
-      formData.append('Tuesday_StartTime', values.tuesdayStartTime || '');
-      formData.append('Tuesday_FinishTime', values.tuesdayFinishTime || '');
+      formData.append('Tuesday_StartTime', toEnglishTime(values.tuesdayStartTime) || '');
+      formData.append('Tuesday_FinishTime', toEnglishTime(values.tuesdayFinishTime) || '');
 
       formData.append('HasWednesdaySession', values.hasWednesdaySession || false);
-      formData.append('Wednesday_StartTime', values.wednesdayStartTime || '');
-      formData.append('Wednesday_FinishTime', values.wednesdayFinishTime || '');
+      formData.append('Wednesday_StartTime', toEnglishTime(values.wednesdayStartTime) || '');
+      formData.append('Wednesday_FinishTime', toEnglishTime(values.wednesdayFinishTime) || '');
 
       formData.append('HasThursdaySession', values.hasThursdaySession || false);
-      formData.append('Thursday_StartTime', values.thursdayStartTime || '');
-      formData.append('Thursday_FinishTime', values.thursdayFinishTime || '');
+      formData.append('Thursday_StartTime', toEnglishTime(values.thursdayStartTime) || '');
+      formData.append('Thursday_FinishTime', toEnglishTime(values.thursdayFinishTime) || '');
 
       formData.append('HasFridaySession', values.hasFridaySession || false);
-      formData.append('Friday_StartTime', values.fridayStartTime || '');
-      formData.append('Friday_FinishTime', values.fridayFinishTime || '');
+      formData.append('Friday_StartTime', toEnglishTime(values.fridayStartTime) || '');
+      formData.append('Friday_FinishTime', toEnglishTime(values.fridayFinishTime) || '');
 
-      formData.append('StartDate', values.startDate.toISOString());
-      formData.append('FinishDate', values.finishDate.toISOString());
-      formData.append('RegisterStartDate', values.registerStartDate.toISOString());
-      formData.append('RegisterFinishDate', values.registerFinishDate.toISOString());
-      formData.append('RegisterAmount', values.registerAmount.toString());
+      // تبدیل تاریخ‌ها به فرمت شمسی با اعداد انگلیسی و خط تیره
+      const formatPersianDate = (dateString) => {
+        if (!dateString) return '';
+
+        // تابع تبدیل اعداد فارسی به انگلیسی
+        const toEnglishDigits = (str) => {
+          if (!str) return str;
+          return str.toString().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+        };
+
+        // اگر تاریخ از قبل فرمت شمسی داره (مثل 1404/07/29)، فقط / رو با - عوض کن و اعداد رو انگلیسی کن
+        if (typeof dateString === 'string' && dateString.includes('/')) {
+          const parts = dateString.split('/');
+          const year = toEnglishDigits(parts[0]);
+          const month = toEnglishDigits(parts[1]).padStart(2, '0');
+          const day = toEnglishDigits(parts[2]).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+        }
+
+        // اگر تاریخ میلادی است (Date object یا string به فرمت YYYY-MM-DD)، به شمسی تبدیل کن
+        let gregorianDate;
+        if (dateString instanceof Date) {
+          gregorianDate = dateString;
+        } else if (typeof dateString === 'string' && dateString.includes('-')) {
+          // تاریخ به فرمت YYYY-MM-DD
+          const parts = dateString.split('-');
+          gregorianDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        } else {
+          return dateString;
+        }
+
+        // تبدیل به شمسی
+        const jDate = jalaali.toJalaali(gregorianDate);
+        const year = jDate.jy.toString();
+        const month = jDate.jm.toString().padStart(2, '0');
+        const day = jDate.jd.toString().padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      // تابع تبدیل اعداد فارسی به انگلیسی
+      const toEnglishNumber = (num) => {
+        if (num === null || num === undefined) return '0';
+        return num.toString().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+      };
+
+      const startDate = formatPersianDate(values.startDate);
+      const finishDate = formatPersianDate(values.finishDate);
+      const registerStartDate = formatPersianDate(values.registerStartDate);
+      const registerFinishDate = formatPersianDate(values.registerFinishDate);
+      const registerAmount = toEnglishNumber(values.registerAmount);
+
+      // 🔍 لاگ تاریخ‌ها قبل از ارسال
+      console.log('📅 تاریخ‌های ارسالی به API:');
+      console.log('   StartDate:', startDate);
+      console.log('   FinishDate:', finishDate);
+      console.log('   RegisterStartDate:', registerStartDate);
+      console.log('   RegisterFinishDate:', registerFinishDate);
+      console.log('   RegisterAmount:', registerAmount);
+
+      formData.append('StartDate', startDate);
+      formData.append('FinishDate', finishDate);
+      formData.append('RegisterStartDate', registerStartDate);
+      formData.append('RegisterFinishDate', registerFinishDate);
+      formData.append('RegisterAmount', registerAmount);
       formData.append('AllowDiscountCode', values.allowDiscountCode || false);
-      formData.append('RegisterActive', values.registerActive !== undefined ? values.registerActive : true);
+      formData.append('RegisterActive', values.registerActive !== null && values.registerActive !== undefined ? values.registerActive : true);
       formData.append('InsertDate', new Date().toISOString());
       formData.append('LikeCount', '0');
 
@@ -300,29 +366,43 @@ const AddNewCourseScreen = () => {
           name: imageName,
           type: imageType,
         });
+        console.log('🖼️ تصویر پوستر اضافه شد:', imageName);
       }
+
+      // 🔍 لاگ کامل FormData
+      console.log('📦 داده‌های کامل ارسالی به API:');
+      console.log('   CourseName:', values.courseName);
+      console.log('   CourseType:', values.courseType);
+      console.log('   CityId:', values.cityId);
+      console.log('   ProvinceId:', values.provinceId);
+      console.log('   CourseAddress:', values.courseAddress);
 
       const response = await fetch(`${appConfig.mobileApi}Course/Add`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        // headers: {
+        //   'Content-Type': 'multipart/form-data',
+        // },
         body: formData,
       });
 
+      console.log('📡 Response Status:', response.status);
+      console.log('📡 Response Status:', response.status);
+
       if (response.ok) {
         const result = await response.json();
+        console.log('✅ دوره با موفقیت ثبت شد:', result);
         showToast('دوره با موفقیت ثبت شد', 'success');
         setTimeout(() => {
           navigation.goBack();
         }, 2000);
       } else {
         const errorText = await response.text();
-        console.error('Server error:', errorText);
+        console.error('❌ Server error:', errorText);
+        console.error('❌ Response status:', response.status);
         throw new Error('خطا در ثبت دوره');
       }
     } catch (error) {
-      console.error('Error submitting course:', error);
+      console.error('❌ Error submitting course:', error);
       showToast('خطا در ثبت دوره', 'error');
     } finally {
       setIsSubmitting(false);

@@ -287,43 +287,7 @@ const getCourseSchedule = (courseData) => {
   return schedule.length > 0 ? schedule.join('\n') : "برنامه زمانی مشخص نشده";
 };
 
-// Helper function to get course description
-const getCourseDescription = (courseData, coaches) => {
-  const description = [];
 
-  // Base description
-  description.push(`دوره ${courseData.CourseName || 'آموزشی'} یکی از دوره‌های جامع و کاربردی است که با هدف ارتقای سطح دانش و مهارت شرکت‌کنندگان طراحی شده است.`);
-
-  // Course type description
-  const typeDescriptions = {
-    1: "این دوره به صورت حضوری برگزار می‌شود و شرکت‌کنندگان می‌توانند از تعامل مستقیم با مدرس و سایر دانش‌آموزان بهره‌مند شوند.",
-    2: "این دوره به صورت مجازی ارائه می‌شود و امکان شرکت از هر نقطه‌ای از کشور را فراهم می‌کند.",
-    3: "این دوره به صورت ترکیبی (حضوری و مجازی) برگزار می‌شود که انعطاف‌پذیری بالایی برای شرکت‌کنندگان ایجاد می‌کند."
-  };
-
-  if (typeDescriptions[courseData.CourseType]) {
-    description.push(typeDescriptions[courseData.CourseType]);
-  }
-
-  // Duration and schedule info
-  if (courseData.StartDate && courseData.FinishDate) {
-    description.push(`دوره از تاریخ ${toPersianDigits(courseData.ShamsiStartDate)} آغاز و تا ${toPersianDigits(courseData.ShamsiFinishDate)} ادامه خواهد یافت.`);
-  }
-
-  // Registration info
-  if (courseData.RegisterActive) {
-    description.push("ثبت‌نام برای این دوره فعال بوده و علاقه‌مندان می‌توانند در آن شرکت کنند.");
-  } else {
-    description.push("ثبت‌نام برای این دوره در حال حاضر بسته است.");
-  }
-
-  // Coaches info - only mention if coaches actually exist
-  if (coaches && coaches.length > 0) {
-    description.push(`این دوره توسط ${coaches.length} مربی متخصص ارائه می‌شود.`);
-  }
-
-  return description.join(' ');
-};
 
 const CourseDetailsScreen = ({ route }) => {
   const navigation = useNavigation();
@@ -1050,7 +1014,7 @@ const CourseDetailsScreen = ({ route }) => {
           >
             <SmartDetailItem
               label="درباره این دوره"
-              value={getCourseDescription(courseData, coaches)}
+              value={courseData.Description}
               icon="description"
               maxLength={50}
             />

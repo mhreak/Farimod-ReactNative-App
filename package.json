@@ -33,6 +33,7 @@
     "expo-video": "~2.2.2",
     "formik": "^2.4.6",
     "jalaali-js": "^1.2.8",
+    "moment-jalaali": "^0.10.4",
     "react": "19.0.0",
     "react-native": "0.79.3",
     "react-native-gesture-handler": "~2.24.0",
