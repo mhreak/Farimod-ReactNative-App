@@ -2,22 +2,28 @@
   "expo": {
     "name": "farimod",
     "slug": "farimod-2",
-    "owner": "yeganeh0",
+    "owner": "yeganeh1",
+    "jsEngine":"hermes",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/main-icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
+    "updates": {
+      "enabled": false
+    },
     "splash": {
       "image": "./assets/main-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/favicon512.png",
-        "backgroundColor": "#ffffff",
-        "padding": "100px"
+        "backgroundColor": "#ffffff"
       },
       "permissions": [
         "android.permission.CAMERA",
@@ -25,7 +31,8 @@
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.ACCESS_WIFI_STATE"
       ],
-      "edgeToEdgeEnabled": true,
+      "softwareKeyboardLayoutMode": "pan",
+      "edgeToEdgeEnabled": false,
       "package": "com.yeganeh0.farimod2"
     },
     "ios": {
@@ -35,10 +42,10 @@
       "favicon": "./assets/main-icon.png"
     },
     "extra": {
+      "apiUrl": "http://my.farimod.ir",
       "eas": {
-        "projectId": "452922dd-854c-4587-9ee8-a4dc7075dccd"
-      },
-      "apiUrl": "http://89.42.208.49"
+        "projectId": "3ee5b6c6-5afd-4598-bec5-e42be3262d50"
+      }
     },
     "plugins": [
       [
@@ -50,7 +57,9 @@
           }
         }
       ],
-      "expo-video"
+      "expo-font",
+      "expo-video",
+      "@react-native-community/datetimepicker"
     ]
   }
 }

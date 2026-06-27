@@ -12,11 +12,13 @@ import {
   StatusBar,
   FlatList,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
-
+import { Linking } from 'react-native';
+import Toast from "../components/Toast";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import colors from "../config/colors";
 import AppText from "../components/Text";
@@ -26,6 +28,7 @@ import appConfig from "../config/config";
 import { useMemberProfile } from "../config/useApi";
 import { VideoView } from 'expo-video';
 import { useVideoPlayer } from 'expo-video';
+import { useAuth } from "../contexts/AuthContext";
 
 const { width } = Dimensions.get("window");
 
@@ -59,27 +62,48 @@ const modernColors = {
   gradientStart: "#667eea",
   gradientEnd: "#764ba2",
 };
-
-const LikeButton = ({ memberId, initialLikeCount = 0, initialIsLiked = false }) => {
+// در LikeButton
+const LikeButton = ({ memberId, initialLikeCount = 0, initialIsLiked = false, onLikeSuccess }) => {
+  const { user } = useAuth();
   const [likeCount, setLikeCount] = useState(initialLikeCount);
   const [isLiked, setIsLiked] = useState(initialIsLiked);
   const [isLiking, setIsLiking] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('error');
 
   const likeAnim = useRef(new Animated.Value(1)).current;
   const heartAnim = useRef(new Animated.Value(0)).current;
 
-  const handleLike = async () => {
-    if (isLiking || !memberId) return;
+  // ✅ به‌روزرسانی state وقتی props تغییر می‌کند
+  useEffect(() => {
+    console.log('LikeButton props updated:', { initialLikeCount, initialIsLiked });
+    setLikeCount(initialLikeCount);
+    setIsLiked(initialIsLiked);
+  }, [initialLikeCount, initialIsLiked]);
 
+  const handleLike = async () => {
+    if (isLiking || !memberId || !user?.MemberId) {
+      console.log('Like action blocked:', { isLiking, memberId, userId: user?.MemberId });
+      return;
+    }
+
+    console.log('Starting like action...');
     setIsLiking(true);
+
+    const previousIsLiked = isLiked;
+    const previousLikeCount = likeCount;
 
     const newIsLiked = !isLiked;
     const countChange = newIsLiked ? 1 : -1;
     const newLikeCount = likeCount + countChange;
 
+    // Optimistic update
     setIsLiked(newIsLiked);
     setLikeCount(newLikeCount);
+    console.log('Optimistic update:', { newIsLiked, newLikeCount });
 
+    // انیمیشن
     Animated.sequence([
       Animated.parallel([
         Animated.timing(likeAnim, {
@@ -138,89 +162,122 @@ const LikeButton = ({ memberId, initialLikeCount = 0, initialIsLiked = false }) 
     }
 
     try {
-      const response = await fetch(
-        `${appConfig.mobileApi}Member/Like?id=${memberId}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      const apiUrl = `${appConfig.mobileApi}Member/Like?likedMemberId=${memberId}&memberId=${user.MemberId}`;
+      console.log('Calling like API:', apiUrl);
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        console.error('API error response:', errorData);
+        throw new Error(errorData.Message || 'خطا در ثبت لایک');
       }
 
       const result = await response.json();
       console.log('Like API Response:', result);
 
+      // ✅ به‌روزرسانی از سرور
       if (result.LikeCount !== undefined) {
+        console.log('Updating like count from server:', result.LikeCount);
         setLikeCount(result.LikeCount);
+      }
+
+      // ✅ فراخوانی callback برای refetch پروفایل با delay کوچک
+      if (onLikeSuccess) {
+        console.log('Calling onLikeSuccess callback...');
+        // کمی تاخیر برای اطمینان از اینکه سرور داده‌ها را ذخیره کرده
+        setTimeout(async () => {
+          await onLikeSuccess();
+          console.log('Profile refetch completed');
+        }, 300);
       }
 
     } catch (error) {
       console.error('Like API Error:', error);
-      setIsLiked(isLiked);
-      setLikeCount(likeCount);
-      console.log('خطا در ثبت لایک');
+
+      // بازگرداندن به حالت قبل
+      setIsLiked(previousIsLiked);
+      setLikeCount(previousLikeCount);
+      console.log('Reverted to previous state:', { previousIsLiked, previousLikeCount });
+
+      const errorMessage = error.message || 'خطا در ثبت لایک';
+      setToastMessage(errorMessage);
+      setToastType('error');
+      setToastVisible(true);
     } finally {
       setIsLiking(false);
+      console.log('Like action completed');
     }
   };
 
   return (
-    <View style={styles.likeSection}>
-      <TouchableOpacity
-        style={styles.likeButton}
-        onPress={handleLike}
-        disabled={isLiking}
-        activeOpacity={0.7}
-      >
-        <View style={styles.likeButtonInner}>
-          <View>
-            <MaterialIcons
-              name={isLiked ? "favorite" : "favorite-border"}
-              size={20}
-              color={isLiked ? modernColors.secondary : modernColors.medium}
-            />
+    <>
+      <View style={styles.likeSection}>
+        <TouchableOpacity
+          style={styles.likeButton}
+          onPress={handleLike}
+          disabled={isLiking}
+          activeOpacity={0.7}
+        >
+          <View style={styles.likeButtonInner}>
+            <View>
+              <MaterialIcons
+                name={isLiked ? "favorite" : "favorite-border"}
+                size={20}
+                color={isLiked ? modernColors.secondary : modernColors.medium}
+              />
+            </View>
+            <AppText style={[
+              styles.likeText,
+              { color: isLiked ? modernColors.secondary : modernColors.medium }
+            ]}>
+              {toPersianDigits(likeCount.toString())}
+            </AppText>
           </View>
-          <AppText style={[
-            styles.likeText,
-            { color: isLiked ? modernColors.secondary : modernColors.medium }
-          ]}>
-            {toPersianDigits(likeCount.toString())}
-          </AppText>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
 
-      <Animated.View
-        style={[
-          styles.floatingHeart,
-          {
-            opacity: heartAnim,
-            transform: [
-              {
-                translateY: heartAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, -100],
-                }),
-              },
-              {
-                scale: heartAnim.interpolate({
-                  inputRange: [0, 0.3, 0.7, 1],
-                  outputRange: [0.5, 1.5, 1.2, 0.3],
-                }),
-              },
-            ],
-          },
-        ]}
-      >
-        <MaterialIcons name="favorite" size={30} color={modernColors.secondary} />
-      </Animated.View>
-    </View>
+        <Animated.View
+          style={[
+            styles.floatingHeart,
+            {
+              opacity: heartAnim,
+              transform: [
+                {
+                  translateY: heartAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -100],
+                  }),
+                },
+                {
+                  scale: heartAnim.interpolate({
+                    inputRange: [0, 0.3, 0.7, 1],
+                    outputRange: [0.5, 1.5, 1.2, 0.3],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <MaterialIcons name="favorite" size={30} color={modernColors.secondary} />
+        </Animated.View>
+      </View>
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        duration={3000}
+        onHide={() => setToastVisible(false)}
+      />
+    </>
   );
 };
+
+// ... بقیه کامپوننت‌ها بدون تغییر ...
 
 const VideoSection = ({ userData, animatedValues }) => {
   const [videoError, setVideoError] = useState(false);
@@ -578,7 +635,7 @@ const CourseCard = ({ item, onPress }) => (
       </AppText>
       <View style={styles.courseInfo}>
         <View style={styles.coursePrice}>
-          <MaterialIcons name="attach-money" size={16} color={modernColors.success} />
+
           <AppText style={styles.coursePriceText}>
             {item.SpecialSalePrice && item.SpecialSalePrice > 0
               ? formatPrice(item.SpecialSalePrice)
@@ -741,39 +798,64 @@ const BlogPostCard = ({ item, onPress }) => (
   </TouchableOpacity>
 );
 
-const ContactItem = ({ icon, text, type, onPress, shimmerAnim }) => (
-  <TouchableOpacity
-    style={styles.modernContactItem}
-    activeOpacity={0.7}
-    onPress={onPress}
-  >
-    <Animated.View style={[styles.contactIconContainer, {
-      backgroundColor: type === 'email' ? modernColors.info + '20' :
-        type === 'phone' ? modernColors.success + '20' :
-          modernColors.warning + '20'
-    }]}>
-      <MaterialIcons
-        name={icon}
-        size={20}
-        color={type === 'email' ? modernColors.info :
-          type === 'phone' ? modernColors.success :
-            modernColors.warning}
-      />
-    </Animated.View>
+const ContactItem = ({ icon, text, type, onPress, shimmerAnim }) => {
+  const getIconColor = () => {
+    switch (type) {
+      case 'email': return modernColors.info;
+      case 'phone': return modernColors.success;
+      case 'whatsapp': return '#25D366';
+      case 'instagram': return '#E4405F';
+      case 'location': return modernColors.warning;
+      default: return modernColors.medium;
+    }
+  };
 
-    <View style={styles.contactTextContainer}>
-      <AppText style={styles.contactLabel}>
-        {type === 'email' ? 'ایمیل' :
-          type === 'phone' ? 'تلفن' : 'آدرس'}
-      </AppText>
-      <AppText style={styles.modernContactText}>{text}</AppText>
-    </View>
+  const getLabel = () => {
+    switch (type) {
+      case 'email': return 'ایمیل';
+      case 'phone': return 'تلفن';
+      case 'whatsapp': return 'واتساپ';
+      case 'telegram': return 'تلگرام';
+      case 'mobile': return 'موبایل';
+      case 'instagram': return 'اینستاگرام';
+      case 'location': return 'آدرس';
+      case 'website': return 'وبسایت';
+      default: return '';
+    }
+  };
 
-    <View style={styles.contactArrow}>
-      <MaterialIcons name="chevron-left" size={20} color={modernColors.medium} />
-    </View>
-  </TouchableOpacity>
-);
+  const iconColor = getIconColor();
+
+  return (
+    <TouchableOpacity
+      style={styles.modernContactItem}
+      activeOpacity={0.7}
+      onPress={onPress}
+    >
+      <Animated.View style={[styles.contactIconContainer, {
+        backgroundColor: iconColor + '20'
+      }]}>
+        <MaterialIcons
+          name={icon}
+          size={20}
+          color={iconColor}
+        />
+      </Animated.View>
+
+      <View style={styles.contactTextContainer}>
+        <AppText style={styles.contactLabel}>
+          {getLabel()}
+        </AppText>
+        <AppText style={styles.modernContactText}>{text}</AppText>
+      </View>
+
+      <View style={styles.contactArrow}>
+        <MaterialIcons name="chevron-left" size={20} color={modernColors.medium} />
+      </View>
+    </TouchableOpacity>
+  );
+};
+
 
 const SectionHeader = ({ title, icon, color, onSeeAll, hasData = true }) => (
   <View style={styles.sectionHeader}>
@@ -919,10 +1001,110 @@ const UserProfileScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const { userData } = route.params || {};
+  const { user } = useAuth(); // ✅ دریافت اطلاعات کاربر فعلی
 
   const memberId = userData?.MemberId || null;
+  const currentMemberId = user?.MemberId // ✅ ID کاربر فعلی
 
-  const { data: memberProfile, loading, error, refetch } = useMemberProfile(memberId);
+  // ✅ ارسال currentMemberId به API
+  const { data: memberProfile, loading, error, refetch } = useMemberProfile(memberId, currentMemberId);
+
+  const handleContactPress = async (type, value) => {
+    try {
+      switch (type) {
+        case 'phone':
+          const cleanNumber = value.replace(/\s+/g, '');
+          await Linking.openURL(`tel:${cleanNumber}`);
+          break;
+        case 'email':
+          const Email = `mailto:${value}`;
+          const canOpenEmail = await Linking.canOpenURL(Email);
+          if (canOpenEmail) {
+            await Linking.openURL(Email);
+          } else {
+            Alert.alert('ایمیل', `آدرس ایمیل: ${value}`, [{ text: 'باشه' }]);
+          }
+          break;
+
+        case 'whatsapp':
+          const WhatsappAccountMobileNumber = value.replace(/\D/g, '');
+          const fullNumber = WhatsappAccountMobileNumber.startsWith('98') ? WhatsappAccountMobileNumber : `98${WhatsappAccountMobileNumber}`;
+          const whatsappUrl = `whatsapp://send?phone=${fullNumber}`;
+
+          const canOpenWhatsapp = await Linking.canOpenURL(whatsappUrl);
+          if (canOpenWhatsapp) {
+            await Linking.openURL(whatsappUrl);
+          } else {
+            Alert.alert('خطا', 'واتساپ نصب نیست');
+          }
+          break;
+
+        case 'telegram':
+          const TelegramAccountId = value.replace('@', '').trim();
+          const telegramUrl = `tg://resolve?domain=${TelegramAccountId}`;
+
+          try {
+            const canOpenTelegram = await Linking.canOpenURL(telegramUrl);
+            if (canOpenTelegram) {
+              await Linking.openURL(telegramUrl);
+            } else {
+              await Linking.openURL(`https://t.me/${TelegramAccountId}`);
+            }
+          } catch (err) {
+            await Linking.openURL(`https://t.me/${TelegramAccountId}`);
+          }
+          break;
+
+        case 'instagram':
+          const InstagramAccountId = value.replace('@', '').trim();
+          const instagramUrl = `instagram://user?username=${InstagramAccountId}`;
+
+          try {
+            const canOpenInstagram = await Linking.canOpenURL(instagramUrl);
+            if (canOpenInstagram) {
+              await Linking.openURL(instagramUrl);
+            } else {
+              await Linking.openURL(`https://instagram.com/${InstagramAccountId}`);
+            }
+          } catch (err) {
+            await Linking.openURL(`https://instagram.com/${InstagramAccountId}`);
+          }
+          break;
+
+        case 'website':
+          let websiteUrl = value.trim();
+          if (!websiteUrl.startsWith('http://') && !websiteUrl.startsWith('https://')) {
+            websiteUrl = `https://${websiteUrl}`;
+          }
+          await Linking.openURL(websiteUrl);
+          break;
+
+        case 'location':
+          const locationUrl = Platform.select({
+            ios: `maps://app?q=${encodeURIComponent(value)}`,
+            android: `geo:0,0?q=${encodeURIComponent(value)}`,
+          });
+
+          const canOpenMap = await Linking.canOpenURL(locationUrl);
+          if (canOpenMap) {
+            await Linking.openURL(locationUrl);
+          } else {
+            await Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(value)}`);
+          }
+          break;
+
+        default:
+          console.log('Unknown contact type:', type);
+      }
+    } catch (error) {
+      console.error('Error opening link:', error);
+      Alert.alert('خطا', 'خطا در باز کردن لینک');
+    }
+  };
+  useEffect(() => {
+    const apiUrl = `${appConfig.mobileApi}Member/Get?currentMemberId=${currentMemberId}&memberId=${memberId}`;
+    console.log('🔵 Initial API Call URL:', apiUrl);
+  }, [memberId, currentMemberId]);
 
   const handleNavigateToFilteredContent = (contentType, memberId, memberName) => {
     const navigationMap = {
@@ -938,18 +1120,21 @@ const UserProfileScreen = () => {
       console.log(`Navigating to ${screenName} with memberId: ${memberId}`);
 
       if (screenName === 'MagScreen') {
-        navigation.navigate('MainTabs', {
-          screen: 'مجله ی فریمد',
+        navigation.navigate('App', {
+          screen: 'MainTabs',
           params: {
-            filteredMemberId: memberId,
-            filteredMemberName: memberName || user.Name || 'کاربر',
-            filterType: 'member'
+            screen: 'وبلاگ',
+            params: {
+              filteredMemberId: memberId,
+              filteredMemberName: memberName || profileUser.Name || 'کاربر',
+              filterType: 'member'
+            }
           }
         });
       } else {
         navigation.navigate(screenName, {
           filteredMemberId: memberId,
-          filteredMemberName: memberName || user.Name || 'کاربر',
+          filteredMemberName: memberName || profileUser.Name || 'کاربر',
           filterType: 'member'
         });
       }
@@ -1112,7 +1297,7 @@ const UserProfileScreen = () => {
     outputRange: ['0deg', '360deg'],
   });
 
-  const user = memberProfile || userData || {
+  const profileUser = memberProfile || userData || {
     MemberId: 0,
     Name: "کاربر ناشناس",
     MemberGroupsStr: "تعریف نشده",
@@ -1126,7 +1311,7 @@ const UserProfileScreen = () => {
   };
 
   const handleGoBack = () => {
-    navigation.goBack();
+    navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
   };
 
   const scrollToSection = (sectionRef) => {
@@ -1142,11 +1327,11 @@ const UserProfileScreen = () => {
   };
 
   const hasData = {
-    portfolio: user.PortfolioViewModelList && user.PortfolioViewModelList.length > 0,
-    products: user.ProductViewModelList && user.ProductViewModelList.length > 0,
-    courses: user.CourseViewModelList && user.CourseViewModelList.length > 0,
-    gallery: user.ImageGalleryViewModelList && user.ImageGalleryViewModelList.length > 0,
-    blogPosts: user.BlogPostViewModelList && user.BlogPostViewModelList.length > 0
+    portfolio: profileUser.PortfolioViewModelList && profileUser.PortfolioViewModelList.length > 0,
+    products: profileUser.ProductViewModelList && profileUser.ProductViewModelList.length > 0,
+    courses: profileUser.CourseViewModelList && profileUser.CourseViewModelList.length > 0,
+    gallery: profileUser.ImageGalleryViewModelList && profileUser.ImageGalleryViewModelList.length > 0,
+    blogPosts: profileUser.BlogPostViewModelList && profileUser.BlogPostViewModelList.length > 0
   };
 
   const sectionsWithData = Object.values(hasData).filter(Boolean).length;
@@ -1183,8 +1368,7 @@ const UserProfileScreen = () => {
   const renderProductItem = ({ item }) => <ProductCard item={item} onPress={handleProductPress} />;
   const renderGalleryItem = ({ item }) => <GalleryCard item={item} onPress={handleGalleryPress} />;
   const renderBlogPostItem = ({ item }) => <BlogPostCard item={item} onPress={handleBlogPress} />;
-  { console.log('ShowAboutMeText:', user.ShowAboutMeText) }
-  { console.log('ShowContactInfo:', user.ShowContactInfo) }
+
   if (loading) {
     return (
       <>
@@ -1301,9 +1485,9 @@ const UserProfileScreen = () => {
                 >
                   <View style={styles.avatarMiddleRing}>
                     <View style={styles.avatarInnerContainer}>
-                      {user.AvatarImageURL && user.AvatarImageURL.trim() !== '' ? (
+                      {profileUser.AvatarImageURL && profileUser.AvatarImageURL.trim() !== '' ? (
                         <Image
-                          source={{ uri: user.AvatarImageURL }}
+                          source={{ uri: profileUser.AvatarImageURL }}
                           style={styles.avatarImage}
                         />
                       ) : (
@@ -1314,7 +1498,7 @@ const UserProfileScreen = () => {
                           end={{ x: 1, y: 1 }}
                         >
                           <MaterialCommunityIcons
-                            name={user.Gender ? "face-man" : "face-woman"}
+                            name={profileUser.Gender ? "face-man" : "face-woman"}
                             size={60}
                             color="white"
                           />
@@ -1332,7 +1516,7 @@ const UserProfileScreen = () => {
                   </View>
                 </LinearGradient>
 
-                {user?.ShowBlueTick && (
+                {profileUser?.ShowBlueTick && (
                   <View style={styles.blueTickContainer}>
                     <MaterialIcons
                       name="verified"
@@ -1386,56 +1570,117 @@ const UserProfileScreen = () => {
               </Animated.View>
             </View>
 
-            <AppText style={styles.userName}>{safeString(user.Name, 'کاربر ناشناس')}</AppText>
-            <AppText style={styles.userProfession}>{safeString(user.MemberGroupsStr, 'تعریف نشده')}</AppText>
+            <AppText style={styles.userName}>{safeString(profileUser.Name, 'کاربر ناشناس')}</AppText>
+            <AppText style={styles.userProfession}>{safeString(profileUser.MemberGroupsStr, 'تعریف نشده')}</AppText>
 
             <LikeButton
-              memberId={user.MemberId}
-              initialLikeCount={user.LikeCount || 0}
-              initialIsLiked={user.IsMemberLiked || false}
+              memberId={profileUser.MemberId}
+              initialLikeCount={profileUser.LikeCount || 0}
+              initialIsLiked={profileUser.IsCurrentMemberLikedThisMember || false}
+              onLikeSuccess={refetch} // ✅ اضافه کردن callback
             />
           </Animated.View>
 
-          <VideoSection userData={user} animatedValues={animatedValues} />
+          <VideoSection userData={profileUser} animatedValues={animatedValues} />
 
           {!shouldShowQuickAccess && <View style={{ height: 50 }} />}
 
-          {user.ShowAboutMeText === true && (
+          {profileUser.ShowAboutMeText === true && (
             <InfoSection icon="person" title="درباره من" iconColor={modernColors.info}>
-              <ExpandableText text={safeString(user.AboutMe, 'اطلاعات بیوگرافی موجود نیست')} maxLines={3} />
+              <ExpandableText text={safeString(profileUser.AboutMe, 'اطلاعات بیوگرافی موجود نیست')} maxLines={3} />
             </InfoSection>
           )}
 
-          {user.ShowContactInfo === true && (
+          {profileUser.ShowContactInfo === true && (
             <InfoSection icon="contact-phone" title="اطلاعات تماس" iconColor={modernColors.tertiary}>
               <View style={styles.contactGrid}>
-                {user.Email && (
+                {profileUser.Email && (
                   <ContactItem
                     icon="email"
-                    text={user.Email}
+                    text={profileUser.Email}
                     type="email"
                     shimmerAnim={shimmerAnim}
-                    onPress={() => console.log('Open Email')}
+                    onPress={() => handleContactPress('email', profileUser.Email)}
                   />
                 )}
 
-                {user.Mobile && (
+                {profileUser.Mobile && (
                   <ContactItem
                     icon="phone"
-                    text={user.Mobile}
+                    text={profileUser.Mobile}
                     type="phone"
                     shimmerAnim={shimmerAnim}
-                    onPress={() => console.log('Call Phone')}
+                    onPress={() => handleContactPress('phone', profileUser.Mobile)}
                   />
                 )}
 
-                {(user.CityName || user.ProvinceName) && (
+                {profileUser.Phone1 && (
+                  <ContactItem
+                    icon="phone"
+                    text={profileUser.Phone1}
+                    type="phone"
+                    shimmerAnim={shimmerAnim}
+                    onPress={() => handleContactPress('phone', profileUser.Phone1)}
+                  />
+                )}
+
+                {profileUser.Phone2 && (
+                  <ContactItem
+                    icon="phone"
+                    text={profileUser.Phone2}
+                    type="phone"
+                    shimmerAnim={shimmerAnim}
+                    onPress={() => handleContactPress('phone', profileUser.Phone2)}
+                  />
+                )}
+
+                {profileUser.WhatsappAccountMobileNumber && (
+                  <ContactItem
+                    icon="chat"
+                    text={profileUser.WhatsappAccountMobileNumber}
+                    type="whatsapp"
+                    shimmerAnim={shimmerAnim}
+                    onPress={() => handleContactPress('whatsapp', profileUser.WhatsappAccountMobileNumber)}
+                  />
+                )}
+
+                {profileUser.TelegramAccountId && (
+                  <ContactItem
+                    icon="send"
+                    text={profileUser.TelegramAccountId}
+                    type="telegram"
+                    shimmerAnim={shimmerAnim}
+                    onPress={() => handleContactPress('telegram', profileUser.TelegramAccountId)}
+                  />
+                )}
+
+                {profileUser.InstagramAccountId && (
+                  <ContactItem
+                    icon="photo-camera"
+                    text={profileUser.InstagramAccountId}
+                    type="instagram"
+                    shimmerAnim={shimmerAnim}
+                    onPress={() => handleContactPress('instagram', profileUser.InstagramAccountId)}
+                  />
+                )}
+
+                {profileUser.WebsiteAddress && (
+                  <ContactItem
+                    icon="language"
+                    text={profileUser.WebsiteAddress}
+                    type="website"
+                    shimmerAnim={shimmerAnim}
+                    onPress={() => handleContactPress('website', profileUser.WebsiteAddress)}
+                  />
+                )}
+
+                {(profileUser.CityName || profileUser.ProvinceName) && (
                   <ContactItem
                     icon="location-on"
-                    text={`${safeString(user.CityName, '')}${user.CityName && user.ProvinceName ? '، ' : ''}${safeString(user.ProvinceName, '')}`}
+                    text={`${safeString(profileUser.CityName, '')}${profileUser.CityName && profileUser.ProvinceName ? '، ' : ''}${safeString(profileUser.ProvinceName, '')}`}
                     type="location"
                     shimmerAnim={shimmerAnim}
-                    onPress={() => console.log('Open Location')}
+                    onPress={() => handleContactPress('location', `${profileUser.CityName}, ${profileUser.ProvinceName}`)}
                   />
                 )}
               </View>
@@ -1511,11 +1756,11 @@ const UserProfileScreen = () => {
                 title="مقالات"
                 icon="article"
                 color={modernColors.info}
-                hasData={user.BlogPostViewModelList.length > 0}
-                onSeeAll={() => handleNavigateToFilteredContent('blog', user.MemberId, user.Name)}
+                hasData={profileUser.BlogPostViewModelList.length > 0}
+                onSeeAll={() => handleNavigateToFilteredContent('blog', profileUser.MemberId, profileUser.Name)}
               />
               <FlatList
-                data={user.BlogPostViewModelList}
+                data={profileUser.BlogPostViewModelList}
                 renderItem={renderBlogPostItem}
                 keyExtractor={(item) => item.BlogPostId?.toString() || Math.random().toString()}
                 horizontal
@@ -1542,11 +1787,11 @@ const UserProfileScreen = () => {
                 title="نمونه کارها"
                 icon="work"
                 color={modernColors.secondary}
-                hasData={user.PortfolioViewModelList.length > 0}
-                onSeeAll={() => handleNavigateToFilteredContent('portfolio', user.MemberId, user.Name)}
+                hasData={profileUser.PortfolioViewModelList.length > 0}
+                onSeeAll={() => handleNavigateToFilteredContent('portfolio', profileUser.MemberId, profileUser.Name)}
               />
               <FlatList
-                data={user.PortfolioViewModelList}
+                data={profileUser.PortfolioViewModelList}
                 renderItem={renderPortfolioItem}
                 keyExtractor={(item) => item.PortfolioId?.toString() || Math.random().toString()}
                 horizontal
@@ -1573,11 +1818,11 @@ const UserProfileScreen = () => {
                 title="محصولات"
                 icon="shopping-bag"
                 color={modernColors.accent}
-                hasData={user.ProductViewModelList.length > 0}
-                onSeeAll={() => handleNavigateToFilteredContent('products', user.MemberId, user.Name)}
+                hasData={profileUser.ProductViewModelList.length > 0}
+                onSeeAll={() => handleNavigateToFilteredContent('products', profileUser.MemberId, profileUser.Name)}
               />
               <FlatList
-                data={user.ProductViewModelList}
+                data={profileUser.ProductViewModelList}
                 renderItem={renderProductItem}
                 keyExtractor={(item) => item.ProductId?.toString() || Math.random().toString()}
                 horizontal
@@ -1604,11 +1849,11 @@ const UserProfileScreen = () => {
                 title="دوره‌ها"
                 icon="school"
                 color={modernColors.tertiary}
-                hasData={user.CourseViewModelList.length > 0}
-                onSeeAll={() => handleNavigateToFilteredContent('courses', user.MemberId, user.Name)}
+                hasData={profileUser.CourseViewModelList.length > 0}
+                onSeeAll={() => handleNavigateToFilteredContent('courses', profileUser.MemberId, profileUser.Name)}
               />
               <FlatList
-                data={user.CourseViewModelList}
+                data={profileUser.CourseViewModelList}
                 renderItem={renderCourseItem}
                 keyExtractor={(item) => item.CourseId?.toString() || Math.random().toString()}
                 horizontal
@@ -1660,11 +1905,11 @@ const UserProfileScreen = () => {
                 title="گالری تصاویر"
                 icon="photo-library"
                 color={modernColors.error}
-                hasData={user.ImageGalleryViewModelList.length > 0}
-                onSeeAll={() => handleNavigateToFilteredContent('gallery', user.MemberId, user.Name)}
+                hasData={profileUser.ImageGalleryViewModelList.length > 0}
+                onSeeAll={() => handleNavigateToFilteredContent('gallery', profileUser.MemberId, profileUser.Name)}
               />
               <FlatList
-                data={user.ImageGalleryViewModelList}
+                data={profileUser.ImageGalleryViewModelList}
                 renderItem={renderGalleryItem}
                 keyExtractor={(item) => item.ImageGalleryId?.toString() || Math.random().toString()}
                 horizontal

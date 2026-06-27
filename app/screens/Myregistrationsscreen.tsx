@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import AppText from "../components/Text";
 import {
-  ScrollView,
   StyleSheet,
   View,
   Dimensions,
@@ -11,18 +10,16 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
-  Image,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
 import MainBackground from "../components/MainBackground";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
-import CourseCard from "../components/CourseCard";
+import CourseRegistrationCard from "../components/CourseRegistrationCard";
 import Toast from "../components/Toast";
 import appConfig from "../config/config";
-import { toPersianDigits } from "../utils/converters";
 import { useAuth } from '../contexts/AuthContext';
+import { toPersianDigits } from "../utils/converters";
 
 const { width, height } = Dimensions.get('window');
 
@@ -44,13 +41,11 @@ const modernColors = {
   info: "#3498db",
   gradientStart: "#667eea",
   gradientEnd: "#764ba2",
-  courseIcon: "#6366f1",
 };
 
 const ITEMS_PER_PAGE = 20;
 
-const useUserCoursesWithPagination = () => {
-  const { user } = useAuth();
+const useRegistrationsWithPagination = (memberId) => {
   const [data, setData] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -58,13 +53,18 @@ const useUserCoursesWithPagination = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchUserCourses = async (newPage = 1, pageSize = ITEMS_PER_PAGE) => {
+  const fetchRegistrations = async (newPage = 1, pageSize = ITEMS_PER_PAGE) => {
+    if (!memberId) {
+      setError('شناسه کاربر موجود نیست');
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
       const response = await fetch(
-        `${appConfig.mobileApi}Course/GetAll?filterMemberId=${user?.MemberId}&currentPage=${newPage}&pageSize=${pageSize}`
+        `${appConfig.mobileApi}CourseRegistration/GetRegisteredCoursesOfMember?memberId=${memberId}&currentPage=${newPage}&pageSize=${pageSize}`
       );
 
       if (!response.ok) {
@@ -96,7 +96,7 @@ const useUserCoursesWithPagination = () => {
 
   const loadMore = () => {
     if (!loading && hasMore) {
-      fetchUserCourses(page + 1);
+      fetchRegistrations(page + 1);
     }
   };
 
@@ -105,7 +105,7 @@ const useUserCoursesWithPagination = () => {
     total,
     loading,
     error,
-    fetchUserCourses,
+    fetchRegistrations,
     loadMore,
     hasMore,
     page,
@@ -154,58 +154,69 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   );
 };
 
-const CourseCardSkeleton = () => {
+const RegistrationCardSkeleton = () => {
   return (
-    <View style={styles.courseSkeletonContainer}>
+    <View style={styles.registrationSkeletonContainer}>
       {/* Image Section */}
-      <View style={styles.courseImageSkeleton}>
+      <View style={styles.skeletonImageSection}>
         <SkeletonLoader width="100%" height="100%" borderRadius={0} />
       </View>
 
       {/* Course Details Section */}
-      <View style={styles.courseDetailsSkeleton}>
+      <View style={styles.skeletonDetailsSection}>
         {/* Header with icon and content */}
-        <View style={styles.courseHeaderSkeleton}>
-          <SkeletonLoader width={32} height={32} borderRadius={8} style={{ marginLeft: 8 }} />
+        <View style={styles.skeletonHeader}>
+          <SkeletonLoader width={28} height={28} borderRadius={8} style={{ marginLeft: 6 }} />
           <View style={{ flex: 1 }}>
             {/* Title */}
-            <SkeletonLoader width="90%" height={13} style={{ marginBottom: 4, alignSelf: 'flex-end' }} />
-            <SkeletonLoader width="70%" height={13} style={{ marginBottom: 4, alignSelf: 'flex-end' }} />
-            {/* Price */}
-            <SkeletonLoader width="40%" height={12} style={{ marginBottom: 3, alignSelf: 'flex-end' }} />
+            <SkeletonLoader width="90%" height={12} style={{ marginBottom: 4, alignSelf: 'flex-end' }} />
+            <SkeletonLoader width="60%" height={12} style={{ marginBottom: 4, alignSelf: 'flex-end' }} />
+            {/* Date */}
+            <SkeletonLoader width="40%" height={9} style={{ alignSelf: 'flex-end' }} />
           </View>
         </View>
 
-        {/* Location Section */}
-        <View style={styles.locationSectionSkeleton}>
+        {/* Instructor Section */}
+        <View style={styles.skeletonInfoSection}>
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center', marginBottom: 3 }}>
-            <SkeletonLoader width={14} height={14} borderRadius={7} style={{ marginLeft: 4 }} />
-            <SkeletonLoader width={60} height={11} />
+            <SkeletonLoader width={13} height={13} borderRadius={7} style={{ marginLeft: 4 }} />
+            <SkeletonLoader width={50} height={10} />
           </View>
-          <SkeletonLoader width="85%" height={11} style={{ alignSelf: 'flex-end', marginBottom: 2 }} />
-          <SkeletonLoader width="60%" height={11} style={{ alignSelf: 'flex-end' }} />
+          <SkeletonLoader width="70%" height={10} style={{ alignSelf: 'flex-end' }} />
+        </View>
+
+        {/* Payment Section */}
+        <View style={styles.skeletonPaymentSection}>
+          {[1, 2, 3].map((item) => (
+            <View key={item} style={styles.skeletonPaymentRow}>
+              <SkeletonLoader width={13} height={13} borderRadius={7} style={{ marginLeft: 4 }} />
+              <SkeletonLoader width={60} height={10} style={{ marginLeft: 4 }} />
+              <SkeletonLoader width="35%" height={10} style={{ marginRight: 'auto' }} />
+            </View>
+          ))}
         </View>
       </View>
     </View>
   );
 };
 
-const MyTeachingCoursesScreen = () => {
+const CourseRegistrationScreen = () => {
   const navigation = useNavigation();
+  const { user } = useAuth();
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const {
-    data: userCourses,
+    data: registrations,
     total,
-    loading: coursesLoading,
-    error: coursesError,
-    fetchUserCourses,
+    loading: registrationsLoading,
+    error: registrationsError,
+    fetchRegistrations,
     loadMore,
     hasMore
-  } = useUserCoursesWithPagination();
+  } = useRegistrationsWithPagination(user?.MemberId);
 
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -215,8 +226,10 @@ const MyTeachingCoursesScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchUserCourses(1, ITEMS_PER_PAGE);
-    }, [])
+      if (user?.MemberId) {
+        fetchRegistrations(1, ITEMS_PER_PAGE);
+      }
+    }, [user?.MemberId])
   );
 
   useEffect(() => {
@@ -254,55 +267,55 @@ const MyTeachingCoursesScreen = () => {
   };
 
   useEffect(() => {
-    if (coursesError) {
-      showToast('خطا در دریافت اطلاعات دوره‌ها. لطفاً دوباره تلاش کنید.', 'error');
+    if (registrationsError) {
+      showToast('خطا در دریافت اطلاعات ثبت‌نام‌ها. لطفاً دوباره تلاش کنید.', 'error');
     }
-  }, [coursesError]);
+  }, [registrationsError]);
 
-  const handleCoursePress = (courseData) => {
+  const handleRegistrationPress = (registrationData) => {
+    // می‌توانید به صفحه جزئیات ثبت‌نام یا دوره هدایت کنید
     navigation.navigate("CourseDetails", {
-      courseId: courseData.CourseId
+      courseId: registrationData.CourseId
     });
-  };
-
-  const handleAddCourse = () => {
-    navigation.navigate("AddNewCourse");
   };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchUserCourses(1, ITEMS_PER_PAGE);
+    await fetchRegistrations(1, ITEMS_PER_PAGE);
     setRefreshing(false);
   };
 
   const handleLoadMore = () => {
-    if (!coursesLoading && hasMore) {
+    if (!registrationsLoading && hasMore) {
       loadMore();
     }
   };
 
   const createSkeletonData = () => {
-    return Array.from({ length: ITEMS_PER_PAGE }, (_, index) => ({ id: `skeleton-${index}` }));
+    return Array.from({ length: 6 }, (_, index) => ({ id: `skeleton-${index}` }));
   };
 
-  const renderCourseItem = ({ item, index }) => {
+  const renderRegistrationItem = ({ item, index }) => {
     if (item.id && item.id.startsWith('skeleton')) {
       return (
-        <View style={styles.courseItemContainer}>
-          <CourseCardSkeleton />
+        <View style={styles.registrationItemContainer}>
+          <RegistrationCardSkeleton />
         </View>
       );
     }
 
     return (
-      <View style={styles.courseItemContainer}>
-        <CourseCard course={item} onPress={() => handleCoursePress(item)} />
+      <View style={styles.registrationItemContainer}>
+        <CourseRegistrationCard
+          registration={item}
+          onPress={() => handleRegistrationPress(item)}
+        />
       </View>
     );
   };
 
   const renderFooter = () => {
-    if (!coursesLoading) return null;
+    if (!registrationsLoading) return null;
 
     return (
       <View style={styles.loadingFooter}>
@@ -313,21 +326,21 @@ const MyTeachingCoursesScreen = () => {
   };
 
   const renderEmptyComponent = () => {
-    if (coursesLoading) return null;
+    if (registrationsLoading) return null;
 
     return (
       <View style={styles.emptyContainer}>
-        <MaterialIcons name="school" size={80} color="#9e9e9e" />
-        <AppText style={styles.emptyTitle}>دوره‌ای یافت نشد</AppText>
+        <MaterialIcons name="receipt-long" size={80} color="#9e9e9e" />
+        <AppText style={styles.emptyTitle}>ثبت‌نامی یافت نشد</AppText>
         <AppText style={styles.emptySubtitle}>
-          شما هنوز هیچ دوره‌ای ایجاد نکرده‌اید
+          شما هنوز در هیچ دوره‌ای ثبت‌نام نکرده‌اید
         </AppText>
         <TouchableOpacity
-          style={styles.createCourseButton}
-          onPress={handleAddCourse}
+          style={styles.browseCourseButton}
+          onPress={() => navigation.navigate("CoursesList")}
         >
-          <MaterialIcons name="add" size={20} color={colors.white} />
-          <AppText style={styles.createCourseButtonText}>ایجاد اولین دوره</AppText>
+          <MaterialIcons name="search" size={20} color={colors.white} />
+          <AppText style={styles.browseCourseButtonText}>مشاهده دوره‌ها</AppText>
         </TouchableOpacity>
       </View>
     );
@@ -342,7 +355,7 @@ const MyTeachingCoursesScreen = () => {
       </AppText>
       <TouchableOpacity
         style={styles.retryButton}
-        onPress={() => fetchUserCourses(1, ITEMS_PER_PAGE)}
+        onPress={() => fetchRegistrations(1, ITEMS_PER_PAGE)}
       >
         <MaterialIcons name="refresh" size={20} color={colors.white} />
         <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
@@ -376,15 +389,6 @@ const MyTeachingCoursesScreen = () => {
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleAddCourse}
-        >
-          <View style={styles.addButtonContainer}>
-            <MaterialIcons name="add" size={24} color="white" />
-          </View>
-        </TouchableOpacity>
-
         <Animated.View
           style={[
             styles.headerContainer,
@@ -395,7 +399,8 @@ const MyTeachingCoursesScreen = () => {
           ]}
         >
           <View style={styles.titleWrapper}>
-            <AppText style={styles.headerTitle}>دوره‌های تدریس من</AppText>
+            <AppText style={styles.headerTitle}>دوره های ثبت نام شده</AppText>
+
           </View>
         </Animated.View>
 
@@ -408,34 +413,32 @@ const MyTeachingCoursesScreen = () => {
             },
           ]}
         >
-          {coursesError ? (
+          {registrationsError ? (
             renderErrorComponent()
           ) : (
-            <>
-              <FlatList
-                data={coursesLoading && userCourses.length === 0 ? createSkeletonData() : userCourses}
-                renderItem={renderCourseItem}
-                keyExtractor={(item, index) =>
-                  item.CourseId ? item.CourseId.toString() : `skeleton-${index}`
-                }
-                numColumns={2}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.listContainer}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    colors={[modernColors.primary]}
-                    tintColor={modernColors.primary}
-                  />
-                }
-                ListEmptyComponent={renderEmptyComponent}
-                ListFooterComponent={renderFooter}
-                onEndReached={handleLoadMore}
-                onEndReachedThreshold={0.3}
-                columnWrapperStyle={styles.row}
-              />
-            </>
+            <FlatList
+              data={registrationsLoading && registrations.length === 0 ? createSkeletonData() : registrations}
+              renderItem={renderRegistrationItem}
+              keyExtractor={(item, index) =>
+                item.CourseRegistrationId ? item.CourseRegistrationId.toString() : `skeleton-${index}`
+              }
+              numColumns={2}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContainer}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  colors={[modernColors.primary]}
+                  tintColor={modernColors.primary}
+                />
+              }
+              ListEmptyComponent={renderEmptyComponent}
+              ListFooterComponent={renderFooter}
+              onEndReached={handleLoadMore}
+              onEndReachedThreshold={0.3}
+              columnWrapperStyle={styles.row}
+            />
           )}
         </Animated.View>
 
@@ -444,21 +447,21 @@ const MyTeachingCoursesScreen = () => {
           <View style={styles.floatingElements}>
             <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
               <MaterialIcons
-                name="auto-awesome"
+                name="receipt"
                 size={22}
                 color="rgba(139, 92, 246, 0.3)"
               />
             </Animated.View>
             <Animated.View style={[styles.star2, { transform: [{ rotate: spin }] }]}>
               <MaterialIcons
-                name="school"
+                name="check-circle"
                 size={18}
                 color="rgba(99, 102, 241, 0.3)"
               />
             </Animated.View>
             <Animated.View style={[styles.star3, { transform: [{ rotate: spin }] }]}>
               <MaterialIcons
-                name="menu-book"
+                name="credit-card"
                 size={20}
                 color="rgba(6, 182, 212, 0.3)"
               />
@@ -481,6 +484,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+
   },
   headerContainer: {
     alignItems: "center",
@@ -511,29 +515,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  addButton: {
-    position: 'absolute',
-    top: StatusBar.currentHeight + 45,
-    left: 20,
-    zIndex: 1000,
-  },
-  addButtonContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#6366f1',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: -12,
-    shadowColor: '#6366f1',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
   titleWrapper: {
     flexDirection: "row",
     alignItems: "center",
@@ -544,28 +525,36 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontFamily: "Yekan_Bakh_ExtraBold",
     color: "#2c3e50",
-    marginHorizontal: 15,
+    marginHorizontal: 8,
+    textAlign: "center",
+  },
+  totalCount: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "#666",
     textAlign: "center",
   },
   contentContainer: {
     flex: 1,
     alignItems: 'center',
-    paddingBottom: 20,
+
   },
   listContainer: {
     paddingBottom: 20,
     paddingTop: 10,
     paddingHorizontal: 15,
+    
   },
-  // Updated for 2 columns
   row: {
     justifyContent: 'space-between',
     paddingHorizontal: 8,
+    
   },
-  courseItemContainer: {
-    width: (width - 70) / 2, // Calculate width for 2 columns with margins
+  registrationItemContainer: {
+    width: (width - 70) / 2,
     marginBottom: 15,
     marginHorizontal: 5,
+    
   },
   loadingFooter: {
     padding: 20,
@@ -579,11 +568,10 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Regular",
     color: '#666',
   },
-  // Updated Skeleton styles for 2 columns
-  courseSkeletonContainer: {
+  // Skeleton Styles
+  registrationSkeletonContainer: {
     width: "100%",
-    minHeight: 300,
-    maxHeight: 350,
+    minHeight: 340,
     flexDirection: "column",
     borderRadius: 16,
     overflow: 'hidden',
@@ -597,25 +585,34 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-  courseImageSkeleton: {
-    position: 'relative',
-    height: 180,
+  skeletonImageSection: {
+    height: 160,
     width: "100%",
   },
-  courseDetailsSkeleton: {
+  skeletonDetailsSection: {
     flex: 1,
-    padding: 12,
+    padding: 10,
   },
-  courseHeaderSkeleton: {
+  skeletonHeader: {
     flexDirection: "row-reverse",
     alignItems: "flex-start",
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  locationSectionSkeleton: {
+  skeletonInfoSection: {
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
-    paddingTop: 5,
-    marginBottom: 5,
+    paddingTop: 6,
+    marginBottom: 6,
+  },
+  skeletonPaymentSection: {
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
+    paddingTop: 6,
+  },
+  skeletonPaymentRow: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   emptyContainer: {
     flex: 1,
@@ -639,7 +636,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
-  createCourseButton: {
+  browseCourseButton: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     backgroundColor: '#6366f1',
@@ -653,7 +650,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
   },
-  createCourseButtonText: {
+  browseCourseButtonText: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
     color: colors.white,
@@ -738,4 +735,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MyTeachingCoursesScreen;
+export default CourseRegistrationScreen;

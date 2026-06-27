@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import AppText from "../components/Text";
 import { Formik } from "formik";
-import { ScrollView, StyleSheet, View, Image, TouchableOpacity, Animated } from "react-native";
+import { ScrollView, StyleSheet, View, Image, TouchableOpacity, Animated, Platform } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Yup from "yup";
 import jalaali from 'jalaali-js';
+import axios from 'axios';
 import AppTextInput from "../components/TextInput";
 import colors from "../config/colors";
 import AppButton from "../components/Button";
@@ -14,26 +15,32 @@ import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
 import Screen from "../components/Screen";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
 import { AppNavigationProp } from "../Navigators";
 import CustomTimePicker from "../components/CustomTimePicker";
 import ImageUpload from "../components/ImageUpload";
 import appConfig from "../config/config";
 import { useAuth } from "../contexts/AuthContext";
-
+import { useNavigation, useRoute } from "@react-navigation/native";
+import Tooltip from '../components/Tooltip';
 const AddNewCourseScreen = () => {
   const navigation = useNavigation<AppNavigationProp>();
   const { toastVisible, setToastVisible, toastMessage, toastType, showToast } = useToast();
   const { user } = useAuth();
+  const route = useRoute();
+  const courseId = route.params?.courseId || route.params?.courseData?.CourseId;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [provinces, setProvinces] = useState([]);
   const [cities, setCities] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [loadingCities, setLoadingCities] = useState(false);
-  const [featuredImage, setFeaturedImage] = useState(null);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [featuredImage, setFeaturedImage] = useState<any>(null);
+  const [selectedInstructorItems, setSelectedInstructorItems] = useState<any[]>([]);
 
-  // Animation values
+  const [courseData, setCourseData] = useState(null);
+  const [loadingCourse, setLoadingCourse] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const iconFadeAnim = useRef(new Animated.Value(0)).current;
@@ -42,9 +49,48 @@ const AddNewCourseScreen = () => {
   const formSlideAnim = useRef(new Animated.Value(30)).current;
   const backButtonAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
-
+  const initialValues = useMemo(() => ({
+    courseName: courseData?.CourseName || "",
+    courseType: courseData?.CourseType || null,
+    cityId: courseData?.CityId || null,
+    cityName: courseData?.CityName || "",
+    provinceId: courseData?.ProvinceId || null,
+    provinceName: courseData?.ProvinceName || "",
+    courseAddress: courseData?.CourseAddress || "",
+    startDate: courseData?.StartDate ? new Date(courseData.StartDate) : null,
+    finishDate: courseData?.FinishDate ? new Date(courseData.FinishDate) : null,
+    registerStartDate: courseData?.RegisterStartDate ? new Date(courseData.RegisterStartDate) : null,
+    registerFinishDate: courseData?.RegisterFinishDate ? new Date(courseData.RegisterFinishDate) : null,
+    registerAmount: courseData?.RegisterAmount || null,
+    allowDiscountCode: courseData?.AllowDiscountCode ?? null,
+    registerActive: courseData?.RegisterActive ?? null,
+    active: courseData?.Active ?? true,
+    hasSaturdaySession: courseData?.HasSaturdaySession || false,
+    saturdayStartTime: courseData?.Saturday_StartTime || "",
+    saturdayFinishTime: courseData?.Saturday_FinishTime || "",
+    hasSundaySession: courseData?.HasSundaySession || false,
+    sundayStartTime: courseData?.Sunday_StartTime || "",
+    sundayFinishTime: courseData?.Sunday_FinishTime || "",
+    hasMondaySession: courseData?.HasMondaySession || false,
+    mondayStartTime: courseData?.Monday_StartTime || "",
+    mondayFinishTime: courseData?.Monday_FinishTime || "",
+    hasTuesdaySession: courseData?.HasTuesdaySession || false,
+    tuesdayStartTime: courseData?.Tuesday_StartTime || "",
+    tuesdayFinishTime: courseData?.Tuesday_FinishTime || "",
+    hasWednesdaySession: courseData?.HasWednesdaySession || false,
+    wednesdayStartTime: courseData?.Wednesday_StartTime || "",
+    wednesdayFinishTime: courseData?.Wednesday_FinishTime || "",
+    hasThursdaySession: courseData?.HasThursdaySession || false,
+    thursdayStartTime: courseData?.Thursday_StartTime || "",
+    thursdayFinishTime: courseData?.Thursday_FinishTime || "",
+    hasFridaySession: courseData?.HasFridaySession || false,
+    fridayStartTime: courseData?.Friday_StartTime || "",
+    fridayFinishTime: courseData?.Friday_FinishTime || "",
+    otherInstructors: [],
+  }), [courseData]);
   useEffect(() => {
     fetchProvinces();
+    fetchMembers();
   }, []);
 
   const fetchProvinces = async () => {
@@ -101,6 +147,90 @@ const AddNewCourseScreen = () => {
     }
   };
 
+  const fetchMembers = async () => {
+    setLoadingMembers(true);
+    try {
+      const response = await fetch(`${appConfig.mobileApi}Member/GetAll?currentPage=1&pageSize=200`);
+
+      if (response.ok) {
+        const data = await response.json();
+        const memberOptions = (data.Data || data.Items || data || [])
+          .filter((member) => member?.MemberId && member.MemberId !== user?.MemberId)
+          .map((member) => ({
+            value: member.MemberId,
+            label: member.MemberName || member.Name || `${member.FirstName || ''} ${member.LastName || ''}`.trim() || `مربی ${member.MemberId}`,
+          }));
+        setMembers(memberOptions);
+      } else {
+        showToast('خطا در دریافت لیست مربیان', 'error');
+      }
+    } catch (error) {
+      console.error('Error fetching members:', error);
+      showToast('خطا در دریافت لیست مربیان', 'error');
+    } finally {
+      setLoadingMembers(false);
+    }
+  };
+  useEffect(() => {
+    if (courseId) {
+      fetchCourseData();
+    }
+  }, [courseId]);
+
+  const fetchCourseData = async () => {
+    setLoadingCourse(true);
+    try {
+      // ✅ تغییر endpoint به همان CourseDetailsScreen
+      const response = await fetch(`${appConfig.mobileApi}Course/Get?courseId=${courseId}`);
+
+      if (response.ok) {
+        const result = await response.json(); // ✅ تغییر نام از data به result
+        const data = result.Course; // ✅ استخراج Course از result
+
+        setCourseData(data);
+
+        if (data.ProvinceId) {
+          await fetchCities(data.ProvinceId);
+        }
+
+        if (data.FeaturedImageURL) {
+          setFeaturedImage({
+            id: `course-image-${courseId || Date.now()}`,
+            uri: data.FeaturedImageURL,
+            name: data.FeaturedImageFileName || 'course_image.jpg',
+            fileName: data.FeaturedImageFileName || 'course_image.jpg',
+            type: data.FeaturedImageType || 'image/jpeg',
+          });
+        } else {
+          setFeaturedImage(null);
+        }
+
+        const existingMembers = Array.isArray(data.Course_Member_List)
+          ? data.Course_Member_List
+          : Array.isArray(data.Course_Member_ViewModel_List)
+            ? data.Course_Member_ViewModel_List
+            : [];
+
+        const preselectedInstructors = existingMembers
+          .filter((member) => member?.MemberId && member.MemberId !== user?.MemberId)
+          .map((member) => ({
+            value: member.MemberId,
+            label: member.MemberName || member.Name || member.FullName || `مربی ${member.MemberId}`,
+          }));
+
+        setSelectedInstructorItems(preselectedInstructors);
+      } else {
+        showToast('خطا در بارگذاری اطلاعات دوره', 'error');
+        // navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } }); // ✅ کامنت کنید برای دیباگ
+      }
+    } catch (error) {
+      console.error('Error fetching course:', error);
+      showToast('خطا در بارگذاری اطلاعات دوره', 'error');
+      // navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } }); // ✅ کامنت کنید برای دیباگ
+    } finally {
+      setLoadingCourse(false);
+    }
+  };
   useEffect(() => {
     Animated.sequence([
       Animated.timing(backButtonAnim, {
@@ -153,13 +283,22 @@ const AddNewCourseScreen = () => {
   const validationSchema = Yup.object().shape({
     courseName: Yup.string().required("نام دوره الزامی است"),
     courseType: Yup.number().required("نوع دوره الزامی است"),
-    cityId: Yup.number().required("شهر الزامی است"),
-    provinceId: Yup.number().required("استان الزامی است"),
+    cityId: Yup.number().when('courseType', {
+      is: (val) => val !== 2, // اگر دوره مجازی نیست
+      then: (schema) => schema.required("شهر الزامی است"),
+      otherwise: (schema) => schema.nullable()
+    }),
+    provinceId: Yup.number().when('courseType', {
+      is: (val) => val !== 2, // اگر دوره مجازی نیست
+      then: (schema) => schema.required("استان الزامی است"),
+      otherwise: (schema) => schema.nullable()
+    }),
     courseAddress: Yup.string().required("آدرس دوره الزامی است"),
     startDate: Yup.date().required("تاریخ شروع الزامی است"),
     finishDate: Yup.date().required("تاریخ پایان الزامی است"),
     registerStartDate: Yup.date().required("تاریخ شروع ثبت نام الزامی است"),
     registerFinishDate: Yup.date().required("تاریخ پایان ثبت نام الزامی است"),
+    active: Yup.boolean().required("وضعیت دوره الزامی است").nullable(false),
     registerAmount: Yup.number().required("مبلغ ثبت نام الزامی است").min(0, "مبلغ نمی تواند منفی باشد"),
   });
 
@@ -171,45 +310,50 @@ const AddNewCourseScreen = () => {
     }
   };
 
+  const getMemberDisplayName = (member) => {
+    if (!member) return '';
+
+    return (
+      member.MemberName ||
+      member.Name ||
+      member.FullName ||
+      member.DisplayName ||
+      `${member.FirstName || ''} ${member.LastName || ''}`.trim() ||
+      member.UserName ||
+      `مربی ${member.MemberId || member.Id || ''}`.trim()
+    );
+  };
+
   const submitCourse = async (values, { setErrors }) => {
     setIsSubmitting(true);
 
     try {
+      // Validation
       const validationErrors = {};
+      if (!values.courseName?.trim()) validationErrors.courseName = "نام دوره الزامی است";
+      if (!values.courseType) validationErrors.courseType = "نوع دوره الزامی است";
 
-      if (!values.courseName?.trim()) {
-        validationErrors.courseName = "نام دوره الزامی است";
+      // ✅ فقط اگر دوره مجازی نیست، شهر و استان اجباری است
+      if (values.courseType !== 2) {
+        if (!values.cityId) validationErrors.cityId = "شهر الزامی است";
+        if (!values.provinceId) validationErrors.provinceId = "استان الزامی است";
       }
-      if (!values.courseType) {
-        validationErrors.courseType = "نوع دوره الزامی است";
-      }
-      if (!values.cityId) {
-        validationErrors.cityId = "شهر الزامی است";
-      }
-      if (!values.provinceId) {
-        validationErrors.provinceId = "استان الزامی است";
-      }
-      if (!values.courseAddress?.trim()) {
-        validationErrors.courseAddress = "آدرس دوره الزامی است";
-      }
-      if (!values.startDate) {
-        validationErrors.startDate = "تاریخ شروع الزامی است";
-      }
-      if (!values.finishDate) {
-        validationErrors.finishDate = "تاریخ پایان الزامی است";
-      }
-      if (!values.registerStartDate) {
-        validationErrors.registerStartDate = "تاریخ شروع ثبت نام الزامی است";
-      }
-      if (!values.registerFinishDate) {
-        validationErrors.registerFinishDate = "تاریخ پایان ثبت نام الزامی است";
-      }
+
+      if (!values.courseAddress?.trim()) validationErrors.courseAddress = "آدرس دوره الزامی است";
+      if (!values.startDate) validationErrors.startDate = "تاریخ شروع الزامی است";
+      if (!values.finishDate) validationErrors.finishDate = "تاریخ پایان الزامی است";
+      if (!values.registerStartDate) validationErrors.registerStartDate = "تاریخ شروع ثبت نام الزامی است";
+      if (!values.registerFinishDate) validationErrors.registerFinishDate = "تاریخ پایان ثبت نام الزامی است";
       if (values.registerAmount === null || values.registerAmount === undefined) {
         validationErrors.registerAmount = "مبلغ ثبت نام الزامی است";
       } else if (values.registerAmount < 0) {
         validationErrors.registerAmount = "مبلغ نمی تواند منفی باشد";
       }
+      if (values.active === null || values.active === undefined) { // ✅ اضافه شود
+        validationErrors.active = "وضعیت دوره الزامی است";
+      }
 
+      // Check weekly schedule
       const weekDays = [
         { key: 'saturday', label: 'شنبه' },
         { key: 'sunday', label: 'یکشنبه' },
@@ -238,65 +382,32 @@ const AddNewCourseScreen = () => {
         return;
       }
 
-      // ساخت FormData برای ارسال به API
+      // ✅ ساخت FormData
       const formData = new FormData();
 
-      formData.append('CourseId', '0');
-      formData.append('CourseName', values.courseName);
-      formData.append('MemberId', user?.MemberId?.toString() || '0');
-      formData.append('MemberName', user?.FullName || user?.Name || '');
-      formData.append('CourseType', values.courseType.toString());
-      formData.append('CityId', values.cityId.toString());
-      formData.append('CityName', values.cityName || '');
-      formData.append('ProvinceId', values.provinceId.toString());
-      formData.append('ProvinceName', values.provinceName || '');
-      formData.append('CourseAddress', values.courseAddress);
-
-      // تابع تبدیل اعداد فارسی به انگلیسی برای زمان‌ها
+      // Helper functions
       const toEnglishTime = (time) => {
         if (!time) return '';
         return time.toString().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
       };
 
-      formData.append('HasSaturdaySession', values.hasSaturdaySession || false);
-      formData.append('Saturday_StartTime', toEnglishTime(values.saturdayStartTime) || '');
-      formData.append('Saturday_FinishTime', toEnglishTime(values.saturdayFinishTime) || '');
+      const toEnglishNumber = (num) => {
+        if (num === null || num === undefined) return '0';
+        return num.toString().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+      };
 
-      formData.append('HasSundaySession', values.hasSundaySession || false);
-      formData.append('Sunday_StartTime', toEnglishTime(values.sundayStartTime) || '');
-      formData.append('Sunday_FinishTime', toEnglishTime(values.sundayFinishTime) || '');
+      // ✅ تابع formatPersianDate اصلاح شده
+      // این تابع باید جایگزین تابع موجود در submitCourse شود
 
-      formData.append('HasMondaySession', values.hasMondaySession || false);
-      formData.append('Monday_StartTime', toEnglishTime(values.mondayStartTime) || '');
-      formData.append('Monday_FinishTime', toEnglishTime(values.mondayFinishTime) || '');
-
-      formData.append('HasTuesdaySession', values.hasTuesdaySession || false);
-      formData.append('Tuesday_StartTime', toEnglishTime(values.tuesdayStartTime) || '');
-      formData.append('Tuesday_FinishTime', toEnglishTime(values.tuesdayFinishTime) || '');
-
-      formData.append('HasWednesdaySession', values.hasWednesdaySession || false);
-      formData.append('Wednesday_StartTime', toEnglishTime(values.wednesdayStartTime) || '');
-      formData.append('Wednesday_FinishTime', toEnglishTime(values.wednesdayFinishTime) || '');
-
-      formData.append('HasThursdaySession', values.hasThursdaySession || false);
-      formData.append('Thursday_StartTime', toEnglishTime(values.thursdayStartTime) || '');
-      formData.append('Thursday_FinishTime', toEnglishTime(values.thursdayFinishTime) || '');
-
-      formData.append('HasFridaySession', values.hasFridaySession || false);
-      formData.append('Friday_StartTime', toEnglishTime(values.fridayStartTime) || '');
-      formData.append('Friday_FinishTime', toEnglishTime(values.fridayFinishTime) || '');
-
-      // تبدیل تاریخ‌ها به فرمت شمسی با اعداد انگلیسی و خط تیره
       const formatPersianDate = (dateString) => {
         if (!dateString) return '';
 
-        // تابع تبدیل اعداد فارسی به انگلیسی
         const toEnglishDigits = (str) => {
           if (!str) return str;
           return str.toString().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
         };
 
-        // اگر تاریخ از قبل فرمت شمسی داره (مثل 1404/07/29)، فقط / رو با - عوض کن و اعداد رو انگلیسی کن
+        // اگر تاریخ از قبل به فرمت رشته شمسی است
         if (typeof dateString === 'string' && dateString.includes('/')) {
           const parts = dateString.split('/');
           const year = toEnglishDigits(parts[0]);
@@ -305,31 +416,36 @@ const AddNewCourseScreen = () => {
           return `${year}-${month}-${day}`;
         }
 
-        // اگر تاریخ میلادی است (Date object یا string به فرمت YYYY-MM-DD)، به شمسی تبدیل کن
-        let gregorianDate;
+        let year, month, day;
+
+        // ✅ استفاده از UTC چون تاریخ‌ها به صورت UTC ذخیره می‌شوند
         if (dateString instanceof Date) {
-          gregorianDate = dateString;
-        } else if (typeof dateString === 'string' && dateString.includes('-')) {
-          // تاریخ به فرمت YYYY-MM-DD
-          const parts = dateString.split('-');
-          gregorianDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+          year = dateString.getUTCFullYear();
+          month = dateString.getUTCMonth() + 1;
+          day = dateString.getUTCDate();
+        } else if (typeof dateString === 'string' && (dateString.includes('-') || dateString.includes('T'))) {
+          const date = new Date(dateString);
+          year = date.getUTCFullYear();
+          month = date.getUTCMonth() + 1;
+          day = date.getUTCDate();
         } else {
           return dateString;
         }
 
-        // تبدیل به شمسی
-        const jDate = jalaali.toJalaali(gregorianDate);
-        const year = jDate.jy.toString();
-        const month = jDate.jm.toString().padStart(2, '0');
-        const day = jDate.jd.toString().padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        console.log('📅 تبدیل تاریخ میلادی به شمسی (UTC):', { year, month, day });
+
+        // تبدیل میلادی به شمسی با jalaali
+        const jDate = jalaali.toJalaali(year, month, day);
+        const persianYear = jDate.jy.toString();
+        const persianMonth = jDate.jm.toString().padStart(2, '0');
+        const persianDay = jDate.jd.toString().padStart(2, '0');
+
+        const result = `${persianYear}-${persianMonth}-${persianDay}`;
+        console.log('📅 نتیجه تبدیل به شمسی:', result);
+
+        return result;
       };
 
-      // تابع تبدیل اعداد فارسی به انگلیسی
-      const toEnglishNumber = (num) => {
-        if (num === null || num === undefined) return '0';
-        return num.toString().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
-      };
 
       const startDate = formatPersianDate(values.startDate);
       const finishDate = formatPersianDate(values.finishDate);
@@ -337,78 +453,263 @@ const AddNewCourseScreen = () => {
       const registerFinishDate = formatPersianDate(values.registerFinishDate);
       const registerAmount = toEnglishNumber(values.registerAmount);
 
-      // 🔍 لاگ تاریخ‌ها قبل از ارسال
-      console.log('📅 تاریخ‌های ارسالی به API:');
+      console.log('📅 تاریخ‌های ارسالی:');
       console.log('   StartDate:', startDate);
       console.log('   FinishDate:', finishDate);
       console.log('   RegisterStartDate:', registerStartDate);
       console.log('   RegisterFinishDate:', registerFinishDate);
       console.log('   RegisterAmount:', registerAmount);
 
-      formData.append('StartDate', startDate);
-      formData.append('FinishDate', finishDate);
-      formData.append('RegisterStartDate', registerStartDate);
-      formData.append('RegisterFinishDate', registerFinishDate);
-      formData.append('RegisterAmount', registerAmount);
-      formData.append('AllowDiscountCode', values.allowDiscountCode || false);
-      formData.append('RegisterActive', values.registerActive !== null && values.registerActive !== undefined ? values.registerActive : true);
+      // ✅ Basic fields - استفاده از courseId واقعی یا 0 برای Add
+      formData.append('CourseId', courseId?.toString() || '0');
+      formData.append('CourseName', values.courseName || '');
+      formData.append('MemberId', user?.MemberId?.toString() || '0');
+      formData.append('MemberName', user?.FullName || user?.Name || '');
+      formData.append('CourseType', values.courseType?.toString() || '1');
+      formData.append('CourseTypeStr', values.courseType === 1 ? 'حضوری' : values.courseType === 2 ? 'مجازی' : 'حضوری و مجازی');
+
+      // ✅ برای دوره مجازی، شهر و استان null می‌فرستیم
+      if (values.courseType === 2) {
+        // برای دوره مجازی، رشته "null" می‌فرستیم
+        formData.append('CityId', '');
+        formData.append('CityName', '');
+        formData.append('ProvinceId', '');
+        formData.append('ProvinceName', '');
+      } else {
+        // برای دوره حضوری، مقادیر واقعی را می‌فرستیم
+        formData.append('CityId', values.cityId?.toString() || '0');
+        formData.append('CityName', values.cityName || '');
+        formData.append('ProvinceId', values.provinceId?.toString() || '0');
+        formData.append('ProvinceName', values.provinceName || '');
+      }
+
+      formData.append('CourseAddress', values.courseAddress || '');
+      formData.append('Description', '');
+      formData.append('Rating', '0');
+      formData.append('Active', values.active === true ? 'true' : 'false');
+      weekDays.forEach(day => {
+        const dayCapitalized = day.key.charAt(0).toUpperCase() + day.key.slice(1);
+        const hasSessionKey = `has${dayCapitalized}Session`;
+        const startTimeKey = `${day.key}StartTime`;
+        const finishTimeKey = `${day.key}FinishTime`;
+
+        formData.append(`Has${dayCapitalized}Session`, values[hasSessionKey] ? 'true' : 'false');
+        formData.append(`${dayCapitalized}_StartTime`, toEnglishTime(values[startTimeKey]) || '');
+        formData.append(`${dayCapitalized}_FinishTime`, toEnglishTime(values[finishTimeKey]) || '');
+      });
+
+      // Dates
+      formData.append('StartDate', startDate || '');
+      formData.append('ShamsiStartDate', startDate || '');
+      formData.append('FinishDate', finishDate || '');
+      formData.append('ShamsiFinishDate', finishDate || '');
+      formData.append('RegisterStartDate', registerStartDate || '');
+      formData.append('ShamsiRegisterStartDate', registerStartDate || '');
+      formData.append('RegisterFinishDate', registerFinishDate || '');
+      formData.append('ShamsiRegisterFinishDate', registerFinishDate || '');
+
+      // Amount and settings
+      formData.append('RegisterAmount', registerAmount || '0');
+      formData.append('AllowDiscountCode', values.allowDiscountCode === true ? 'true' : 'false');
+      formData.append('RegisterActive', values.registerActive !== false ? 'true' : 'false');
+      formData.append('RegisterActiveStr', values.registerActive !== false ? 'فعال' : 'غیرفعال');
       formData.append('InsertDate', new Date().toISOString());
       formData.append('LikeCount', '0');
 
-      // اضافه کردن پوستر (Featured Image) اگر انتخاب شده باشد
-      if (featuredImage && featuredImage.uri) {
-        const imageUri = featuredImage.uri;
-        const imageName = featuredImage.name || `course_poster_${Date.now()}.jpg`;
-        const imageType = featuredImage.type || 'image/jpeg';
+      const hasNewImage = Boolean(
+        featuredImage?.uri &&
+        typeof featuredImage.uri === 'string' &&
+        !featuredImage.uri.startsWith('http')
+      );
 
-        formData.append('featuredImageFile', {
+      if (hasNewImage) {
+        const imageName = featuredImage.fileName || featuredImage.name || `course_poster_${Date.now()}.jpg`;
+        formData.append('FeaturedImageFileName', imageName);
+        formData.append('FeaturedImageURL', '');
+      } else if (courseId && courseData) {
+        formData.append('FeaturedImageURL', courseData.FeaturedImageURL || '');
+        formData.append('FeaturedImageFileName', courseData.FeaturedImageFileName || '');
+      } else {
+        formData.append('FeaturedImageURL', '');
+        formData.append('FeaturedImageFileName', '');
+      }
+
+      const selectedInstructorValues = (values.otherInstructors?.length
+        ? values.otherInstructors
+        : selectedInstructorItems || [])
+        .filter((item) => item?.value)
+        .map((item) => ({
+          value: item.value,
+          label: getMemberDisplayName(item),
+        }));
+
+      const selectedInstructors = selectedInstructorValues;
+
+      const courseMemberIdList = [user?.MemberId, ...selectedInstructors.map((item) => item.value)]
+        .filter(Boolean);
+
+      const courseMemberListPayload = [
+        {
+          CourseId: courseId || 0,
+          MemberId: user?.MemberId || 0,
+          CourseName: values.courseName || '',
+          MemberName: getMemberDisplayName(user),
+          Title: 'مربی اصلی',
+          InsertDate: new Date().toISOString()
+        },
+        ...selectedInstructors.map((item) => ({
+          CourseId: courseId || 0,
+          MemberId: item.value,
+          CourseName: values.courseName || '',
+          MemberName: item.label,
+          Title: 'مربی فرعی',
+          InsertDate: new Date().toISOString()
+        }))
+      ];
+
+      if (courseMemberIdList.length === 0) {
+        formData.append('Course_MemberId_List', '0');
+      } else {
+        courseMemberIdList.forEach((memberId) => {
+          formData.append('Course_MemberId_List', memberId.toString());
+        });
+      }
+
+      if (courseMemberListPayload.length === 0) {
+        formData.append('Course_Member_List', '[]');
+      } else {
+        courseMemberListPayload.forEach((memberItem) => {
+          formData.append('Course_Member_List', JSON.stringify(memberItem));
+        });
+      }
+
+      console.log('📌 Course_MemberId_List payload:', courseMemberIdList);
+      console.log('📌 Course_Member_List payload:', JSON.stringify(courseMemberListPayload, null, 2));
+      console.log('📌 formData payload before send:');
+      for (let [key, value] of formData.entries()) {
+        if (value instanceof Object && value.uri) {
+          console.log(`  ${key}:`, { name: value.name, type: value.type, uri: value.uri?.substring(0, 50) + '...' });
+        } else {
+          console.log(`  ${key}:`, value);
+        }
+      }
+
+      if (hasNewImage) {
+        let imageUri = featuredImage.uri;
+
+        if (Platform.OS === 'android' && !imageUri.startsWith('file://')) {
+          imageUri = `file://${imageUri}`;
+        }
+
+        const imageName = featuredImage.fileName || featuredImage.name || `course_poster_${Date.now()}.jpg`;
+        let imageType = featuredImage.type || featuredImage.mimeType || 'image/jpeg';
+
+        if (imageType === 'image') {
+          imageType = 'image/jpeg';
+        }
+
+        const fileToUpload = {
           uri: imageUri,
           name: imageName,
           type: imageType,
+        };
+
+        formData.append('featuredImageFile', fileToUpload);
+
+        console.log('🖼️ تصویر پوستر جدید اضافه شد:', {
+          name: imageName,
+          type: imageType,
+          uri: imageUri.substring(0, 50) + '...',
         });
-        console.log('🖼️ تصویر پوستر اضافه شد:', imageName);
       }
 
-      // 🔍 لاگ کامل FormData
-      console.log('📦 داده‌های کامل ارسالی به API:');
-      console.log('   CourseName:', values.courseName);
-      console.log('   CourseType:', values.courseType);
-      console.log('   CityId:', values.cityId);
-      console.log('   ProvinceId:', values.provinceId);
-      console.log('   CourseAddress:', values.courseAddress);
+      // لاگ کامل FormData قبل از ارسال
+      console.log('📦 محتویات FormData:');
+      for (let [key, value] of formData.entries()) {
+        if (value instanceof Object && value.uri) {
+          console.log(`  ${key}:`, { name: value.name, type: value.type, uri: value.uri?.substring(0, 50) + '...' });
+        } else {
+          console.log(`  ${key}:`, value);
+        }
+      }
 
-      const response = await fetch(`${appConfig.mobileApi}Course/Add`, {
-        method: 'POST',
-        // headers: {
-        //   'Content-Type': 'multipart/form-data',
-        // },
-        body: formData,
+      // ✅ تشخیص Add یا Edit و استفاده از endpoint و method مناسب
+      const endpoint = courseId
+        ? `${appConfig.mobileApi}Course/Edit`
+        : `${appConfig.mobileApi}Course/Add`;
+
+      const method = courseId ? 'put' : 'post';
+
+      console.log(`📦 در حال ارسال ${method.toUpperCase()} به:`, endpoint);
+
+      // ✅ ارسال با Axios
+      try {
+        console.log('🚀 شروع ارسال با Axios...');
+
+        const response = await axios[method](
+          endpoint,
+          formData,
+          {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+              'Accept': 'application/json',
+            },
+            timeout: 120000,
+            onUploadProgress: (progressEvent) => {
+              const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              console.log(`📤 آپلود: ${percent}%`);
+            },
+          }
+        );
+
+        console.log(`✅ دوره ${courseId ? 'ویرایش' : 'ثبت'} شد:`, response.data);
+        showToast(`دوره با موفقیت ${courseId ? 'ویرایش' : 'ثبت'} شد`, 'success');
+
+        setTimeout(() => {
+          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
+        }, 2000);
+
+      } catch (axiosError) {
+        console.error('❌ خطای Axios:', axiosError);
+        console.error('📋 Response Data:', axiosError.response?.data);
+        console.error('📋 Response Status:', axiosError.response?.status);
+        console.error('📋 Response Headers:', axiosError.response?.headers);
+
+        let errorMessage = `خطا در ${courseId ? 'ویرایش' : 'ثبت'} دوره`;
+
+        if (axiosError.response) {
+          const data = axiosError.response.data;
+          console.error('📋 Full Response Data:', JSON.stringify(data, null, 2));
+
+          errorMessage = data?.message ||
+            data?.Message ||
+            data?.error ||
+            data?.Error ||
+            (typeof data === 'string' ? data : null) ||
+            `خطا ${axiosError.response.status}`;
+        } else if (axiosError.request) {
+          console.error('📋 Request:', axiosError.request);
+          errorMessage = 'خطا در اتصال به سرور';
+        } else {
+          errorMessage = axiosError.message;
+        }
+
+        throw new Error(errorMessage);
+      }
+
+    } catch (error) {
+      console.error(`❌ Error ${courseId ? 'editing' : 'submitting'} course:`, error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        stack: error.stack,
       });
 
-      console.log('📡 Response Status:', response.status);
-      console.log('📡 Response Status:', response.status);
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('✅ دوره با موفقیت ثبت شد:', result);
-        showToast('دوره با موفقیت ثبت شد', 'success');
-        setTimeout(() => {
-          navigation.goBack();
-        }, 2000);
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Server error:', errorText);
-        console.error('❌ Response status:', response.status);
-        throw new Error('خطا در ثبت دوره');
-      }
-    } catch (error) {
-      console.error('❌ Error submitting course:', error);
-      showToast('خطا در ثبت دوره', 'error');
+      const errorMessage = error.message || `خطا در ${courseId ? 'ویرایش' : 'ثبت'} دوره`;
+      showToast(errorMessage, 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
-
   const courseTypeOptions = [
     { value: 1, label: "حضوری" },
     { value: 2, label: "مجازی" },
@@ -552,21 +853,27 @@ const AddNewCourseScreen = () => {
             onHide={() => setToastVisible(false)}
           />
 
-          <Animated.View
-            style={[
-              styles.backButton,
-              {
-                opacity: backButtonAnim,
-                transform: [{ scale: backButtonAnim }],
-              },
-            ]}
-          >
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-              <View style={styles.backButtonGlass}>
-                <MaterialIcons name="arrow-forward" size={24} color="white" />
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
+          <View style={improvedStyles.headerButtons}>
+            <View style={improvedStyles.headerLeft}>
+              <Tooltip content="دوره آموزشی جدید خود را ایجاد کنید. اطلاعات کامل دوره شامل عنوان، توضیحات، قیمت، مدت زمان، برنامه زمانی، آدرس محل برگزاری و مربیان را وارد کنید. می‌توانید تصویر شاخص برای دوره آپلود کنید." />
+            </View>
+
+            <Animated.View
+              style={[
+                styles.backButton,
+                {
+                  opacity: backButtonAnim,
+                  transform: [{ scale: backButtonAnim }]
+                }
+              ]}
+            >
+              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}>
+                <View style={styles.backButtonGlass}>
+                  <MaterialIcons name="arrow-forward" size={24} color="white" />
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
             <Animated.View
@@ -604,60 +911,23 @@ const AddNewCourseScreen = () => {
               <View style={styles.glassOverlay} />
 
               <View style={styles.contentContainer}>
-                <AppText style={styles.titleText}>افزودن دوره جدید</AppText>
+                <AppText style={styles.titleText}>
+                  {courseId ? 'ویرایش دوره' : 'افزودن دوره جدید'}
+                </AppText>
 
                 <Formik
-                  initialValues={{
-                    courseName: "",
-                    courseType: null,
-                    cityId: null,
-                    cityName: "",
-                    provinceId: null,
-                    provinceName: "",
-                    courseAddress: "",
-                    startDate: null,
-                    finishDate: null,
-                    registerStartDate: null,
-                    registerFinishDate: null,
-                    registerAmount: null,
-                    allowDiscountCode: null,
-                    registerActive: null,
-                    hasSaturdaySession: false,
-                    saturdayStartTime: "",
-                    saturdayFinishTime: "",
-                    hasSundaySession: false,
-                    sundayStartTime: "",
-                    sundayFinishTime: "",
-                    hasMondaySession: false,
-                    mondayStartTime: "",
-                    mondayFinishTime: "",
-                    hasTuesdaySession: false,
-                    tuesdayStartTime: "",
-                    tuesdayFinishTime: "",
-                    hasWednesdaySession: false,
-                    wednesdayStartTime: "",
-                    wednesdayFinishTime: "",
-                    hasThursdaySession: false,
-                    thursdayStartTime: "",
-                    thursdayFinishTime: "",
-                    hasFridaySession: false,
-                    fridayStartTime: "",
-                    fridayFinishTime: "",
-                  }}
+                  initialValues={initialValues}
+                  enableReinitialize={true}  // حالا مشکلی ندارد
                   onSubmit={submitCourse}
-                  validate={(values) => {
-                    return {};
-                  }}
                 >
                   {({ handleChange, handleSubmit, errors, values, setFieldValue }) => (
                     <>
                       <View>
-                        {/* پوستر دوره */}
-
                         <AppTextInput
                           autoCapitalize="none"
                           autoCorrect={false}
                           icon="menu-book"
+
                           keyboardType="default"
                           placeholder="نام دوره"
                           onChangeText={handleChange("courseName")}
@@ -670,6 +940,7 @@ const AddNewCourseScreen = () => {
                             onSelectItem={(item) => setFieldValue("courseType", item?.value)}
                             selectedItem={values.courseType ? courseTypeOptions.find(item => item.value === values.courseType) : null}
                             icon="computer"
+
                             placeholder="نوع دوره"
                           />
                         </View>
@@ -703,7 +974,7 @@ const AddNewCourseScreen = () => {
                             }}
                             selectedItem={values.cityId ? cities.find(item => item.value === values.cityId) : null}
                             icon="location-city"
-                            placeholder="شهرستان"
+                            placeholder={loadingCities ? "در حال بارگذاری شهرها..." : values.provinceId ? "شهر" : "ابتدا استان را انتخاب کنید"}
                             onPress={!values.provinceId || loadingCities || cities.length === 0 ? () => {
                               if (!values.provinceId) {
                                 showToast('ابتدا استان را انتخاب کنید', 'error');
@@ -713,6 +984,20 @@ const AddNewCourseScreen = () => {
                                 showToast('شهری یافت نشد', 'error');
                               }
                             } : undefined}
+                          />
+                        </View>
+
+                        <View style={styles.inputSpacing}>
+                          <AppPicker
+                            items={members}
+                            multiSelect={true}
+                            selectedItems={selectedInstructorItems}
+                            onMultiSelectChange={(items) => {
+                              setSelectedInstructorItems(items);
+                              setFieldValue('otherInstructors', items);
+                            }}
+                            icon="group"
+                            placeholder={loadingMembers ? "در حال بارگذاری مربیان..." : "سایر مربیان (اختیاری)"}
                           />
                         </View>
 
@@ -735,7 +1020,7 @@ const AddNewCourseScreen = () => {
                           autoCorrect={false}
                           icon="attach-money"
                           keyboardType="numeric"
-                          placeholder="مبلغ ثبت نام"
+                          placeholder="مبلغ ثبت نام (تومان)"
                           onChangeText={(text) => setFieldValue("registerAmount", text ? parseInt(text) : null)}
                           value={values.registerAmount?.toString() || ""}
                         />
@@ -752,6 +1037,20 @@ const AddNewCourseScreen = () => {
                               null}
                             icon="check-circle"
                             placeholder="وضعیت ثبت نام"
+                          />
+                        </View>
+                        <View style={styles.inputSpacing}>
+                          <AppPicker
+                            items={[
+                              { value: true, label: "فعال" },
+                              { value: false, label: "غیرفعال" }
+                            ]}
+                            onSelectItem={(item) => setFieldValue("active", item?.value)}
+                            selectedItem={values.active !== null && values.active !== undefined ?
+                              { value: values.active, label: values.active ? "فعال" : "غیرفعال" } :
+                              null}
+                            icon="power-settings-new"
+                            placeholder="وضعیت دوره"
                           />
                         </View>
 
@@ -806,24 +1105,24 @@ const AddNewCourseScreen = () => {
                           minimumDate={values.registerStartDate || new Date()}
                           maximumDate={values.startDate}
                         />
+
                         <ImageUpload
                           onImageChange={(image) => setFeaturedImage(image)}
                           initialImage={featuredImage}
                           isMultiple={false}
                           placeholder="پوستر دوره"
-                          aspectRatio={[16, 9]}
+                          allowFreeAspectRatio={true}
                           allowEditing={false}
                           allowVideos={false}
                           allowImages={true}
                           onShowToast={showToast}
                           loading={isSubmitting}
                         />
-
                         <AppButton
-                          title={isSubmitting ? "در حال ثبت..." : "ثبت دوره"}
+                          title={isSubmitting ? "در حال ذخیره..." : courseId ? "ذخیره تغییرات" : "ثبت دوره"}
                           onPress={handleSubmit}
                           color={colors.success}
-                          disabled={isSubmitting}
+                          disabled={isSubmitting || loadingCourse}
                         />
                       </View>
                     </>
@@ -839,25 +1138,41 @@ const AddNewCourseScreen = () => {
 };
 
 const improvedStyles = StyleSheet.create({
+  headerButtons: {
+    position: 'absolute',
+    // top: 30,
+    left: 15,
+    right: 0,
+    zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  headerLeft: {
+    top: 18,
+  },
+
+  backButton: {
+    zIndex: 10,
+  },
+
   scheduleContainer: {
     marginTop: 25,
     marginBottom: 25,
   },
-
   sectionHeader: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     marginBottom: 8,
     paddingHorizontal: 5,
   },
-
   sectionTitle: {
     fontSize: 18,
     fontFamily: "Yekan_Bakh_Bold",
     color: colors.primary,
     marginRight: 8,
   },
-
   noteText: {
     fontSize: 13,
     color: colors.medium,
@@ -867,6 +1182,14 @@ const improvedStyles = StyleSheet.create({
     lineHeight: 20,
   },
 
+  backButtonGlass: {
+    backgroundColor: '#9E22AD',
+    borderRadius: 25,
+    top: 50,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 206, 232, 0.5)',
+  },
   dayCard: {
     marginBottom: 12,
     backgroundColor: 'rgba(255, 255, 255, 0.5)',
@@ -883,45 +1206,37 @@ const improvedStyles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-
   dayHeader: {
     padding: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255, 206, 232, 0.1)',
   },
-
   dayHeaderActive: {
     backgroundColor: colors.primary,
   },
-
   dayHeaderContent: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-
   dayInfo: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     flex: 1,
   },
-
   dayIcon: {
     marginLeft: 8,
   },
-
   dayLabel: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
     color: colors.dark,
   },
-
   dayLabelActive: {
     color: colors.white,
     fontFamily: "Yekan_Bakh_Bold",
   },
-
   checkbox: {
     width: 24,
     height: 24,
@@ -932,39 +1247,32 @@ const improvedStyles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
   checkboxActive: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderColor: colors.white,
   },
-
   timeSection: {
     padding: 16,
     backgroundColor: 'rgba(255, 255, 255, 0.4)',
   },
-
   timeInputsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-
   timeInputWrapper: {
     flex: 1,
     alignItems: 'center',
   },
-
   timeLabel: {
     fontSize: 12,
     color: colors.medium,
     marginBottom: 8,
     fontFamily: "Yekan_Bakh_Regular",
   },
-
   timeInput: {
     width: '100%',
   },
-
   timeSeparator: {
     paddingHorizontal: 15,
     paddingVertical: 10,

@@ -1,7 +1,7 @@
 import apiService from "./ApiService";
-import appInfo from "../config/appInfo"; 
+import appInfo from "../config/appInfo";
 
-const APP_VERSION = 1.1;
+const APP_VERSION = 1.4;
 
 class AppUpdateService {
   static getCurrentAppVersion() {
@@ -51,14 +51,11 @@ class AppUpdateService {
 
     const { hasUpdate, isUpdateRequired } = updateInfo.data;
 
-
     if (isUpdateRequired) {
       return true;
     }
 
- 
     if (hasUpdate && !isUpdateRequired) {
-
       return true;
     }
 

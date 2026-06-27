@@ -15,6 +15,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import appConfig from "../config/config";
 import ImageUpload from "../components/ImageUpload";
 import { useAuth } from '../contexts/AuthContext';
+import Tooltip from '../components/Tooltip';
 
 // const MEMBER_ID = 1;
 const ITEMS_PER_PAGE = 10;
@@ -455,7 +456,7 @@ const AddPortfolioScreen = () => {
 
         setTimeout(() => {
           if (navigation.isFocused()) {
-            navigation.goBack();
+            navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
           }
         }, 1500);
       } else {
@@ -532,21 +533,27 @@ const AddPortfolioScreen = () => {
             onHide={() => setToastVisible(false)}
           />
 
-          <Animated.View
-            style={[
-              styles.backButton,
-              {
-                opacity: backButtonAnim,
-                transform: [{ scale: backButtonAnim }],
-              },
-            ]}
-          >
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-              <View style={styles.backButtonGlass}>
-                <MaterialIcons name="arrow-forward" size={24} color="white" />
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
+          <View style={styles.headerButtons}>
+            <View style={styles.headerLeft}>
+              <Tooltip content="نمونه‌کار جدید اضافه کنید. اطلاعات پروژه شامل عنوان، توضیحات کامل، برچسب‌ها، مهارت‌های استفاده شده و دسته‌بندی را وارد کنید. تصاویر با کیفیت از پروژه خود آپلود کنید تا کارفرمایان و مشتریان بالقوه آن را مشاهده کنند." />
+            </View>
+
+            <Animated.View
+              style={[
+                styles.backButton,
+                {
+                  opacity: backButtonAnim,
+                  transform: [{ scale: backButtonAnim }]
+                }
+              ]}
+            >
+              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}>
+                <View style={styles.backButtonGlass}>
+                  <MaterialIcons name="arrow-forward" size={24} color="white" />
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
             <Animated.View
@@ -763,10 +770,20 @@ const styles = StyleSheet.create({
     padding: 10,
     backgroundColor: 'transparent',
   },
-  backButton: {
-    position: "absolute",
+  headerButtons: {
+    position: 'absolute',
     top: 15,
+    left: 15,
     right: 15,
+    zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerLeft: {
+  },
+  backButton: {
+
     zIndex: 10,
   },
   backButtonGlass: {

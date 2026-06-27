@@ -112,7 +112,7 @@ const StarDisplay = ({
 };
 
 const MultiOptionRatingComponent = ({
-  contentId, // شماره محتوا
+  contentId, 
   initialRating = 0,
   initialDetailedRatings = {},
   maxStars = 5,
@@ -122,8 +122,8 @@ const MultiOptionRatingComponent = ({
   ratingCount = 0,
   averageRating = 0,
   onRatingChange = null,
-  onRatingSubmitted = null, // callback برای موفقیت
-  onRatingError = null, // callback برای خطا
+  onRatingSubmitted = null, 
+  onRatingError = null, 
   readonly = false,
   style = {},
   starColor = colors.gold,
@@ -146,7 +146,7 @@ const MultiOptionRatingComponent = ({
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [tempRating, setTempRating] = useState(0);
   const [tempDetailedRatings, setTempDetailedRatings] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false); // وضعیت ارسال
+  const [isSubmitting, setIsSubmitting] = useState(false); 
 
   const modalBackdropAnim = useRef(new Animated.Value(0)).current;
   const modalSlideAnim = useRef(new Animated.Value(0)).current;
@@ -251,11 +251,10 @@ const MultiOptionRatingComponent = ({
           reviewItemRatings: buildReviewItemRatings(tempDetailedRatings)
         };
       } else {
-        // برای امتیاز ساده، یک آیتم پیش‌فرض ایجاد می‌کنیم
         reviewData = {
           ContnetId: contentId,
           reviewItemRatings: [{
-            ContentReviewItemId: 0, // شماره پیش‌فرض
+            ContentReviewItemId: 0, 
             Rating: tempRating
           }]
         };
@@ -295,10 +294,8 @@ const MultiOptionRatingComponent = ({
     setIsSubmitting(true);
 
     try {
-      // ارسال به API
       const apiResult = await submitRatingToAPI();
 
-      // به‌روزرسانی state های محلی
       if (enableMultipleOptions) {
         const averageFromDetailed = calculateAverageFromDetailedRatings(tempDetailedRatings);
         setCurrentRating(averageFromDetailed);
@@ -306,7 +303,6 @@ const MultiOptionRatingComponent = ({
         onRatingChange && onRatingChange(averageFromDetailed, tempDetailedRatings);
         onSubmit && onSubmit(averageFromDetailed, tempDetailedRatings);
 
-        // فراخوانی callback موفقیت
         onRatingSubmitted && onRatingSubmitted({
           ratings: tempDetailedRatings,
           averageRating: averageFromDetailed,
@@ -318,14 +314,12 @@ const MultiOptionRatingComponent = ({
         onRatingChange && onRatingChange(tempRating);
         onSubmit && onSubmit(tempRating);
 
-        // فراخوانی callback موفقیت
         onRatingSubmitted && onRatingSubmitted({
           rating: tempRating,
           response: apiResult
         });
       }
 
-      // بستن مودال
       hideModalAnimation();
 
     } catch (error) {

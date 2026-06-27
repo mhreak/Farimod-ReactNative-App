@@ -76,7 +76,7 @@ const useBlogPostsWithPagination = () => {
       // اضافه کردن فیلتر کاربر
       if (filterParams.filterMemberId) {
         filterQuery += `&filterMemberId=${filterParams.filterMemberId}`;
-      } 
+      }
       const finalUrl = `${appConfig.mobileApi}BlogPost/GetAll?${filterQuery}&currentPage=${newPage}&pageSize=${pageSize}`;
       console.log('Final API URL:', finalUrl);
 
@@ -304,7 +304,6 @@ const MagScreen = () => {
       setHasActiveFilters(true);
       fetchBlogPosts(1, ITEMS_PER_PAGE, memberFilter);
 
-      // نمایش پیام فیلتر
       showToast(`نمایش مقالات ${filteredMemberName}`, 'info');
     } else {
       fetchBlogPosts(1, ITEMS_PER_PAGE);
@@ -312,12 +311,11 @@ const MagScreen = () => {
     fetchCategories();
   }, [filteredMemberId]);
 
-  // بروزرسانی header title
   const getHeaderTitle = () => {
     if (filteredMemberId && filteredMemberName) {
       return `مقالات`;
     }
-    return 'مجله ها';
+    return 'وبلاگ و مقالات مد';
   };
   const {
     data: blogPosts,
@@ -585,7 +583,7 @@ const MagScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons
@@ -1083,7 +1081,7 @@ const styles = StyleSheet.create({
     bottom: 200,
     left: 40,
   },
-    postImage: {
+  postImage: {
     height: "100%",
     width: "100%",
   },

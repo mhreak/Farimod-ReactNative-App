@@ -24,8 +24,7 @@ const ChipsUI: React.FC<ChipsUIProps> = ({
   allowMultipleSelection = true,
   sortType = 'length-asc',
 }) => {
-  // مرتب‌سازی گروه‌ها بر اساس نوع انتخاب شده
-  const sortedGroups = React.useMemo(() => {
+   const sortedGroups = React.useMemo(() => {
     const activeGroups = groups.filter(group => group.Active);
 
     switch (sortType) {
@@ -44,8 +43,7 @@ const ChipsUI: React.FC<ChipsUIProps> = ({
     }
   }, [groups, sortType]);
 
-  // محاسبه فونت سایز بر اساس طول متن
-  const getFontSize = (groupName: string) => {
+   const getFontSize = (groupName: string) => {
     const textLength = groupName.length;
 
     if (textLength < 5) return 15;
@@ -160,8 +158,7 @@ const styles = StyleSheet.create({
     elevation: 1,
     alignSelf: 'flex-start',
     flexShrink: 0,
-    // حذف minWidth و maxWidth برای عدم محدودیت عرض
-  },
+   },
   selectedChip: {
     backgroundColor: colors.success,
     borderColor: colors.success,
@@ -179,15 +176,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    // اضافه کردن flexShrink: 0 تا از فشرده شدن محتوا جلوگیری شود
-    flexShrink: 0,
+     flexShrink: 0,
   },
   chipText: {
     color: colors.dark,
     fontFamily: 'Yekan_Bakh_Regular',
     textAlign: 'center',
-    // حذف محدودیت‌های عرض و اضافه کردن flexShrink: 0
-    flexShrink: 0,
+     flexShrink: 0,
   },
   selectedChipText: {
     color: colors.white,

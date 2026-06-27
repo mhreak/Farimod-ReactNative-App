@@ -13,7 +13,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
-  ActivityIndicator
+  ActivityIndicator,
+  Modal,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
@@ -24,6 +25,8 @@ import MainBackground from "../components/MainBackground";
 import Toast from "../components/Toast";
 import ImageUpload from "../components/ImageUpload";
 import appConfig from "../config/config";
+import { VideoView, useVideoPlayer } from 'expo-video';
+import Tooltip from '../components/Tooltip';
 
 const { width, height } = Dimensions.get('window');
 
@@ -52,6 +55,15 @@ const modernColors = {
   contactIcon: "#06b6d4",
   hobbyIcon: "#ef4444",
   goalIcon: "#6366f1",
+  phoneIcon: "#10b981",
+  emailIcon: "#ef4444",
+  websiteIcon: "#06b6d4",
+  telegramIcon: "#0088cc",
+  instagramIcon: "#E1306C",
+  whatsappIcon: "#25D366",
+  addressIcon: "#f59e0b",
+  locationIcon: "#8b5cf6",
+  groupIcon: "#6366f1",
 };
 
 // Separate EditableTextInput component to isolate re-renders
@@ -140,7 +152,21 @@ const AboutMeScreen = () => {
     avatarUrl: null,
     introVideo: null,
     name: '',
-    title: ''
+    title: '',
+    // Contact Info
+    cityId: null,
+    cityName: '',
+    provinceId: null,
+    provinceName: '',
+    phone1: '',
+    phone2: '',
+    email: '',
+    websiteAddress: '',
+    telegramAccountId: '',
+    instagramAccountId: '',
+    whatsappAccountMobileNumber: '',
+    address: '',
+    memberGroupList: []
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -152,8 +178,29 @@ const AboutMeScreen = () => {
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('info');
+  const [videoModalVisible, setVideoModalVisible] = useState(false);
 
-  // Fetch initial data
+  const player = useVideoPlayer(profileData.introVideo || '', (player) => {
+    player.loop = false;
+    player.play();
+  });
+
+  useEffect(() => {
+    if (!player) return;
+    if (videoModalVisible) {
+      player.play();    // ✅ اضافه شد
+    } else {
+      player.pause();
+    }
+  }, [videoModalVisible, player]);
+
+  useEffect(() => {
+    if (profileData.introVideo && player) {
+      player.replace(profileData.introVideo);
+      player.pause();  // ✅ بعد از replace، pause کن چون modal بسته‌ست
+    }
+  }, [profileData.introVideo]);
+
   const fetchAllData = useCallback(async () => {
     if (!user?.MemberId || initialLoadDone) return;
 
@@ -161,20 +208,50 @@ const AboutMeScreen = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${appConfig.mobileApi}MemberInfo/GetAboutMe?memberId=${user.MemberId}`);
+      console.log("Loading profile data for member:", user.MemberId);
+      console.log("User Mobile from context:", user.Mobile); // ✅ Debug
+
+      const apiUrl = `${appConfig.mobileApi}MemberInfo/GetProfileInfoToEdit?memberId=${user.MemberId}`;
+      console.log("📍 API URL:", apiUrl);
+
+      const response = await fetch(apiUrl);
 
       if (!response.ok) {
         throw new Error(`خطای سرور: ${response.status}`);
       }
 
       const result = await response.json();
+      console.log("Profile data received:", result);
+
+      // ✅ استفاده از mobile از user context اگر API null برگرداند
+      const mobile = result.Mobile || user.Mobile || "";
+
+      console.log("=== Mobile Resolution ===");
+      console.log("From API:", result.Mobile);
+      console.log("From Context:", user.Mobile);
+      console.log("Final:", mobile);
+      console.log("========================");
 
       setProfileData({
         aboutMe: result.AboutMeText || '',
         avatarUrl: result.AvatarImageURL,
         introVideo: result.IntroductionVideoURL,
         name: user?.FirstName && user?.LastName ? `${user.FirstName} ${user.LastName}` : "کاربر",
-        title: user?.Skill || "طراح"
+        title: user?.Skill || "طراح",
+        cityId: result.CityId,
+        cityName: result.CityName || '',
+        provinceId: result.ProvinceId,
+        provinceName: result.ProvinceName || '',
+        phone1: result.Phone1 || '',
+        phone2: result.Phone2 || '',
+        email: result.Email || '',
+        websiteAddress: result.WebsiteAddress || '',
+        telegramAccountId: result.TelegramAccountId || '',
+        instagramAccountId: result.InstagramAccountId || '',
+        whatsappAccountMobileNumber: result.WhatsappAccountMobileNumber || '',
+        address: result.Address || '',
+        memberGroupList: result.MemberGroupList || [],
+        mobile: mobile, // ✅ اضافه کردن mobile به state
       });
 
       setInitialLoadDone(true);
@@ -185,31 +262,112 @@ const AboutMeScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.MemberId, user?.FirstName, user?.LastName, user?.Skill, initialLoadDone]);
+  }, [user?.MemberId, user?.FirstName, user?.LastName, user?.Skill, user?.Mobile, initialLoadDone]);
+  const handleVideoPress = useCallback(() => {
+    if (profileData.introVideo) {
+      setVideoModalVisible(true);
+    }
+  }, [profileData.introVideo]);
 
-  // Update about me
   const updateAboutMe = useCallback(async (newText) => {
     try {
       setLoading(true);
       setError(null);
 
-      const updatePayload = {
-        MemberId: user?.MemberId,
-        AboutMe: newText
-      };
+      console.log("Updating AboutMe text...");
 
-      const response = await fetch(`${appConfig.mobileApi}MemberInfo/SetAboutMe`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updatePayload)
-      });
+      // 1. ابتدا تمام اطلاعات فعلی را دریافت می‌کنیم
+      const getUrl = `${appConfig.mobileApi}MemberInfo/GetProfileInfoToEdit?memberId=${user?.MemberId}`;
+      console.log("📍 GET URL:", getUrl);
+
+      const response = await fetch(getUrl);
 
       if (!response.ok) {
-        throw new Error(`خطای سرور: ${response.status}`);
+        throw new Error(`خطای سرور در دریافت اطلاعات: ${response.status}`);
       }
 
+      const currentData = await response.json();
+      console.log("Current data received:", currentData);
+
+      // 2. ✅ استفاده از user.Mobile اگر API null برگرداند
+      const mobile = currentData.Mobile || user?.Mobile;
+
+      console.log("=== Mobile Resolution ===");
+      console.log("Mobile from API:", currentData.Mobile);
+      console.log("Mobile from user context:", user?.Mobile);
+      console.log("Final mobile to use:", mobile);
+      console.log("========================");
+
+      // 3. ✅ اگر Mobile هنوز null است، خطا بده
+      if (!mobile) {
+        Alert.alert(
+          'خطا',
+          'شماره موبایل شما یافت نشد. لطفاً ابتدا از بخش "ویرایش پروفایل" شماره موبایل خود را وارد کنید.',
+          [
+            {
+              text: 'باشه',
+              onPress: () => navigation.navigate('EditProfile')
+            }
+          ]
+        );
+        throw new Error('شماره موبایل موجود نیست');
+      }
+
+      // 4. تبدیل MemberGroupList به آرایه ID ها
+      let memberGroupIds = [];
+      if (currentData.MemberGroupList && Array.isArray(currentData.MemberGroupList)) {
+        memberGroupIds = currentData.MemberGroupList
+          .filter(g => g && g.MemberGroupId)
+          .map(g => g.MemberGroupId);
+      }
+
+      // 5. داده‌های کامل را با AboutMe جدید آماده می‌کنیم
+      const updatePayload = {
+        MemberId: user?.MemberId,
+        AboutMe: newText || '',
+        CityId: currentData.CityId || 0,
+        ProvinceId: currentData.ProvinceId || 0,
+        Mobile: mobile, // ✅ استفاده از mobile که حتماً مقدار دارد
+        Phone1: currentData.Phone1 || '',
+        Phone2: currentData.Phone2 || '',
+        Email: currentData.Email || '',
+        WebsiteAddress: currentData.WebsiteAddress || '',
+        TelegramAccountId: currentData.TelegramAccountId || '',
+        WhatsappAccountMobileNumber: currentData.WhatsappAccountMobileNumber || '',
+        InstagramAccountId: currentData.InstagramAccountId || '',
+        Address: currentData.Address || '',
+        MemberGroupIdList: memberGroupIds,
+      };
+
+      console.log("=== Sending to UpdateProfile API ===");
+      console.log(JSON.stringify(updatePayload, null, 2));
+      console.log("====================================");
+
+      // 6. ارسال به API
+      const updateUrl = `${appConfig.mobileApi}MemberInfo/UpdateProfile`;
+      console.log("📍 POST URL:", updateUrl);
+
+      const updateResponse = await fetch(
+        updateUrl,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatePayload)
+        }
+      );
+
+      if (!updateResponse.ok) {
+        const errorText = await updateResponse.text();
+        console.error("Update failed:", errorText);
+        throw new Error(`خطای سرور در بروزرسانی: ${updateResponse.status} - ${errorText}`);
+      }
+
+      const updateResult = await updateResponse.json();
+      console.log("Update successful:", updateResult);
+
+      // 7. بروزرسانی state محلی
       setProfileData(prev => ({
         ...prev,
         aboutMe: newText
@@ -223,7 +381,7 @@ const AboutMeScreen = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.MemberId]);
+  }, [user?.MemberId, user?.Mobile, navigation]);
 
   const updateAvatar = useCallback(async (imageFile) => {
     try {
@@ -231,19 +389,16 @@ const AboutMeScreen = () => {
       setLoading(true);
       setError(null);
 
-      // نمایش توست در حال آپلود
       showToast('در حال آپلود تصویر...', 'info');
 
       if (!imageFile?.uri) {
         throw new Error('فایل تصویر یافت نشد');
       }
 
-      // اطمینان از URI صحیح (باید با file:// شروع شود)
       const fileUri = imageFile.uri.startsWith('file://')
         ? imageFile.uri
         : `file://${imageFile.uri}`;
 
-      // تعیین نوع MIME صحیح بر اساس پسوند
       const getMimeType = (uri) => {
         const ext = uri.split('.').pop()?.toLowerCase();
         if (ext === 'png') return 'image/png';
@@ -261,9 +416,6 @@ const AboutMeScreen = () => {
       });
 
       const apiUrl = `${appConfig.mobileApi}MemberInfo/UploadAvatarImage?memberId=${user?.MemberId}`;
-
-      console.log('Uploading to:', apiUrl);
-      console.log('FormData:', { uri: fileUri, type: mimeType });
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -332,19 +484,16 @@ const AboutMeScreen = () => {
       setLoading(true);
       setError(null);
 
-      // نمایش توست در حال آپلود
       showToast('در حال آپلود ویدیو...', 'info');
 
       if (!videoFile?.uri) {
         throw new Error('فایل ویدیو یافت نشد');
       }
 
-      // اطمینان از URI صحیح
       const fileUri = videoFile.uri.startsWith('file://')
         ? videoFile.uri
         : `file://${videoFile.uri}`;
 
-      // نوع MIME برای ویدیو
       const getMimeType = (uri) => {
         const ext = uri.split('.').pop()?.toLowerCase();
         if (ext === 'mp4') return 'video/mp4';
@@ -355,7 +504,6 @@ const AboutMeScreen = () => {
 
       const mimeType = getMimeType(fileUri);
 
-      // ساخت FormData
       const formData = new FormData();
       formData.append('videoFile', {
         uri: fileUri,
@@ -364,9 +512,6 @@ const AboutMeScreen = () => {
       });
 
       const apiUrl = `${appConfig.mobileApi}MemberInfo/UploadIntroductionVideo?memberId=${user?.MemberId}`;
-
-      console.log('Uploading video to:', apiUrl);
-      console.log('Video file:', { uri: fileUri, type: mimeType });
 
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -530,14 +675,34 @@ const AboutMeScreen = () => {
     }
   }, [updateIntroVideo, deleteIntroVideo, showToast]);
 
+  const handleEditContactInfo = useCallback(() => {
+    navigation.navigate('EditContactInfo', { contactData: profileData });
+  }, [navigation, profileData]);
+
   const getIconColor = useCallback((iconType) => {
     const iconColors = {
       person: modernColors.fashionIcon,
       videocam: modernColors.tertiary,
       camera: modernColors.accent,
+      phone: modernColors.phoneIcon,
+      email: modernColors.emailIcon,
+      website: modernColors.websiteIcon,
+      telegram: modernColors.telegramIcon,
+      instagram: modernColors.instagramIcon,
+      whatsapp: modernColors.whatsappIcon,
+      address: modernColors.addressIcon,
+      location: modernColors.locationIcon,
+      group: modernColors.groupIcon,
     };
     return iconColors[iconType] || modernColors.primary;
   }, []);
+
+  // چک کردن وجود اطلاعات تماس
+  const hasContactInfo = profileData.provinceName || profileData.cityName || profileData.address ||
+    profileData.phone1 || profileData.phone2 || profileData.email || profileData.websiteAddress ||
+    profileData.telegramAccountId || profileData.instagramAccountId ||
+    profileData.whatsappAccountMobileNumber ||
+    (profileData.memberGroupList && profileData.memberGroupList.length > 0);
 
   return (
     <>
@@ -565,7 +730,7 @@ const AboutMeScreen = () => {
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons
@@ -575,6 +740,9 @@ const AboutMeScreen = () => {
               />
             </View>
           </TouchableOpacity>
+          <View style={styles.headerLeft}>
+            <Tooltip content="در این بخش می‌توانید تمام اطلاعات پروفایل خود شامل متن درباره من، تصویر، ویدیو و اطلاعات تماس را مشاهده و مدیریت کنید." />
+          </View>
 
           <Animated.View
             style={[
@@ -585,7 +753,7 @@ const AboutMeScreen = () => {
               },
             ]}
           >
-            <AppText style={styles.sectionTitle}>درباره من</AppText>
+            <AppText style={styles.sectionTitle}>پروفایل من</AppText>
           </Animated.View>
 
           <Animated.View
@@ -597,7 +765,389 @@ const AboutMeScreen = () => {
               },
             ]}
           >
-            {/* About Me Card */}
+            {/* ═══════════════════════════════════════════════ */}
+            {/* بخش اطلاعات تماس (بالای درباره من) */}
+            {/* ═══════════════════════════════════════════════ */}
+
+            {/* موقعیت مکانی */}
+            {(profileData.provinceName || profileData.cityName) && (
+              <View style={styles.detailItem}>
+                <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
+                    <LinearGradient
+                      colors={[getIconColor('location'), getIconColor('location') + 'CC']}
+                      style={styles.iconWrapper}
+                    >
+                      <MaterialIcons
+                        name="location-on"
+                        size={22}
+                        color={modernColors.surface}
+                      />
+                    </LinearGradient>
+                    <AppText style={styles.label}>موقعیت مکانی</AppText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEditContactInfo}
+                    disabled={loading}
+                  >
+                    <MaterialIcons
+                      name="edit"
+                      size={18}
+                      color={modernColors.surface}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.contentContainer}>
+                  <AppText style={styles.value}>
+                    {profileData.provinceName && profileData.cityName
+                      ? `${profileData.provinceName}، ${profileData.cityName}`
+                      : profileData.provinceName || profileData.cityName}
+                  </AppText>
+                </View>
+                <View style={[styles.featureAccent, { backgroundColor: getIconColor('location') + "60" }]} />
+              </View>
+            )}
+
+            {/* آدرس */}
+            {profileData.address && (
+              <View style={styles.detailItem}>
+                <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
+                    <LinearGradient
+                      colors={[getIconColor('address'), getIconColor('address') + 'CC']}
+                      style={styles.iconWrapper}
+                    >
+                      <MaterialIcons
+                        name="home"
+                        size={22}
+                        color={modernColors.surface}
+                      />
+                    </LinearGradient>
+                    <AppText style={styles.label}>آدرس</AppText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEditContactInfo}
+                    disabled={loading}
+                  >
+                    <MaterialIcons
+                      name="edit"
+                      size={18}
+                      color={modernColors.surface}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.contentContainer}>
+                  <AppText style={styles.value}>{profileData.address}</AppText>
+                </View>
+                <View style={[styles.featureAccent, { backgroundColor: getIconColor('address') + "60" }]} />
+              </View>
+            )}
+
+            {/* تلفن 1 */}
+            {profileData.phone1 && (
+              <View style={styles.detailItem}>
+                <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
+                    <LinearGradient
+                      colors={[getIconColor('phone'), getIconColor('phone') + 'CC']}
+                      style={styles.iconWrapper}
+                    >
+                      <MaterialIcons
+                        name="phone"
+                        size={22}
+                        color={modernColors.surface}
+                      />
+                    </LinearGradient>
+                    <AppText style={styles.label}>موبایل</AppText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEditContactInfo}
+                    disabled={loading}
+                  >
+                    <MaterialIcons
+                      name="edit"
+                      size={18}
+                      color={modernColors.surface}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.contentContainer}>
+                  <AppText style={styles.value}>{profileData.phone1}</AppText>
+                </View>
+                <View style={[styles.featureAccent, { backgroundColor: getIconColor('phone') + "60" }]} />
+              </View>
+            )}
+
+            {/* تلفن 2 */}
+            {profileData.phone2 && (
+              <View style={styles.detailItem}>
+                <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
+                    <LinearGradient
+                      colors={[getIconColor('phone'), getIconColor('phone') + 'CC']}
+                      style={styles.iconWrapper}
+                    >
+                      <MaterialIcons
+                        name="phone"
+                        size={22}
+                        color={modernColors.surface}
+                      />
+                    </LinearGradient>
+                    <AppText style={styles.label}>تلفن</AppText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEditContactInfo}
+                    disabled={loading}
+                  >
+                    <MaterialIcons
+                      name="edit"
+                      size={18}
+                      color={modernColors.surface}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.contentContainer}>
+                  <AppText style={styles.value}>{profileData.phone2}</AppText>
+                </View>
+                <View style={[styles.featureAccent, { backgroundColor: getIconColor('phone') + "60" }]} />
+              </View>
+            )}
+
+            {/* ایمیل */}
+            {profileData.email && (
+              <View style={styles.detailItem}>
+                <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
+                    <LinearGradient
+                      colors={[getIconColor('email'), getIconColor('email') + 'CC']}
+                      style={styles.iconWrapper}
+                    >
+                      <MaterialIcons
+                        name="email"
+                        size={22}
+                        color={modernColors.surface}
+                      />
+                    </LinearGradient>
+                    <AppText style={styles.label}>ایمیل</AppText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEditContactInfo}
+                    disabled={loading}
+                  >
+                    <MaterialIcons
+                      name="edit"
+                      size={18}
+                      color={modernColors.surface}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.contentContainer}>
+                  <AppText style={styles.value}>{profileData.email}</AppText>
+                </View>
+                <View style={[styles.featureAccent, { backgroundColor: getIconColor('email') + "60" }]} />
+              </View>
+            )}
+
+            {/* وبسایت */}
+            {profileData.websiteAddress && (
+              <View style={styles.detailItem}>
+                <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
+                    <LinearGradient
+                      colors={[getIconColor('website'), getIconColor('website') + 'CC']}
+                      style={styles.iconWrapper}
+                    >
+                      <MaterialIcons
+                        name="language"
+                        size={22}
+                        color={modernColors.surface}
+                      />
+                    </LinearGradient>
+                    <AppText style={styles.label}>وبسایت</AppText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEditContactInfo}
+                    disabled={loading}
+                  >
+                    <MaterialIcons
+                      name="edit"
+                      size={18}
+                      color={modernColors.surface}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.contentContainer}>
+                  <AppText style={styles.value}>{profileData.websiteAddress}</AppText>
+                </View>
+                <View style={[styles.featureAccent, { backgroundColor: getIconColor('website') + "60" }]} />
+              </View>
+            )}
+
+            {/* تلگرام */}
+            {profileData.telegramAccountId && (
+              <View style={styles.detailItem}>
+                <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
+                    <LinearGradient
+                      colors={[getIconColor('telegram'), getIconColor('telegram') + 'CC']}
+                      style={styles.iconWrapper}
+                    >
+                      <MaterialIcons
+                        name="send"
+                        size={22}
+                        color={modernColors.surface}
+                      />
+                    </LinearGradient>
+                    <AppText style={styles.label}>تلگرام</AppText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEditContactInfo}
+                    disabled={loading}
+                  >
+                    <MaterialIcons
+                      name="edit"
+                      size={18}
+                      color={modernColors.surface}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.contentContainer}>
+                  <AppText style={styles.value}>{profileData.telegramAccountId}</AppText>
+                </View>
+                <View style={[styles.featureAccent, { backgroundColor: getIconColor('telegram') + "60" }]} />
+              </View>
+            )}
+
+            {/* اینستاگرام */}
+            {profileData.instagramAccountId && (
+              <View style={styles.detailItem}>
+                <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
+                    <LinearGradient
+                      colors={[getIconColor('instagram'), getIconColor('instagram') + 'CC']}
+                      style={styles.iconWrapper}
+                    >
+                      <MaterialIcons
+                        name="camera-alt"
+                        size={22}
+                        color={modernColors.surface}
+                      />
+                    </LinearGradient>
+                    <AppText style={styles.label}>اینستاگرام</AppText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEditContactInfo}
+                    disabled={loading}
+                  >
+                    <MaterialIcons
+                      name="edit"
+                      size={18}
+                      color={modernColors.surface}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.contentContainer}>
+                  <AppText style={styles.value}>{profileData.instagramAccountId}</AppText>
+                </View>
+                <View style={[styles.featureAccent, { backgroundColor: getIconColor('instagram') + "60" }]} />
+              </View>
+            )}
+
+            {/* واتساپ */}
+            {profileData.whatsappAccountMobileNumber && (
+              <View style={styles.detailItem}>
+                <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
+                    <LinearGradient
+                      colors={[getIconColor('whatsapp'), getIconColor('whatsapp') + 'CC']}
+                      style={styles.iconWrapper}
+                    >
+                      <MaterialIcons
+                        name="chat"
+                        size={22}
+                        color={modernColors.surface}
+                      />
+                    </LinearGradient>
+                    <AppText style={styles.label}>واتساپ</AppText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEditContactInfo}
+                    disabled={loading}
+                  >
+                    <MaterialIcons
+                      name="edit"
+                      size={18}
+                      color={modernColors.surface}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.contentContainer}>
+                  <AppText style={styles.value}>{profileData.whatsappAccountMobileNumber}</AppText>
+                </View>
+                <View style={[styles.featureAccent, { backgroundColor: getIconColor('whatsapp') + "60" }]} />
+              </View>
+            )}
+
+            {/* گروه‌های عضویت */}
+            {profileData.memberGroupList && profileData.memberGroupList.length > 0 && (
+              <View style={styles.detailItem}>
+                <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
+                  <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
+                    <LinearGradient
+                      colors={[getIconColor('group'), getIconColor('group') + 'CC']}
+                      style={styles.iconWrapper}
+                    >
+                      <MaterialIcons
+                        name="groups"
+                        size={22}
+                        color={modernColors.surface}
+                      />
+                    </LinearGradient>
+                    <AppText style={styles.label}>گروه‌های عضویت</AppText>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editButton}
+                    onPress={handleEditContactInfo}
+                    disabled={loading}
+                  >
+                    <MaterialIcons
+                      name="edit"
+                      size={18}
+                      color={modernColors.surface}
+                    />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.contentContainer}>
+                  {profileData.memberGroupList.map((group, index) => (
+                    <View key={group.MemberGroupId} style={styles.groupItem}>
+                      <View style={styles.groupBadge}>
+                        <AppText style={styles.groupBadgeText}>
+                          {group.MemberGroupName}
+                        </AppText>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+                <View style={[styles.featureAccent, { backgroundColor: getIconColor('group') + "60" }]} />
+              </View>
+            )}
+
+
+
+            {/* ═══════════════════════════════════════════════ */}
+            {/* بخش درباره من، ویدیو و عکس (پایین‌تر) */}
+            {/* ═══════════════════════════════════════════════ */}
+
+            {/* بخش درباره من - متن */}
             <View style={styles.detailItem}>
               <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
                 <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
@@ -613,7 +1163,6 @@ const AboutMeScreen = () => {
                   </LinearGradient>
                   <AppText style={styles.label}>درباره من</AppText>
                 </View>
-
                 {!isEditing && (
                   <TouchableOpacity
                     style={styles.editButton}
@@ -630,23 +1179,23 @@ const AboutMeScreen = () => {
               </View>
 
               <View style={styles.contentContainer}>
-                {!isEditing ? (
-                  <AppText style={styles.descriptionValue}>
-                    {profileData.aboutMe || "اطلاعاتی وارد نشده است"}
-                  </AppText>
-                ) : (
+                {isEditing ? (
                   <EditableTextInput
                     value={profileData.aboutMe}
                     onSave={handleSaveEdit}
                     onCancel={handleCancelEdit}
                     loading={loading}
                   />
+                ) : (
+                  <AppText style={styles.descriptionValue}>
+                    {profileData.aboutMe || 'متنی وارد نشده است'}
+                  </AppText>
                 )}
               </View>
               <View style={[styles.featureAccent, { backgroundColor: getIconColor('person') + "60" }]} />
             </View>
 
-            {/* Video Card */}
+            {/* ویدئوی معرفی */}
             <View style={styles.detailItem}>
               <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
                 <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
@@ -695,12 +1244,13 @@ const AboutMeScreen = () => {
                   onShowToast={showToast}
                   style={styles.videoUpload}
                   loading={loading}
+                  onPress={handleVideoPress}
                 />
               </View>
               <View style={[styles.featureAccent, { backgroundColor: getIconColor('videocam') + "60" }]} />
             </View>
 
-            {/* Profile Image Card */}
+            {/* تصویر پروفایل */}
             <View style={styles.detailItem}>
               <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
                 <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
@@ -751,6 +1301,54 @@ const AboutMeScreen = () => {
           <View style={styles.bottomSpacer} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal ویدیو */}
+      <Modal
+        visible={videoModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          setVideoModalVisible(false);
+          player?.pause();
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalCloseArea}
+            activeOpacity={1}
+            onPress={() => {
+              setVideoModalVisible(false);
+              player?.pause();
+            }}
+          >
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={(e) => e.stopPropagation()}
+              style={styles.modalContent}
+            >
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => {
+                  setVideoModalVisible(false);
+                  player?.pause();
+                }}
+              >
+                <MaterialIcons name="close" size={28} color="#ffffff" />
+              </TouchableOpacity>
+
+              {profileData.introVideo && (
+                <VideoView
+                  player={player}
+                  style={styles.modalVideo}
+                  contentFit="contain"
+                  allowsFullscreen
+                  allowsPictureInPicture
+                />
+              )}
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </>
   );
 };
@@ -788,6 +1386,40 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseArea: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: width * 0.9,
+    maxHeight: height * 0.8,
+    position: 'relative',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: -50,
+    right: 0,
+    zIndex: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalVideo: {
+    width: '100%',
+    height: (width * 0.9) * (9 / 16),
+    borderRadius: 12,
+  },
   sectionTitleContainer: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
@@ -816,7 +1448,6 @@ const styles = StyleSheet.create({
     position: "relative",
     overflow: "hidden",
     marginHorizontal: 5,
- 
   },
   labelContainer: {
     flexDirection: 'row-reverse',
@@ -848,6 +1479,13 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     fontFamily: "Yekan_Bakh_Regular",
   },
+  value: {
+    fontSize: 16,
+    color: "#374151",
+    textAlign: 'right',
+    lineHeight: 26,
+    fontFamily: "Yekan_Bakh_Regular",
+  },
   featureAccent: {
     position: "absolute",
     right: 0,
@@ -864,6 +1502,12 @@ const styles = StyleSheet.create({
     backgroundColor: modernColors.primary,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  headerLeft: {
+    position: 'absolute',
+    left: 16,
+    top: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 60,
+    zIndex: 1000,
   },
   editButtonsRow: {
     flexDirection: 'row',
@@ -928,6 +1572,57 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
     color: "#2c3e50",
+  },
+  groupItem: {
+    marginBottom: 8,
+  },
+  groupBadge: {
+    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignSelf: 'flex-end',
+    borderWidth: 1,
+    borderColor: 'rgba(99, 102, 241, 0.2)',
+  },
+  groupBadgeText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: modernColors.primary,
+  },
+  emptyContactContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 30,
+    backgroundColor: "rgba(255, 255, 255, 0.4)",
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "rgba(203, 213, 225, 0.4)",
+    marginHorizontal: 5,
+    marginTop: 10,
+  },
+  emptyContactText: {
+    fontSize: 15,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: modernColors.medium,
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  addContactButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: modernColors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 6,
+  },
+  addContactButtonText: {
+    color: modernColors.surface,
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
   },
 });
 

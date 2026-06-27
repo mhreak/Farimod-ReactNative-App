@@ -1,4 +1,3 @@
-// types.ts
 
 import { number } from "yup";
 
@@ -29,7 +28,6 @@ export interface MemberResponse {
   Data: Member[];
 }
 
-// NEW: Detailed member profile interface matching the API response
 export interface MemberDocument {
   MemberDocumentId: number;
   Title: string | null;
@@ -91,7 +89,6 @@ export interface MemberProfile {
   ImageGalleryViewModelList: ImageGallery[];
 }
 
-// Updated Course interface to match API response
 export interface Course {
   CourseId: number;
   MemberId: number;
@@ -112,17 +109,15 @@ export interface Course {
   ShamsiInsertDate: string;
   StartDate: string | null;
   EndDate: string | null;
-  Duration: number | null; // Duration in hours
+  Duration: number | null; 
   MaxParticipants: number | null;
   CurrentParticipants: number;
 }
 
-// Course Response interface
 export interface CourseResponse {
   Data: Course[];
 }
 
-// Updated Product interface to match API response
 export interface Product {
   ProductId: number;
   MemberId: number;
@@ -137,12 +132,10 @@ export interface Product {
   InsertDate: string;
 }
 
-// Updated Product Response interface
 export interface ProductResponse {
   Data: Product[];
 }
 
-// NEW: MemberGroup interface based on your API response
 export interface MemberGroup {
   MemberGroupId: number;
   GroupName: string;
@@ -157,7 +150,6 @@ export interface MemberGroup {
   ShamsiInsertDate: string;
 }
 
-// MemberGroup Response interface
 export interface MemberGroupResponse {
   Data: MemberGroup[];
 }
@@ -179,21 +171,18 @@ export interface Person {
   education: string;
 }
 
-// Navigation types
 export interface NavBarItem {
   icon: string;
   title: string;
   screenName: string;
 }
 
-// API Response types
 export interface ApiResponse<T> {
   Data: T[];
   Success?: boolean;
   Message?: string;
 }
 
-// Props types for components
 export interface ProductCardProps {
   item: Product;
   onPress?: (product: Product) => void;
@@ -212,7 +201,6 @@ export interface CourseCardProps {
   onPress?: (course: Course) => void;
 }
 
-// Hook types
 export interface UseApiState<T> {
   data: T[];
   loading: boolean;
@@ -220,9 +208,8 @@ export interface UseApiState<T> {
   refetch: () => void;
 }
 
-// Screen navigation props
 export interface HomeScreenProps {
-  navigation: any; // Replace with proper navigation type from @react-navigation
+  navigation: any; 
 }
 
 export interface CourseDetailsProps {

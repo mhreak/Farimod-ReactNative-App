@@ -59,7 +59,7 @@ const useProductsWithPagination = () => {
       setError(null);
 
       // Get user data from AuthService to get MemberId
-      const userData = user || await AuthService.getUserData(); 
+      const userData = user || await AuthService.getUserData();
       if (!userData) {
         throw new Error('کاربر وارد نشده است');
       }
@@ -247,7 +247,7 @@ const ProductCard = ({ item, onPress }) => {
         )}
         {!item.Active && (
           <View style={styles.unavailableBadge}>
-            <AppText style={styles.unavailableText}>ناموجود</AppText>
+            <AppText style={styles.unavailableText}>غیرفعال</AppText>
           </View>
         )}
       </View>
@@ -513,7 +513,7 @@ const MyProductScreen = () => {
     return (
       <View style={styles.emptyContainer}>
         <MaterialIcons name="shopping-bag" size={80} color="#9e9e9e" />
-        <AppText style={styles.emptyTitle}>هیچ محصولی موجود نیست</AppText>
+        <AppText style={styles.emptyTitle}>هیچ محصولی فعال نیست</AppText>
         <AppText style={styles.emptySubtitle}>
           در حال حاضر محصولی برای نمایش وجود ندارد
         </AppText>
@@ -597,7 +597,7 @@ const MyProductScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons

@@ -1,5 +1,5 @@
-import React from "react";
-import { StyleSheet, Text, View, Platform, I18nManager } from "react-native";
+import React, { useEffect } from "react";
+import { I18nManager, BackHandler } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import LoginScreen from "./screens/LoginScreen";
 import OTPScreen from "./screens/OTPScreen";
@@ -20,12 +20,10 @@ import AddNewPostScreen from "./screens/AddNewPostScreen";
 import PortfolioListScreen from "./screens/PortfolioListScreen";
 import MyProductScreen from "./screens/MyProductScreen";
 import AllPortfolioScreen from "./screens/AllPortfolioScreen";
-
 import CareerScreen from "./screens/CareerScreen";
 import WelcomeIntroScreen from "./screens/WelcomeIntroScreen";
 import WhyFrimodScreen from "./screens/WhyFrimodScreen";
 import EventsScreen from "./screens/EventsScreen";
-
 import styles from "./config/styles";
 import MagDetailesScreen from "./screens/MagDetailesScreen";
 import AddNewCourseScreen from "./screens/AddNewCourseScreen";
@@ -33,7 +31,7 @@ import MyGalleryScreen from "./screens/MyGalleryScreen";
 import GalleryItemScreen from "./screens/GalleryItemScreen";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createStackNavigator } from "@react-navigation/stack";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import colors from "./config/colors";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -41,34 +39,49 @@ import AllCoursesScreen from "./screens/AllCoursesScreen";
 import AllProductsScreen from "./screens/AllProductsScreen";
 import AllMembersScreen from "./screens/AllMemberScreen";
 import ProductDetailsScreen from "./screens/ProductDetailsScreen";
-import portfolioDetailScreen from "./screens/PortfolioDetailScreen";
 import PortfolioDetailScreen from "./screens/PortfolioDetailScreen";
-import AllGalleriesScreen from "./screens/AllGalleriesScreen"
+import AllGalleriesScreen from "./screens/AllGalleriesScreen";
 import AddPortfolioScreen from "./screens/AddPortfolioScreen";
 import { useAuth } from "./contexts/AuthContext";
 import AddProductScreen from "./screens/AddNewProduct";
+import AddGalleryScreen from "./screens/AddGalleryScreen";
+import ManageGalleryItemsScreen from "./screens/ManageGalleryItemsScreen";
+import EditContactInfoScreen from "./screens/EditContactInfoScreen";
+import CourseStudentsScreen from "./screens/CourseStudentsScreen";
+import MyRegistrationsScreen from "./screens/Myregistrationsscreen";
+import CourseRegistrationScreen from "./screens/CourseRegistrationScreen";
+import SubscriptionPurchaseScreen from "./screens/SubscriptionPurchaseScreen";
+import AllMemberGroupsScreen from "./screens/AllMemberGroupsScreen";
 
 export type RootStackParamList = {
   IntroFlow: undefined;
+  App: { screen?: string; params?: any } | undefined;
+  Auth: undefined;
   WelcomeIntro: undefined;
   WhyFrimod: undefined;
   EventsScreen: undefined;
   CareerScreen: undefined;
-  MainTabs: undefined;
+  MainTabs: { screen?: string; params?: any } | undefined;
   Login: undefined;
   OTP: { mobileNumber: string };
   Signup: undefined;
   EditProfile: undefined;
   AboutMe: undefined;
+  EditContactInfo: undefined;
   MyResume: undefined;
   MyGallery: undefined;
+  AddGallery: undefined;
   MyPosts: undefined;
   MyCourses: undefined;
+  ManageGalleryItems: undefined;
   AddNewCourse: undefined;
   MagDetailes: { title?: string; blogId?: number };
   MyTeachingCourses: undefined;
-
-  // استفاده از نام‌های موجود در Stack.Navigator:
+  CourseStudents: undefined;
+  MyRegistrations: undefined;
+  CourseRegistration: undefined;
+  SubscriptionPurchase: undefined;
+  AllMemberGroups: undefined;
   AllCourses: { filteredMemberId?: number; filteredMemberName?: string; filterType?: string };
   AllProducts: { filteredMemberId?: number; filteredMemberName?: string; filterType?: string };
   AllMembers: undefined;
@@ -81,10 +94,7 @@ export type RootStackParamList = {
   MyProduct: undefined;
   AddProductScreen: undefined;
   AllPortfolio: { filteredMemberId?: number; filteredMemberName?: string; filterType?: string };
-
-  // اضافه کردن MagScreen که در TabNavigator هست:
   MagScreen: { filteredMemberId?: number; filteredMemberName?: string; filterType?: string };
-
   GalleryItem: { title?: string; galleryId?: number };
   Subscription: undefined;
   CourseDetails: { courseData?: any; courseId?: number };
@@ -100,74 +110,50 @@ const AuthStack = createStackNavigator();
 const AppStack = createStackNavigator();
 
 const customTransitionConfig = {
-  animation: "spring",
+  animation: "timing",
   config: {
-    stiffness: 1000,
-    damping: 500,
-    mass: 3,
-    overshootClamping: true,
-    restDisplacementThreshold: 0.01,
-    restSpeedThreshold: 0.01,
+    duration: 200,
+    useNativeDriver: true,
   },
 };
 
 const screenOptions = {
   gestureEnabled: true,
-  gestureDirection: I18nManager.isRTL ? "horizontal-inverted" : "horizontal",
+  gestureDirection: (I18nManager.isRTL
+    ? "horizontal-inverted"
+    : "horizontal") as "horizontal-inverted" | "horizontal",
   transitionSpec: {
     open: customTransitionConfig,
     close: customTransitionConfig,
   },
-  cardStyleInterpolator: ({ current, next, layouts }) => {
-    return {
-      cardStyle: {
-        transform: [
-          {
-            translateX: current.progress.interpolate({
-              inputRange: [0, 1],
-              outputRange: [
-                layouts.screen.width * (I18nManager.isRTL ? -1 : 1),
-                0,
-              ],
-            }),
-          },
-        ],
-      },
-      overlayStyle: {
-        opacity: current.progress.interpolate({
-          inputRange: [0, 1],
-          outputRange: [0, 0.5],
-        }),
-      },
-    };
-  },
+  cardStyleInterpolator: ({ current, layouts }: any) => ({
+    cardStyle: {
+      transform: [
+        {
+          translateX: current.progress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [
+              layouts.screen.width * (I18nManager.isRTL ? -1 : 1),
+              0,
+            ],
+          }),
+        },
+      ],
+    },
+  }),
+  headerShown: false,
 };
 
 function IntroFlowNavigator() {
   return (
     <IntroStack.Navigator
-      screenOptions={{
-        ...screenOptions,
-        headerShown: false,
-      }}
+      screenOptions={{ ...screenOptions, headerShown: false }}
       initialRouteName="WelcomeIntro"
     >
-      <IntroStack.Screen
-        name="WelcomeIntro"
-        component={WelcomeIntroScreen}
-      />
-      <IntroStack.Screen
-        name="WhyFrimod"
-        component={WhyFrimodScreen}
-      />
-      <IntroStack.Screen
-        name="EventsScreen"
-        component={EventsScreen}
-      />
-      <IntroStack.Screen
-        name="CareerScreen"
-        component={CareerScreen}
-      />
+      <IntroStack.Screen name="WelcomeIntro" component={WelcomeIntroScreen} />
+      <IntroStack.Screen name="WhyFrimod" component={WhyFrimodScreen} />
+      <IntroStack.Screen name="EventsScreen" component={EventsScreen} />
+      <IntroStack.Screen name="CareerScreen" component={CareerScreen} />
     </IntroStack.Navigator>
   );
 }
@@ -175,39 +161,31 @@ function IntroFlowNavigator() {
 function AuthNavigator() {
   return (
     <AuthStack.Navigator
-      screenOptions={{
-        ...screenOptions,
-        headerShown: false,
-      }}
+      screenOptions={{ ...screenOptions, headerShown: false }}
       initialRouteName="Login"
     >
-      <AuthStack.Screen
-        name="Login"
-        component={LoginScreen}
-      />
+      <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen
         name="OTP"
         component={OTPScreen}
-        options={{
-          gestureEnabled: true,
-        }}
+        options={{ gestureEnabled: true }}
       />
-      <AuthStack.Screen
-        name="Signup"
-        component={SignupScreen}
-      />
+      <AuthStack.Screen name="Signup" component={SignupScreen} />
     </AuthStack.Navigator>
   );
 }
 
 function TabNavigator() {
-  const navigation = useNavigation<AppNavigationProp>();
   const insets = useSafeAreaInsets();
+
+
 
   return (
     <Tab.Navigator
       initialRouteName="خانه"
+      backBehavior="history" 
       screenOptions={({ route }) => ({
+        lazy: true,
         tabBarLabelStyle: {
           fontFamily: "Yekan_Bakh_Regular",
           fontSize: 13,
@@ -221,7 +199,7 @@ function TabNavigator() {
             iconName = focused ? "home" : "home-outline";
           } else if (route.name === "پروفایل") {
             iconName = focused ? "person" : "person-outline";
-          } else if (route.name === "مجله ی فریمد") {
+          } else if (route.name === "وبلاگ") {
             iconName = focused ? "book" : "book-outline";
           }
           return <Ionicons name={iconName} color={color} size={size} />;
@@ -252,10 +230,7 @@ function TabNavigator() {
       <Tab.Screen
         name="پروفایل"
         component={ProfileScreeen}
-        options={{
-          gestureEnabled: false,
-          headerShown: false,
-        }}
+        options={{ headerShown: false }}
       />
       <Tab.Screen
         name="خانه"
@@ -263,7 +238,7 @@ function TabNavigator() {
         options={{ headerShown: false }}
       />
       <Tab.Screen
-        name="مجله ی فریمد"
+        name="وبلاگ"
         component={MagScreen}
         options={{ headerShown: false }}
       />
@@ -272,277 +247,190 @@ function TabNavigator() {
 }
 
 function AppNavigator() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+
+  useEffect(() => {
+    const handleBackPress = () => {
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+        return true;
+      }
+      return false;
+    };
+
+    const sub = BackHandler.addEventListener("hardwareBackPress", handleBackPress);
+    return () => sub.remove();
+  }, []);
+
+  const handleHeaderBack = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  };
+
+  const headerBackButton = (canGoBack: boolean | undefined) =>
+    canGoBack ? (
+      <Ionicons
+        name="arrow-forward"
+        size={24}
+        color={colors.primary}
+        style={{ marginRight: 15 }}
+        onPress={handleHeaderBack}
+      />
+    ) : null;
 
   return (
     <AppStack.Navigator
       screenOptions={screenOptions}
       initialRouteName="MainTabs"
     >
-      <AppStack.Screen
-        name="MainTabs"
-        component={TabNavigator}
-        options={{ headerShown: false }}
-      />
+      <AppStack.Screen name="MainTabs" component={TabNavigator} />
 
       <AppStack.Screen
         name="AddPortfolio"
         component={AddPortfolioScreen}
-        options={{
-          headerShown: false,
-          gestureEnabled: false,
-
-        }}
+        options={{ gestureEnabled: false }}
       />
+      <AppStack.Screen name="AddGallery" component={AddGalleryScreen} />
+      <AppStack.Screen name="AllMemberGroups" component={AllMemberGroupsScreen} />
+      <AppStack.Screen name="SubscriptionPurchase" component={SubscriptionPurchaseScreen} />
       <AppStack.Screen
         name="AddProduct"
         component={AddProductScreen}
-        options={{
-          headerShown: false,
-          gestureEnabled: false,
+        options={{ gestureEnabled: false }}
+      />
+      <AppStack.Screen
+        name="CourseStudents"
+        component={CourseStudentsScreen}
+        options={{ gestureEnabled: false }}
+      />
+      <AppStack.Screen
+        name="CourseRegistration"
+        component={CourseRegistrationScreen}
+        options={{ gestureEnabled: false }}
+      />
+      <AppStack.Screen name="MyProduct" component={MyProductScreen} />
+      <AppStack.Screen name="AllPortfolio" component={AllPortfolioScreen} />
 
-        }}
-      />
-      <AppStack.Screen
-        name="MyProduct"
-        component={MyProductScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <AppStack.Screen
-        name="AllPortfolio"
-        component={AllPortfolioScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
       <AppStack.Screen
         name="EditProfile"
         component={EditProfileScreen}
         options={{
-          headerShown: false,
+          headerShown: true,
           title: "ویرایش پروفایل",
           headerTitleAlign: "center",
           headerTitleStyle: styles.headerTitleStyle,
           headerStyle: styles.headerStyle,
           headerLeft: () => null,
-          headerRight: ({ canGoBack }) =>
-            canGoBack ? (
-              <Ionicons
-                name="arrow-forward"
-                size={24}
-                color={colors.primary}
-                style={{ marginRight: 15 }}
-                onPress={() => navigation.goBack()}
-              />
-            ) : null,
+          headerRight: ({ canGoBack }) => headerBackButton(canGoBack),
         }}
       />
-      <AppStack.Screen
-        name="AboutMe"
-        component={AboutMeScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <AppStack.Screen
-        name="MyResume"
-        component={MyResumeScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <AppStack.Screen
-        name="MyGallery"
-        component={MyGalleryScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <AppStack.Screen
-        name="AllGalleries"
-        component={AllGalleriesScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
-      <AppStack.Screen
-        name="MyPosts"
-        component={MyPostsScreen}
-        options={{
-          headerShown: false,
-        }}
-      />
+
+      <AppStack.Screen name="AboutMe" component={AboutMeScreen} />
+      <AppStack.Screen name="EditContactInfo" component={EditContactInfoScreen} />
+      <AppStack.Screen name="ManageGalleryItems" component={ManageGalleryItemsScreen} />
+      <AppStack.Screen name="MyResume" component={MyResumeScreen} />
+      <AppStack.Screen name="MyGallery" component={MyGalleryScreen} />
+      <AppStack.Screen name="AllGalleries" component={AllGalleriesScreen} />
+      <AppStack.Screen name="MyPosts" component={MyPostsScreen} />
       <AppStack.Screen
         name="AddNewPost"
         component={AddNewPostScreen}
-        options={{
-          headerShown: false,
-          gestureEnabled: false,
-
-        }}
+        options={{ gestureEnabled: false }}
       />
       <AppStack.Screen
         name="PortfolioDetail"
         component={PortfolioDetailScreen}
-        options={{
-          headerShown: false,
-          gestureEnabled: false,
-        }}
+        options={{ gestureEnabled: false }}
       />
       <AppStack.Screen
         name="PortfolioList"
         component={PortfolioListScreen}
-        options={{
-          headerShown: false,
-          gestureEnabled: false,
-        }}
+        options={{ gestureEnabled: false }}
       />
+
       <AppStack.Screen
         name="MyCourses"
         component={MyCoursesScreen}
         options={{
+          headerShown: true,
           headerTitleAlign: "center",
           headerTitleStyle: styles.headerTitleStyle,
           headerStyle: styles.headerStyle,
           headerLeft: () => null,
-          headerRight: ({ canGoBack }) =>
-            canGoBack ? (
-              <Ionicons
-                name="arrow-forward"
-                size={24}
-                color={colors.primary}
-                style={{ marginRight: 15 }}
-                onPress={() => navigation.goBack()}
-              />
-            ) : null,
+          headerRight: ({ canGoBack }) => headerBackButton(canGoBack),
         }}
       />
+
       <AppStack.Screen
         name="AddNewCourse"
         component={AddNewCourseScreen}
-        options={{
-          headerShown: false,
-          gestureEnabled: false,
-
-        }}
+        options={{ gestureEnabled: false }}
       />
-      <AppStack.Screen
-        name="AllCourses"
-        component={AllCoursesScreen}
-        options={{ headerShown: false }}
-      />
+      <AppStack.Screen name="AllCourses" component={AllCoursesScreen} />
       <AppStack.Screen
         name="CourseDetails"
         component={CourseDetailsScreen}
-        options={{
-          gestureEnabled: false,
-          headerShown: false,
-        }}
+        options={{ gestureEnabled: false }}
+      />
+      <AppStack.Screen
+        name="MyRegistrations"
+        component={MyRegistrationsScreen}
+        options={{ gestureEnabled: false }}
       />
       <AppStack.Screen
         name="MyTeachingCourses"
         component={MyTeachingCoursesScreen}
-        options={{
-          gestureEnabled: false,
-          headerShown: false,
-        }}
+        options={{ gestureEnabled: false }}
       />
       <AppStack.Screen
         name="ProductDetails"
         component={ProductDetailsScreen}
-        options={{
-          gestureEnabled: false,
-          headerShown: false,
-        }}
+        options={{ gestureEnabled: false }}
       />
       <AppStack.Screen
         name="AllProducts"
         component={AllProductsScreen}
-        options={{
-          gestureEnabled: false,
-          headerShown: false,
-        }}
+        options={{ gestureEnabled: false }}
       />
       <AppStack.Screen
         name="AllMembers"
         component={AllMembersScreen}
-        options={{
-          gestureEnabled: false,
-          headerShown: false,
-        }}
+        options={{ gestureEnabled: false }}
       />
       <AppStack.Screen
         name="Subscription"
         component={SubscriptionScreen}
-        options={{
-          gestureEnabled: false,
-          headerShown: false,
-        }}
+        options={{ gestureEnabled: false }}
       />
       <AppStack.Screen
         name="UserProfile"
         component={UserProfileScreen}
-        options={{
-          gestureEnabled: false,
-          headerShown: false,
-        }}
+        options={{ gestureEnabled: false }}
       />
-      <AppStack.Screen
-        name="MagDetailes"
-        component={MagDetailesScreen}
-        options={({ route }) => ({
-          headerShown: false,
-        })}
-      />
-      <AppStack.Screen
-        name="GalleryItem"
-        component={GalleryItemScreen}
-        options={({ route }) => ({
-          headerShown: false,
-        })}
-      />
+      <AppStack.Screen name="MagDetailes" component={MagDetailesScreen} />
+      <AppStack.Screen name="GalleryItem" component={GalleryItemScreen} />
     </AppStack.Navigator>
   );
 }
 
-// تغییرات اصلی در StackNavigator
 export function StackNavigator() {
   const { isAuthenticated, isLoading } = useAuth();
 
-  // اگر در حال بارگذاری است، هیچ چیز نمایش نده (این در App.tsx مدیریت می‌شود)
   if (isLoading) {
     return null;
   }
 
   return (
     <Stack.Navigator
-      screenOptions={{
-        ...screenOptions,
-        headerShown: false,
-      }}
+      screenOptions={{ ...screenOptions, headerShown: false }}
     >
       {isAuthenticated ? (
-        // اگر کاربر وارد شده، صفحات اصلی را نمایش بده
-        <Stack.Screen
-          name="App"
-          component={AppNavigator}
-          options={{ headerShown: false }}
-        />
+        <Stack.Screen name="App" component={AppNavigator} />
       ) : (
-        // اگر کاربر وارد نشده، صفحات authentication را نمایش بده
         <>
-          <Stack.Screen
-            name="IntroFlow"
-            component={IntroFlowNavigator}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="Auth"
-            component={AuthNavigator}
-            options={{ headerShown: false }}
-          />
+          <Stack.Screen name="IntroFlow" component={IntroFlowNavigator} />
+          <Stack.Screen name="Auth" component={AuthNavigator} />
         </>
       )}
     </Stack.Navigator>

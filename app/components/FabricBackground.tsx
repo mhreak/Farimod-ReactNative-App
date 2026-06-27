@@ -27,8 +27,7 @@ const FabricBackground: React.FC<IProps> = ({
   const floatAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // انیمیشن ستاره‌ها و فیدینگ
-    Animated.loop(
+     Animated.loop(
       Animated.sequence([
         Animated.timing(sparkleAnim, {
           toValue: 1,
@@ -43,8 +42,7 @@ const FabricBackground: React.FC<IProps> = ({
       ])
     ).start();
 
-    // انیمیشن شناور برای المان‌ها - موج‌مانند
-    Animated.loop(
+     Animated.loop(
       Animated.sequence([
         Animated.timing(floatAnim, {
           toValue: 1,
@@ -190,8 +188,7 @@ const FabricBackground: React.FC<IProps> = ({
       style={styles.background}
     >
       <View style={styles.container}>
-        {/* المان‌های تزئینی پارچه */}
-        {showFabricIcons && (
+         {showFabricIcons && (
           <View style={styles.decorativeElements}>
             {fabricElements.map((element, index) => (
               <Animated.View
@@ -228,8 +225,7 @@ const FabricBackground: React.FC<IProps> = ({
           </View>
         )}
 
-        {/* محتوای داخلی */}
-        {children}
+         {children}
       </View>
     </LinearGradient>
   );

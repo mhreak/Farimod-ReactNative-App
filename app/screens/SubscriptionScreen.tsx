@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import {
   FlatList,
   ScrollView,
@@ -11,6 +11,8 @@ import {
   Modal,
   Pressable,
   TextInput,
+  RefreshControl,
+  ActivityIndicator,
 } from "react-native";
 import colors from "../config/colors";
 import AppText from "../components/Text";
@@ -23,7 +25,8 @@ import { AppNavigationProp } from "../Navigators";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from "../components/Toast";
-import appConfig from "../config/config";
+import SubscriptionService from "../services/SubscriptionService";
+import { useAuth } from '../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
 
@@ -54,17 +57,15 @@ const modernColors = {
 interface ISubscriptionPlan {
   id: number;
   title: string;
-  price: string;
-  duration: string;
-  features: string[];
   color: string;
   gradientColors: string[];
   glassColors: string[];
-  icon: React.ComponentProps<typeof MaterialIcons>["name"];
+  icon: string;
   isPopular?: boolean;
   badgeBackgroundColor?: string;
   badgeText?: string;
   isActive?: boolean;
+  features: string[];
   subscriptionOptions?: {
     value: string;
     label: string;
@@ -97,7 +98,7 @@ interface IActiveSubscription {
 }
 
 const useSubscriptionPlans = () => {
-  const [subscriptionPlans, setSubscriptionPlans] = useState([]);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<ISubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -106,87 +107,140 @@ const useSubscriptionPlans = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `${appConfig.mobileApi}SubscriptionPlan/GetAllActive`
-      );
+      console.log('🔄 Fetching subscription plans...');
+      const result = await SubscriptionService.getAllActivePlans();
+      console.log('📥 API Result:', result);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (result.success) {
+        const plans = result.data || [];
+        console.log('📦 API Plans count:', plans.length);
+
+        const transformedPlans: ISubscriptionPlan[] = plans.map((plan) => {
+          const features: string[] = [];
+
+          if (plan.PlanOption_ShowContanctInfo) {
+            features.push("نمایش اطلاعات تماس");
+          }
+          if (plan.PlanOption_ShowBlueTick) {
+            features.push("تیک آبی تایید هویت");
+          }
+          if (plan.PlanOption_AllowAboutMeText) {
+            features.push("امکان افزودن درباره من");
+          }
+          if (plan.PlanOption_AllowAddImageGallery) {
+            features.push("گالری تصاویر");
+          }
+          if (plan.PlanOption_AllowAddPortfolio) {
+            features.push("نمونه کارها");
+          }
+          if (plan.PlanOption_AllowAddProduct) {
+            features.push("افزودن محصول");
+          }
+          if (plan.PlanOption_AllowAddCourse) {
+            features.push("افزودن دوره آموزشی");
+          }
+          if (plan.PlanOption_AllowAddBlogPost) {
+            features.push("انتشار مقاله");
+          }
+          if (plan.PlanOption_AllowAddDocument) {
+            features.push("اسناد و مدارک");
+          }
+
+          if (features.length === 0) {
+            features.push("امکانات محدود");
+          }
+
+          const subscriptionOptions = [];
+
+          if (plan.AllowFourteenDaysSubscription && plan.FourteenDaysSubscriptionPrice !== null) {
+            subscriptionOptions.push({
+              value: 'fourteen_days',
+              label: `۱۴ روزه`,
+              price: plan.FourteenDaysSubscriptionPrice,
+              duration: '۱۴ روزه',
+              icon: 'schedule'
+            });
+          }
+
+          if (plan.AllowOneMonthSubscription && plan.OneMonthSubscriptionPrice !== null) {
+            subscriptionOptions.push({
+              value: 'one_month',
+              label: `یک ماهه`,
+              price: plan.OneMonthSubscriptionPrice,
+              duration: 'یک ماهه',
+              icon: 'calendar-today'
+            });
+          }
+
+          if (plan.AllowThreeMonthsSubscription && plan.ThreeMonthsSubscriptionPrice !== null) {
+            subscriptionOptions.push({
+              value: 'three_months',
+              label: `سه ماهه`,
+              price: plan.ThreeMonthsSubscriptionPrice,
+              duration: 'سه ماهه',
+              icon: 'calendar-view-month'
+            });
+          }
+
+          if (plan.AllowSixMonthsSubscription && plan.SixMonthsSubscriptionPrice !== null) {
+            subscriptionOptions.push({
+              value: 'six_months',
+              label: `شش ماهه`,
+              price: plan.SixMonthsSubscriptionPrice,
+              duration: 'شش ماهه',
+              icon: 'date-range'
+            });
+          }
+
+          if (plan.AllowAnnualSubscription && plan.AnnualSubscriptionPrice !== null) {
+            subscriptionOptions.push({
+              value: 'annual',
+              label: `سالانه`,
+              price: plan.AnnualSubscriptionPrice,
+              duration: 'سالانه',
+              icon: 'event'
+            });
+          }
+
+          console.log(`✅ Plan "${plan.Name}" - Options: ${subscriptionOptions.length}`);
+
+          return {
+            id: plan.SubscriptionPlanId,
+            title: plan.Name,
+            color: plan.ColorHexCode,
+            gradientColors: [plan.ColorHexCode, plan.ColorHexCode],
+            glassColors: [`${plan.ColorHexCode}20`, `${plan.ColorHexCode}10`],
+            icon: plan.IconName || "star",
+            isPopular: plan.ShowBadge,
+            badgeBackgroundColor: plan.BadgeBackgroundColorHexCode,
+            badgeText: plan.BadgeText,
+            isActive: false,
+            features,
+            subscriptionOptions,
+          };
+        });
+
+        console.log('✅ Transformed plans count:', transformedPlans.length);
+        console.log('📋 All transformed plans:', JSON.stringify(transformedPlans, null, 2));
+
+        setSubscriptionPlans(transformedPlans);
+      } else {
+        console.log('❌ API returned error:', result.message);
+        setError(result.message);
+        setSubscriptionPlans([]);
       }
-
-      const result = await response.json();
-      const plans = result.Data || [];
-
-      const transformedPlans = plans.map((plan, index) => ({
-        id: plan.SubscriptionPlanId,
-        title: plan.Name,
-        price: "99,000",
-        duration: "ماهانه",
-        features: [
-          "لورم ایپسوم متن ساختگی",
-          "صنعت چاپ و نشر",
-          "استاندارد صنعت بوده",
-          "کتابهای آموزشی شامل"
-        ],
-        color: plan.ColorHexCode,
-        gradientColors: [plan.ColorHexCode, plan.ColorHexCode],
-        glassColors: [`${plan.ColorHexCode}20`, `${plan.ColorHexCode}10`],
-        icon: plan.IconName,
-        isPopular: plan.ShowBadge,
-        badgeBackgroundColor: plan.BadgeBackgroundColorHexCode,
-        badgeText: plan.BadgeText,
-        isActive: false, // Will be updated based on active subscription
-        subscriptionOptions: [
-          ...(plan.AllowFourteenDaysSubscription ? [{
-            value: 'fourteen_days',
-            label: `۱۴ روزه`,
-            price: plan.FourteenDaysSubscriptionPrice,
-            duration: '۱۴ روزه',
-            icon: 'schedule'
-          }] : []),
-          ...(plan.AllowOneMonthSubscription ? [{
-            value: 'one_month',
-            label: `یک ماهه`,
-            price: plan.OneMonthSubscriptionPrice,
-            duration: 'یک ماهه',
-            icon: 'calendar-today'
-          }] : []),
-          ...(plan.AllowThreeMonthsSubscription ? [{
-            value: 'three_months',
-            label: `سه ماهه`,
-            price: plan.ThreeMonthsSubscriptionPrice,
-            duration: 'سه ماهه',
-            icon: 'calendar-view-month'
-          }] : []),
-          ...(plan.AllowSixMonthsSubscription ? [{
-            value: 'six_months',
-            label: `شش ماهه`,
-            price: plan.SixMonthsSubscriptionPrice,
-            duration: 'شش ماهه',
-            icon: 'date-range'
-          }] : []),
-          ...(plan.AllowAnnualSubscription ? [{
-            value: 'annual',
-            label: `سالانه`,
-            price: plan.AnnualSubscriptionPrice,
-            duration: 'سالانه',
-            icon: 'event'
-          }] : [])
-        ]
-      }));
-
-      setSubscriptionPlans(transformedPlans);
     } catch (err) {
+      console.error('❌ Error fetching plans:', err);
       setError(err.message);
       setSubscriptionPlans([]);
     } finally {
       setLoading(false);
+      console.log('✅ Fetch completed');
     }
   };
 
   return {
     subscriptionPlans,
-    setSubscriptionPlans,
     loading,
     error,
     fetchSubscriptionPlans,
@@ -194,6 +248,7 @@ const useSubscriptionPlans = () => {
 };
 
 const useActiveSubscription = () => {
+  const { user } = useAuth();
   const [activeSubscription, setActiveSubscription] = useState<IActiveSubscription | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -203,17 +258,24 @@ const useActiveSubscription = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `${appConfig.mobileApi}SubscriptionPlan/GetActiveSubscriptionPlanOfMember`
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!user?.MemberId) {
+        console.log('⚠️ No memberId found');
+        setActiveSubscription(null);
+        return;
       }
 
-      const result = await response.json();
-      setActiveSubscription(result);
+      console.log('🔄 Fetching active subscription for member:', user.MemberId);
+      const result = await SubscriptionService.getActiveSubscriptionPlan(user.MemberId);
+
+      if (result.success) {
+        console.log('✅ Active subscription:', result.data);
+        setActiveSubscription(result.data);
+      } else {
+        console.log('ℹ️ No active subscription');
+        setActiveSubscription(null);
+      }
     } catch (err) {
+      console.error('❌ Error fetching active subscription:', err);
       setError(err.message);
       setActiveSubscription(null);
     } finally {
@@ -235,7 +297,6 @@ const SubscriptionProgressBar = ({ activeSubscription }) => {
 
   useEffect(() => {
     if (activeSubscription) {
-      // Progress based on remaining days (reverse calculation)
       const progressPercentage =
         (activeSubscription.RemainingDaysToFinishDate / activeSubscription.SubscriptionTotalDays) * 100;
 
@@ -254,26 +315,17 @@ const SubscriptionProgressBar = ({ activeSubscription }) => {
     outputRange: ['0%', '100%'],
   });
 
-  // Progress based on remaining days (reverse calculation)
   const progressPercentage =
     (activeSubscription.RemainingDaysToFinishDate / activeSubscription.SubscriptionTotalDays) * 100;
 
   const getProgressColor = () => {
-    if (progressPercentage <= 20) return ['#ef4444', '#dc2626']; // Red - almost expired
-    if (progressPercentage <= 40) return ['#f59e0b', '#d97706']; // Orange - warning
-    return ['#10b981', '#059669']; // Green - plenty of time
-  };
-
-  const getProgressIcon = () => {
-    if (progressPercentage <= 20) return 'warning';
-    if (progressPercentage <= 40) return 'schedule';
-    return 'check-circle';
+    if (progressPercentage <= 20) return ['#ef4444', '#dc2626'];
+    if (progressPercentage <= 40) return ['#f59e0b', '#d97706'];
+    return ['#10b981', '#059669'];
   };
 
   return (
     <View style={styles.progressContainer}>
-
-
       <View style={styles.progressBarContainer}>
         <View style={styles.progressBarBackground}>
           <Animated.View style={[styles.progressBarFill, { width: progressWidth }]}>
@@ -286,16 +338,11 @@ const SubscriptionProgressBar = ({ activeSubscription }) => {
           </Animated.View>
         </View>
       </View>
-
-      <View style={styles.progressInfo}>
-
-
-      </View>
     </View>
   );
 };
 
-const ConfirmationModal = ({ visible, onClose, onConfirm, title, message, confirmText, type = "confirm" }) => {
+const ConfirmationModal = ({ visible, onClose, onConfirm, title, message, confirmText, type = "confirm", selectedPlan }) => {
   const [slideAnim] = useState(new Animated.Value(300));
   const [opacityAnim] = useState(new Animated.Value(0));
   const insets = useSafeAreaInsets();
@@ -362,12 +409,31 @@ const ConfirmationModal = ({ visible, onClose, onConfirm, title, message, confir
 
           <AppText style={styles.modalMessage}>{message}</AppText>
 
+          {selectedPlan && selectedPlan.selectedOption && type === "confirm" && (
+            <View style={styles.planDetailsContainer}>
+              <View style={styles.planDetailRow}>
+                <AppText style={styles.planDetailValue}>{selectedPlan.title}</AppText>
+                <AppText style={styles.planDetailLabel}>پلن:</AppText>
+              </View>
+              <View style={styles.planDetailRow}>
+                <AppText style={styles.planDetailValue}>{selectedPlan.selectedOption.duration}</AppText>
+                <AppText style={styles.planDetailLabel}>مدت:</AppText>
+              </View>
+              <View style={styles.planDetailRow}>
+                <AppText style={[styles.planDetailValue, styles.priceValue]}>
+                  {toPersianDigits(selectedPlan.selectedOption.price.toLocaleString())} تومان
+                </AppText>
+                <AppText style={styles.planDetailLabel}>قیمت:</AppText>
+              </View>
+            </View>
+          )}
+
           <View style={styles.modalButtonsContainer}>
             <TouchableOpacity
               style={[styles.modalButton, styles.cancelModalButton]}
               onPress={onClose}
             >
-              <AppText style={styles.cancelModalText}>لغو</AppText>
+              <AppText style={styles.cancelModalText}>انصراف</AppText>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -484,10 +550,6 @@ const SubscriptionCard = ({ item, onPress, onCancel, animatedValue, showToast })
   const [selectedOption, setSelectedOption] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
   const [tempSelectedItem, setTempSelectedItem] = useState(null);
-  const [discountCode, setDiscountCode] = useState('');
-  const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
-  const [discountApplied, setDiscountApplied] = useState(false);
-  const [discountPercentage, setDiscountPercentage] = useState(0);
 
   const modalSlideAnim = useRef(new Animated.Value(300)).current;
   const modalOpacityAnim = useRef(new Animated.Value(0)).current;
@@ -498,11 +560,17 @@ const SubscriptionCard = ({ item, onPress, onCancel, animatedValue, showToast })
   });
 
   const openPicker = () => {
+    console.log('📱 openPicker called for:', item.title);
+    console.log('🎯 subscriptionOptions:', item.subscriptionOptions);
+
+    if (!item.subscriptionOptions || item.subscriptionOptions.length === 0) {
+      console.log('❌ No subscription options available');
+      showToast('هیچ گزینه اشتراکی برای این پلن موجود نیست', 'error');
+      return;
+    }
+
     setShowPicker(true);
     setTempSelectedItem(selectedOption);
-    setDiscountCode('');
-    setDiscountApplied(false);
-    setDiscountPercentage(0);
 
     Animated.parallel([
       Animated.timing(modalSlideAnim, {
@@ -533,9 +601,6 @@ const SubscriptionCard = ({ item, onPress, onCancel, animatedValue, showToast })
     ]).start(() => {
       setShowPicker(false);
       setTempSelectedItem(null);
-      setDiscountCode('');
-      setDiscountApplied(false);
-      setDiscountPercentage(0);
     });
   };
 
@@ -546,44 +611,9 @@ const SubscriptionCard = ({ item, onPress, onCancel, animatedValue, showToast })
   const handleConfirm = () => {
     if (tempSelectedItem) {
       setSelectedOption(tempSelectedItem);
-      onPress({ ...item, selectedOption: tempSelectedItem, discountCode: discountApplied ? discountCode : null });
+      onPress({ ...item, selectedOption: tempSelectedItem });
     }
     closePicker();
-  };
-
-  const handleApplyDiscount = async () => {
-    if (!discountCode.trim()) return;
-
-    setIsApplyingDiscount(true);
-
-    setTimeout(() => {
-      setIsApplyingDiscount(false);
-
-      const validCodes = ['DISCOUNT10', 'SAVE10', 'تخفیف10', 'کد10', 'TEST10'];
-      const isValid = validCodes.includes(discountCode.trim().toUpperCase());
-
-      if (isValid) {
-        setDiscountApplied(true);
-        setDiscountPercentage(10);
-        showToast('کد تخفیف با موفقیت اعمال شد', 'success');
-      } else {
-        setDiscountApplied(false);
-        setDiscountPercentage(0);
-        showToast('کد تخفیف معتبر نیست', 'error');
-      }
-    }, 1500);
-  };
-
-  const clearDiscount = () => {
-    setDiscountCode('');
-    setDiscountApplied(false);
-    setDiscountPercentage(0);
-  };
-
-  const calculateDiscountedPrice = (originalPrice) => {
-    if (!discountApplied || !tempSelectedItem) return originalPrice;
-    const discount = (originalPrice * discountPercentage) / 100;
-    return originalPrice - discount;
   };
 
   const formatPrice = (price) => {
@@ -670,7 +700,7 @@ const SubscriptionCard = ({ item, onPress, onCancel, animatedValue, showToast })
                 visible={showPicker}
                 transparent={true}
                 animationType="none"
-                onRequestClose={() => { }}
+                onRequestClose={closePicker}
               >
                 <View style={styles.pickerModalOverlay}>
                   <Animated.View
@@ -743,7 +773,7 @@ const SubscriptionCard = ({ item, onPress, onCancel, animatedValue, showToast })
                                     styles.pickerPriceText,
                                     tempSelectedItem && tempSelectedItem.value === option.value && styles.pickerSelectedPriceText,
                                   ]}>
-                                    {toPersianDigits(option.price.toString())} تومان
+                                    {formatPrice(option.price)} تومان
                                   </AppText>
                                 </View>
                               </View>
@@ -755,58 +785,6 @@ const SubscriptionCard = ({ item, onPress, onCancel, animatedValue, showToast })
                           </LinearGradient>
                         </TouchableOpacity>
                       ))}
-
-                      <View style={styles.discountSection}>
-                        <View style={styles.discountHeader}>
-                          <MaterialIcons name="local-offer" size={20} color="#10B981" />
-                          <AppText style={styles.discountHeaderText}>کد تخفیف</AppText>
-                        </View>
-
-                        <View style={styles.discountInputContainer}>
-                          <View style={styles.discountInputWrapper}>
-                            <TextInput
-                              style={styles.discountInput}
-                              placeholder="کد تخفیف را وارد کنید"
-                              placeholderTextColor="#9ca3af"
-                              value={discountCode}
-                              onChangeText={setDiscountCode}
-                              textAlign="right"
-                              editable={!discountApplied}
-                            />
-                            {discountApplied && (
-                              <TouchableOpacity
-                                style={styles.clearDiscountButton}
-                                onPress={clearDiscount}
-                              >
-                                <MaterialIcons name="close" size={16} color="#ef4444" />
-                              </TouchableOpacity>
-                            )}
-                          </View>
-
-                          <TouchableOpacity
-                            style={[
-                              styles.applyDiscountButton,
-                              discountApplied && styles.appliedDiscountButton,
-                              (!discountCode.trim() || isApplyingDiscount) && styles.disabledDiscountButton
-                            ]}
-                            onPress={handleApplyDiscount}
-                            disabled={!discountCode.trim() || isApplyingDiscount || discountApplied}
-                            activeOpacity={0.7}
-                          >
-                            {isApplyingDiscount ? (
-                              <View style={styles.loadingContainer}>
-                                <View style={styles.loadingSpinner} />
-                              </View>
-                            ) : discountApplied ? (
-                              <MaterialIcons name="check" size={18} color="#ffffff" />
-                            ) : (
-                              <AppText style={styles.applyDiscountButtonText}>اعمال</AppText>
-                            )}
-                          </TouchableOpacity>
-                        </View>
-
-
-                      </View>
 
                       {tempSelectedItem && (
                         <View style={styles.summarySection}>
@@ -822,38 +800,9 @@ const SubscriptionCard = ({ item, onPress, onCancel, animatedValue, showToast })
                             </View>
 
                             <View style={styles.summaryRow}>
-                              <AppText style={styles.summaryLabel}>قیمت اصلی:</AppText>
+                              <AppText style={styles.summaryLabel}>قیمت:</AppText>
                               <AppText style={styles.summaryValue}>{formatPrice(tempSelectedItem.price)} تومان</AppText>
                             </View>
-
-                            {discountApplied && (
-                              <>
-                                <View style={styles.summaryRow}>
-                                  <AppText style={styles.summaryDiscountLabel}>تخفیف ({toPersianDigits(discountPercentage.toString())}%):</AppText>
-                                  <AppText style={styles.summaryDiscountValue}>
-                                    -{formatPrice((tempSelectedItem.price * discountPercentage) / 100)} تومان
-                                  </AppText>
-                                </View>
-
-                                <View style={styles.summaryDivider} />
-
-                                <View style={styles.summaryTotalRow}>
-                                  <AppText style={styles.summaryTotalLabel}>قیمت نهایی:</AppText>
-                                  <AppText style={styles.summaryTotalValue}>
-                                    {formatPrice(calculateDiscountedPrice(tempSelectedItem.price))} تومان
-                                  </AppText>
-                                </View>
-                              </>
-                            )}
-
-                            {!discountApplied && (
-                              <View style={styles.summaryTotalRow}>
-                                <AppText style={styles.summaryTotalLabel}>قیمت نهایی:</AppText>
-                                <AppText style={styles.summaryTotalValue}>
-                                  {formatPrice(tempSelectedItem.price)} تومان
-                                </AppText>
-                              </View>
-                            )}
                           </View>
                         </View>
                       )}
@@ -904,17 +853,18 @@ const SubscriptionScreen = () => {
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [modalType, setModalType] = useState("confirm");
+  const [refreshing, setRefreshing] = useState(false);
 
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('info');
 
-  const { subscriptionPlans, setSubscriptionPlans, loading, error, fetchSubscriptionPlans } = useSubscriptionPlans();
+  const { subscriptionPlans, loading, error, fetchSubscriptionPlans } = useSubscriptionPlans();
   const { activeSubscription, loading: activeLoading, error: activeError, fetchActiveSubscription } = useActiveSubscription();
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const cardsAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current; // ✅ شروع از 1
+  const slideAnim = useRef(new Animated.Value(0)).current; // ✅ شروع از 0
+  const cardsAnim = useRef(new Animated.Value(1)).current; // ✅ شروع از 1
   const floatingAnim = useRef(new Animated.Value(0)).current;
 
   const showToast = (message, type = 'info') => {
@@ -924,68 +874,103 @@ const SubscriptionScreen = () => {
   };
 
   useEffect(() => {
-    const loadData = async () => {
-      await Promise.all([
-        fetchSubscriptionPlans(),
-        fetchActiveSubscription()
-      ]);
-    };
-
+    console.log('🚀 Component mounted, loading data...');
     loadData();
   }, []);
 
-  // Update subscription plans to mark active one
-  useEffect(() => {
-    if (activeSubscription && subscriptionPlans.length > 0) {
-      const updatedPlans = subscriptionPlans.map(plan => ({
-        ...plan,
-        isActive: plan.id === activeSubscription.SubscriptionPlanId
-      }));
-      setSubscriptionPlans(updatedPlans);
+  const loadData = async () => {
+    console.log('⏳ loadData called');
+    await Promise.all([
+      fetchSubscriptionPlans(),
+      fetchActiveSubscription()
+    ]);
+    console.log('✅ loadData completed');
+  };
+
+  const plansWithActiveStatus = useMemo(() => {
+    console.log('🔄 Computing plansWithActiveStatus...');
+    console.log('📦 subscriptionPlans length:', subscriptionPlans.length);
+    console.log('🎯 activeSubscription:', activeSubscription?.SubscriptionPlanId);
+
+    if (subscriptionPlans.length === 0) {
+      console.log('⚠️ No subscription plans available');
+      return [];
     }
-  }, [activeSubscription, subscriptionPlans]);
+
+    if (!activeSubscription) {
+      console.log('ℹ️ No active subscription, returning plans as-is');
+      return subscriptionPlans;
+    }
+
+    const updatedPlans = subscriptionPlans.map(plan => {
+      const isActive = plan.id === activeSubscription.SubscriptionPlanId;
+      console.log(`Plan ${plan.title} (id: ${plan.id}) - isActive: ${isActive}`);
+      return {
+        ...plan,
+        isActive
+      };
+    });
+
+    console.log('✅ Plans with active status computed:', updatedPlans.length);
+    return updatedPlans;
+  }, [subscriptionPlans, activeSubscription]);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-      Animated.timing(cardsAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    console.log('📊 State update:');
+    console.log('  - loading:', loading);
+    console.log('  - subscriptionPlans.length:', subscriptionPlans.length);
+    console.log('  - plansWithActiveStatus.length:', plansWithActiveStatus.length);
+  }, [loading, subscriptionPlans, plansWithActiveStatus]);
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatingAnim, {
-          toValue: 1,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatingAnim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
+  // ✅ غیرفعال کردن موقت animation ها
+  // useEffect(() => {
+  //   Animated.parallel([
+  //     Animated.timing(fadeAnim, {
+  //       toValue: 1,
+  //       duration: 800,
+  //       useNativeDriver: true,
+  //     }),
+  //     Animated.timing(slideAnim, {
+  //       toValue: 0,
+  //       duration: 600,
+  //       useNativeDriver: true,
+  //     }),
+  //     Animated.timing(cardsAnim, {
+  //       toValue: 1,
+  //       duration: 1000,
+  //       useNativeDriver: true,
+  //     }),
+  //   ]).start();
+
+  //   Animated.loop(
+  //     Animated.sequence([
+  //       Animated.timing(floatingAnim, {
+  //         toValue: 1,
+  //         duration: 3000,
+  //         useNativeDriver: true,
+  //       }),
+  //       Animated.timing(floatingAnim, {
+  //         toValue: 0,
+  //         duration: 3000,
+  //         useNativeDriver: true,
+  //       }),
+  //     ])
+  //   ).start();
+  // }, []);
 
   const floatingY = floatingAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [0, -10],
   });
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadData();
+    setRefreshing(false);
+  };
+
   const handleSelectPlan = (plan) => {
+    console.log('🎯 handleSelectPlan called with:', plan);
     setSelectedPlan(plan);
     setModalType("confirm");
     setConfirmModalVisible(true);
@@ -1002,7 +987,10 @@ const SubscriptionScreen = () => {
 
     setTimeout(() => {
       if (modalType === "confirm") {
-        setSuccessModalVisible(true);
+        navigation.navigate('SubscriptionPurchase', {
+          plan: selectedPlan,
+          selectedOption: selectedPlan.selectedOption
+        });
       } else {
         setSuccessModalVisible(true);
       }
@@ -1019,15 +1007,39 @@ const SubscriptionScreen = () => {
     setSelectedPlan(null);
   };
 
-  const renderSubscriptionCard = ({ item, index }) => (
-    <SubscriptionCard
-      item={item}
-      onPress={handleSelectPlan}
-      onCancel={handleCancelSubscription}
-      animatedValue={cardsAnim}
-      showToast={showToast}
-    />
-  );
+  const renderSubscriptionCard = ({ item, index }) => {
+    console.log('🎴 Rendering card:', item.title); // ✅ دیباگ rendering
+    return (
+      <SubscriptionCard
+        item={item}
+        onPress={handleSelectPlan}
+        onCancel={handleCancelSubscription}
+        animatedValue={cardsAnim}
+        showToast={showToast}
+      />
+    );
+  };
+
+  const isInitialLoading = loading && subscriptionPlans.length === 0;
+
+  console.log('🎨 Render decision:');
+  console.log('  - isInitialLoading:', isInitialLoading);
+  console.log('  - plansWithActiveStatus.length:', plansWithActiveStatus.length);
+
+  if (isInitialLoading) {
+    console.log('🔄 Showing loading screen');
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={modernColors.primary} />
+          <AppText style={styles.loadingText}>در حال بارگذاری...</AppText>
+        </View>
+      </View>
+    );
+  }
+
+  console.log('✅ Showing main content with', plansWithActiveStatus.length, 'plans');
 
   return (
     <>
@@ -1046,19 +1058,20 @@ const SubscriptionScreen = () => {
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContainer}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={modernColors.primary}
+              colors={[modernColors.primary]}
+            />
+          }
         >
-          <Animated.View
-            style={[
-              styles.headerContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
+          {/* ✅ تست ساده بدون animation */}
+          <View style={styles.headerContainer}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => navigation.goBack()}
+              onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
             >
               <View style={styles.backButtonContainer}>
                 <MaterialIcons
@@ -1072,18 +1085,10 @@ const SubscriptionScreen = () => {
             <View style={styles.titleWrapper}>
               <AppText style={styles.headerTitle}>اشتراک ها</AppText>
             </View>
-          </Animated.View>
+          </View>
 
           {activeSubscription && (
-            <Animated.View
-              style={[
-                styles.currentPlanContainer,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                },
-              ]}
-            >
+            <View style={styles.currentPlanContainer}>
               <View style={styles.currentPlanGlass}>
                 <View style={styles.currentPlanContent}>
                   <MaterialIcons name="verified" size={24} color="#38a169" />
@@ -1099,27 +1104,34 @@ const SubscriptionScreen = () => {
 
                 <SubscriptionProgressBar activeSubscription={activeSubscription} />
               </View>
-            </Animated.View>
+            </View>
           )}
 
-          <Animated.View
-            style={[
-              styles.plansContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-            <FlatList
-              data={subscriptionPlans}
-              renderItem={renderSubscriptionCard}
-              keyExtractor={(item) => item.id.toString()}
-              showsVerticalScrollIndicator={false}
-              ItemSeparatorComponent={() => <View style={{ height: 24 }} />}
-              scrollEnabled={false}
-            />
-          </Animated.View>
+          {/* ✅ تست مستقیم بدون Animated.View */}
+          <View style={styles.plansContainer}>
+       
+
+            {plansWithActiveStatus.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <MaterialIcons name="info-outline" size={60} color={modernColors.medium} />
+                <AppText style={styles.emptyText}>هیچ پلن اشتراکی موجود نیست</AppText>
+              </View>
+            ) : (
+              <>
+              
+                <FlatList
+                  data={plansWithActiveStatus}
+                  renderItem={renderSubscriptionCard}
+                  keyExtractor={(item) => item.id.toString()}
+                  showsVerticalScrollIndicator={false}
+                  ItemSeparatorComponent={() => <View style={{ height: 24 }} />}
+                  scrollEnabled={false}
+                 
+                
+                />
+              </>
+            )}
+          </View>
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
@@ -1128,14 +1140,15 @@ const SubscriptionScreen = () => {
           visible={confirmModalVisible}
           onClose={handleCloseModal}
           onConfirm={handleConfirmAction}
-          title={modalType === "confirm" ? "انتخاب پلن اشتراک" : "لغو اشتراک"}
+          title={modalType === "confirm" ? "تایید خرید اشتراک" : "لغو اشتراک"}
           message={
             modalType === "confirm"
-              ? `آیا می‌خواهید پلن ${selectedPlan?.title} را انتخاب کنید؟`
+              ? "آیا می‌خواهید به صفحه پرداخت بروید؟"
               : `آیا می‌خواهید اشتراک ${selectedPlan?.title} را لغو کنید؟`
           }
-          confirmText={modalType === "confirm" ? "تأیید" : "بله، لغو کن"}
+          confirmText={modalType === "confirm" ? "ادامه خرید" : "بله، لغو کن"}
           type={modalType}
+          selectedPlan={selectedPlan}
         />
 
         <SuccessModal
@@ -1152,7 +1165,6 @@ const SubscriptionScreen = () => {
     </>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1219,15 +1231,6 @@ const styles = StyleSheet.create({
     marginRight: 12,
     flex: 1,
   },
-  subscriptionDurationContainer: {
-    marginTop: 8,
-  },
-  subscriptionDurationText: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#64748b",
-    textAlign: 'right',
-  },
   currentPlanText: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
@@ -1239,20 +1242,8 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Regular",
     color: "#64748b",
   },
-  // Progress Bar Styles
   progressContainer: {
     marginTop: 8,
-  },
-  progressHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  progressTitle: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    marginRight: 8,
   },
   progressBarContainer: {
     marginBottom: 12,
@@ -1275,46 +1266,6 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 4,
   },
-  progressInfo: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginBottom: 8,
-  },
-  progressInfoItem: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressInfoLabel: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#64748b",
-    marginLeft: 4,
-  },
-  progressInfoValue: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-  },
-  progressDates: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  progressDate: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-  },
-  progressDateLabel: {
-    fontSize: 11,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#64748b",
-    marginLeft: 4,
-  },
-  progressDateValue: {
-    fontSize: 11,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#475569",
-  },
   plansContainer: {
     paddingHorizontal: 20,
     marginBottom: 30,
@@ -1334,7 +1285,7 @@ const styles = StyleSheet.create({
   glassBackground: {
     flex: 1,
     borderRadius: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.5)",
+    backgroundColor: "rgba(255, 255, 255, 0.01)",
     backdropFilter: "blur(20px)",
   },
   glassOverlay: {
@@ -1601,87 +1552,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     marginRight: 6,
   },
-  discountSection: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
-    backgroundColor: '#fafbfc',
-    marginTop: 20,
-    borderRadius: 12,
-  },
-  discountHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  discountHeaderText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    marginRight: 8,
-  },
-  discountInputContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    gap: 12,
-  },
-  discountInputWrapper: {
-    flex: 1,
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 12,
-    paddingVertical: 2,
-  },
-  discountInput: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#2c3e50",
-    paddingVertical: 12,
-    textAlign: 'right',
-  },
-  clearDiscountButton: {
-    padding: 4,
-    marginLeft: 8,
-  },
-  applyDiscountButton: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    minWidth: 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  appliedDiscountButton: {
-    backgroundColor: '#10B981',
-  },
-  disabledDiscountButton: {
-    backgroundColor: '#9ca3af',
-    opacity: 0.6,
-  },
-  applyDiscountButtonText: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#ffffff',
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingSpinner: {
-    width: 16,
-    height: 16,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    borderTopColor: 'transparent',
-    borderRadius: 8,
-  },
   summarySection: {
     paddingVertical: 20,
     borderTopWidth: 1,
@@ -1713,41 +1583,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Bold",
     color: '#2c3e50',
-  },
-  summaryDiscountLabel: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#10B981',
-  },
-  summaryDiscountValue: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#10B981',
-  },
-  summaryDivider: {
-    height: 1,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 12,
-  },
-  summaryTotalRow: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#10B981',
-  },
-  summaryTotalLabel: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#2c3e50',
-  },
-  summaryTotalValue: {
-    fontSize: 18,
-    fontFamily: "Yekan_Bakh_ExtraBold",
-    color: '#10B981',
   },
   modalOverlay: {
     flex: 1,
@@ -1793,7 +1628,36 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     lineHeight: 24,
-    marginBottom: 30,
+    marginBottom: 20,
+  },
+  planDetailsContainer: {
+    width: '100%',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  planDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  planDetailLabel: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#6B7280',
+  },
+  planDetailValue: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#1F2937',
+  },
+  priceValue: {
+    color: '#10B981',
+    fontSize: 16,
   },
   modalButtonsContainer: {
     flexDirection: 'row',
@@ -1838,6 +1702,29 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: "Yekan_Bakh_Bold",
     color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: modernColors.medium,
+    marginTop: 16,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: modernColors.medium,
+    marginTop: 16,
     textAlign: 'center',
   },
   bottomSpacer: {

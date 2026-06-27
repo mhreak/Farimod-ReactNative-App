@@ -294,7 +294,7 @@ const ProductDetailsSkeleton = () => {
 
 const ProductDetailsScreen = ({ route }) => {
   const navigation = useNavigation();
- 
+
   const { user } = useAuth(); // Add this line
   const currentMemberId = user?.MemberId || user?.memberId || null;
 
@@ -329,7 +329,8 @@ const ProductDetailsScreen = ({ route }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [showActionModal, setShowActionModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
-
+  const [imageModalVisible, setImageModalVisible] = useState(false);
+  const [modalImageIndex, setModalImageIndex] = useState(0);
   const modalSlideAnim = useRef(new Animated.Value(0)).current;
   const modalBackdropAnim = useRef(new Animated.Value(0)).current;
   const deleteModalSlideAnim = useRef(new Animated.Value(0)).current;
@@ -543,6 +544,11 @@ const ProductDetailsScreen = ({ route }) => {
     const isDefaultImage = productImages.length === 1 &&
       productImages[0] === require("../../assets/Product_icon.jpg");
 
+    const handleImagePress = (index) => {
+      setModalImageIndex(index);
+      setImageModalVisible(true);
+    };
+
     if (productImages.length > 1 && !isDefaultImage) {
       return (
         <>
@@ -556,15 +562,44 @@ const ProductDetailsScreen = ({ route }) => {
             scrollEventThrottle={16}
           >
             {productImages.map((image, index) => (
-              <View key={index} style={styles.imageSlide}>
+              <TouchableOpacity
+                key={index}
+                style={styles.imageSlide}
+                onPress={() => handleImagePress(index)}
+                activeOpacity={0.95}
+              >
                 <ProductImage
                   source={image}
-                  style={styles.headerImageSquare} // استفاده از style مربعی
+                  style={styles.headerImageSquare}
                   resizeMode="cover"
                 />
-              </View>
+              </TouchableOpacity>
             ))}
           </ScrollView>
+
+          {/* گرادیانت فقط روی تصویر اول */}
+          {currentImageIndex === 0 && (
+            <LinearGradient
+              colors={['transparent', 'rgba(102, 126, 234, 0.9)', 'rgba(118, 75, 162, 0.95)']}
+              style={styles.overlay}
+            >
+              <View style={styles.titleBackground}>
+                <AppText style={styles.productTitle}>
+                  {toPersianDigits(safeString(productData.ProductName, "نام محصول مشخص نشده"))}
+                </AppText>
+                <View style={styles.statusChip}>
+                  <MaterialIcons
+                    name={productData.Active ? "check-circle" : "cancel"}
+                    size={16}
+                    color={modernColors.surface}
+                  />
+                  <AppText style={styles.statusText}>
+                    {productData.Active ? "فعال" : "غیرفعال"}
+                  </AppText>
+                </View>
+              </View>
+            </LinearGradient>
+          )}
 
           <View style={styles.imageDots}>
             {productImages.map((_, index) => (
@@ -581,11 +616,17 @@ const ProductDetailsScreen = ({ route }) => {
       );
     } else {
       return (
-        <ProductImage
-          source={productImages[0]}
-          style={styles.headerImageSquare} // استفاده از style مربعی
-          resizeMode="cover"
-        />
+        <TouchableOpacity
+          style={{ flex: 1 }}
+          onPress={() => handleImagePress(0)}
+          activeOpacity={0.95}
+        >
+          <ProductImage
+            source={productImages[0]}
+            style={styles.headerImageSquare}
+            resizeMode="cover"
+          />
+        </TouchableOpacity>
       );
     }
   };
@@ -737,7 +778,7 @@ const ProductDetailsScreen = ({ route }) => {
       if (response.ok) {
         showToast('محصول با موفقیت حذف شد', 'success');
         setTimeout(() => {
-          navigation.goBack();
+          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
         }, 2000);
       } else {
         const errorData = await response.json();
@@ -751,9 +792,8 @@ const ProductDetailsScreen = ({ route }) => {
     }
   };
 
-  // Like functionality
   const handleLike = async () => {
-    if (isLiking || !productData) return;
+    if (isLiking || !productData || !currentMemberId) return;
 
     setIsLiking(true);
 
@@ -829,7 +869,7 @@ const ProductDetailsScreen = ({ route }) => {
       console.log('Sending like request for product ID:', currentProductId);
 
       const response = await fetch(
-        `${appConfig.mobileApi}Product/Like?id=${currentProductId}`,
+        `${appConfig.mobileApi}Product/Like?id=${currentProductId}&memberId=${currentMemberId}`,
         {
           method: 'POST',
           headers: {
@@ -893,7 +933,7 @@ const ProductDetailsScreen = ({ route }) => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
@@ -925,7 +965,7 @@ const ProductDetailsScreen = ({ route }) => {
         <MainBackground />
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
@@ -1093,7 +1133,7 @@ const ProductDetailsScreen = ({ route }) => {
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
@@ -1139,7 +1179,7 @@ const ProductDetailsScreen = ({ route }) => {
           >
             {renderMainImages()}
 
-            <LinearGradient
+            {/* <LinearGradient
               colors={['transparent', 'rgba(102, 126, 234, 0.9)', 'rgba(118, 75, 162, 0.95)']}
               style={styles.overlay}
             >
@@ -1154,11 +1194,11 @@ const ProductDetailsScreen = ({ route }) => {
                     color={modernColors.surface}
                   />
                   <AppText style={styles.statusText}>
-                    {productData.Active ? "موجود" : "ناموجود"}
+                    {productData.Active ? "فعال" : "غیرفعال"}
                   </AppText>
                 </View>
               </View>
-            </LinearGradient>
+            </LinearGradient> */}
 
             {/* Discount Badge */}
             {discountPercentage > 0 && (
@@ -1318,7 +1358,7 @@ const ProductDetailsScreen = ({ route }) => {
 
             <SmartDetailItem
               label="وضعیت"
-              value={productData.Active ? "موجود" : "ناموجود"}
+              value={productData.Active ? "فعال" : "غیرفعال"}
               icon={productData.Active ? "check-circle" : "cancel"}
             />
 
@@ -1660,6 +1700,48 @@ const ProductDetailsScreen = ({ route }) => {
             </Animated.View>
           </View>
         </Modal>
+        {/* Image Viewer Modal */}
+        <Modal
+          visible={imageModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setImageModalVisible(false)}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' }}>
+
+            {/* دکمه بستن */}
+            <TouchableOpacity
+              style={{ position: 'absolute', top: StatusBar.currentHeight + 20, right: 20, zIndex: 10 }}
+              onPress={() => setImageModalVisible(false)}
+            >
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 22, width: 44, height: 44, justifyContent: 'center', alignItems: 'center' }}>
+                <MaterialIcons name="close" size={24} color="#ffffff" />
+              </View>
+            </TouchableOpacity>
+
+            {/* تصویر وسط‌چین */}
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                contentOffset={{ x: modalImageIndex * width, y: 0 }}
+                style={{ flexGrow: 0 }}
+              >
+                {getProductImages(productData).map((image, index) => (
+                  <View key={index} style={{ width, height: width, justifyContent: 'center', alignItems: 'center' }}>
+                    <ProductImage
+                      source={image}
+                      style={{ width: width, height: width }}
+                      resizeMode="contain"
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+
+          </View>
+        </Modal>
       </View>
     </>
   );
@@ -1906,12 +1988,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
 
-  borderWidth: 1,
+    borderWidth: 1,
     borderColor: 'rgba(203, 213, 225, 0.3)',
   },
   thumbnailsContainer: {
     padding: 10,
-  
+
   },
   thumbnailContainer: {
     width: 70,
@@ -1929,7 +2011,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
- 
+
   priceSection: {
     flex: 1,
     alignItems: 'flex-end',
@@ -2599,7 +2681,7 @@ const styles = StyleSheet.create({
   selectedThumbnail: {
     borderColor: modernColors.primary,
     transform: [{ scale: 1.05 }], // کمتر از قبل برای ظاهر بهتر
-  
+
   },
 
   // تصحیح container gallery
@@ -2681,7 +2763,7 @@ const styles = StyleSheet.create({
   originalPriceOverlay: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
-   color:"#a1a1a1",
+    color: "#a1a1a1",
     textAlign: 'center',
     textDecorationLine: 'line-through',
     marginBottom: 4,

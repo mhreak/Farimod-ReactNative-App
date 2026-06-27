@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
   FlatList,
   ScrollView,
@@ -14,6 +14,8 @@ import {
   Text,
   Pressable
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+
 import colors from "../config/colors";
 import AppText from "../components/Text";
 import { toPersianDigits } from "../utils/converters";
@@ -27,6 +29,7 @@ import { useAuth } from "../contexts/AuthContext";
 import PermissionService from "../services/PermissionService";
 import SubscriptionInfo from "../components/SubscriptionInfo";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Tooltip from '../components/Tooltip';
 
 const { width, height } = Dimensions.get('window');
 
@@ -53,7 +56,7 @@ const modernColors = {
 const profileItems = [
   {
     id: 1,
-    title: "درباره ی من",
+    title: "ویرایش پروفایل",
     icon: "info",
     screenName: "AboutMe",
     color: "#8b5cf6",
@@ -61,7 +64,7 @@ const profileItems = [
   },
   {
     id: 2,
-    title: "فایل ها و مدارک",
+    title: " فایل ها و مدارک من",
     icon: "my-library-books",
     screenName: "MyResume",
     color: "#10b981",
@@ -77,20 +80,20 @@ const profileItems = [
   },
   {
     id: 4,
-    title: "پست های منتشر شده",
+    title: "وبلاگ من",
     icon: "article",
     screenName: "MyPosts",
     color: "#06b6d4",
     permission: "allowAddBlogPost",
   },
-  // {
-  //   id: 5,
-  //   title: "دوره های ثبت نام شده",
-  //   icon: "fact-check",
-  //   screenName: "MyCourses",
-  //   color: "#ef4444",
-  //   permission: null, // همیشه در دسترس
-  // },
+  {
+    id: 5,
+    title: "دوره های ثبت نام شده",
+    icon: "fact-check",
+    screenName: "MyRegistrations",
+    color: "#ef4444",
+    permission: null, // همیشه در دسترس
+  },
   {
     id: 9,
     title: "محصولات من",
@@ -109,7 +112,7 @@ const profileItems = [
   },
   {
     id: 8,
-    title: "نمونه کار ها",
+    title: "نمونه کار های من",
     icon: "collections-bookmark",
     screenName: "PortfolioList",
     color: "#6596ff",
@@ -127,6 +130,7 @@ const profileItems = [
 
 const ProfileCard = ({ item, onPress, user, onShowPermissionModal }) => {
   const hasPermission = item.permission ? PermissionService.hasPermission(user, item.permission) : true;
+
 
   const handlePress = () => {
     if (!hasPermission) {
@@ -185,8 +189,13 @@ const ProfileCard = ({ item, onPress, user, onShowPermissionModal }) => {
 };
 
 const ProfileScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<AppNavigationProp>();
   const [toast, setToast] = useState({ visible: false, message: "", type: "info" });
+
+  const goToHome = () => {
+    const nav = navigation as unknown as { navigate: (routeName: string, params?: any) => void };
+    nav.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
+  };
   const [permissionModal, setPermissionModal] = useState({
     visible: false,
     permission: null,
@@ -204,7 +213,7 @@ const ProfileScreen = () => {
   const insets = useSafeAreaInsets();
 
   // استفاده از AuthContext
-  const { user, logout, isAuthenticated, refreshSubscription } = useAuth();
+  const { user, logout, isAuthenticated, refreshSubscription, setUser } = useAuth();
 
   // فیلتر کردن آیتم‌ها بر اساس IsInfinityPlan
   const filteredProfileItems = React.useMemo(() => {
@@ -231,6 +240,37 @@ const ProfileScreen = () => {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const fetchProfile = useCallback(async () => {
+    if (!user?.MemberId) return;
+
+    try {
+      // استفاده از همان اندپوینت درخواستی شما
+      const response = await fetch(
+        `http://my.farimod.ir/api/MobileApp/MemberInfo/GetProfileInfoToEdit?memberId=${user.MemberId}`
+      );
+
+      const data = await response.json();
+
+      if (data?.AvatarImageURL) {
+        // آپدیت کردن User در Context
+        setUser(prev => ({
+          ...prev,
+          ...data, // کل اطلاعات جدید را جایگزین می‌کند از جمله موبایل و شهر و عکس
+          AvatarImageURL: data.AvatarImageURL + '?t=' + new Date().getTime() // جلوگیری از کش شدن تصویر در گوشی
+        }));
+      }
+    } catch (e) {
+      console.log("Error fetching profile from GetProfileInfoToEdit: ", e);
+    }
+  }, [user?.MemberId, setUser]);
+
+
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+    }, [user?.MemberId])
+  );
 
   useEffect(() => {
     Animated.parallel([
@@ -560,32 +600,22 @@ const ProfileScreen = () => {
             />
           }
         >
-          {/* Header with back, edit, and logout buttons */}
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.navigate("خانه")} 
-          >
-            <View style={styles.backButtonContainer}>
-              <MaterialIcons
-                name="arrow-forward"
-                size={24}
-                color="white"
-              />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={goToHome}
+            >
+              <View style={styles.backButtonContainer}>
+                <MaterialIcons name="arrow-forward" size={24} color="white" />
+              </View>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.editButton}
-            onPress={() => navigation.navigate("EditProfile")}
-          >
-            <View style={styles.editButtonContainer}>
-              <MaterialIcons
-                name="edit"
-                size={24}
-                color="white"
-              />
+            <View style={styles.headerLeft}>
+              <Tooltip content="در این بخش می‌توانید اطلاعات پروفایل، دوره‌ها، نمونه‌کارها و محصولات خود را مدیریت کنید." />
             </View>
-          </TouchableOpacity>
+          </View>
+
+
 
           <Animated.View
             style={[
@@ -614,7 +644,11 @@ const ProfileScreen = () => {
             <View style={styles.profileImageContainer}>
               {user?.AvatarImageURL ? (
                 <Image
-                  source={{ uri: user.AvatarImageURL }}
+                  key={user.AvatarImageURL} // اضافه کردن کلید برای رندر مجدد اجباری
+                  source={{
+                    uri: user.AvatarImageURL,
+                    cache: 'reload' // اجبار به لود مجدد در سیستم عامل
+                  }}
                   style={styles.profileImage}
                 />
               ) : (
@@ -630,7 +664,6 @@ const ProfileScreen = () => {
                 </LinearGradient>
               )}
             </View>
-
             <View style={styles.profileInfo}>
               <AppText style={styles.userNameText}>
                 {user?.MemberName || "نام و نام خانوادگی"}
@@ -722,11 +755,15 @@ const styles = StyleSheet.create({
     paddingTop: StatusBar.currentHeight + 35,
     paddingHorizontal: 20,
   },
-  backButton: {
+  headerActions: {
     position: 'absolute',
     top: StatusBar.currentHeight + 45,
-    right: 20,
+    right: 0,
+    left: 0,
     zIndex: 1000,
+    flexDirection: 'row-reverse',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
   },
   backButtonContainer: {
     width: 44,
@@ -735,7 +772,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#6366f1',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: -12
+    marginTop: -12,
   },
   editButton: {
     position: 'absolute',
@@ -766,6 +803,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: -12
+  },
+  headerLeft: {
+    marginTop: -12,
+
   },
   titleWrapper: {
     flexDirection: "row",

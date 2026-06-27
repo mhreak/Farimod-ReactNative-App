@@ -33,6 +33,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppUpdate } from "../contexts/AppUpdateContext";
 
 
+
 const { width: screenWidth } = Dimensions.get('window');
 
 interface HomePageSlide {
@@ -43,7 +44,15 @@ interface HomePageSlide {
   Active: boolean;
   ShowOrder: boolean;
 }
-
+interface MemberGroup {
+  MemberGroupId: number;
+  GroupName: string;
+  MemberCount: number;
+  Active: boolean;
+  ActiveStr: string;
+  InsertDate: string;
+  ShamsiInsertDate: string;
+}
 interface Portfolio {
   PortfolioId: number;
   PotfolioId?: number;
@@ -61,7 +70,7 @@ interface BlogPost {
   BlogPostCategoryId: number;
   MemberId: number;
   Title: string;
-  ShamsiInsertDateTime: string;
+  ShamsiInsertDate: string;  // ✅ تغییر از ShamsiInsertDateTime
   Content: string;
   CommentEnabled: boolean;
   LikeCount: number;
@@ -243,6 +252,42 @@ const useBlogPosts = () => {
 
   return { data, loading, error, refetch: fetchBlogPosts };
 };
+const useMemberGroups = () => {
+  const [data, setData] = useState<MemberGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchMemberGroups = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await fetch(`${appConfig.mobileApi}MemberGroup/GetAll?currentPage=1&pageSize=100`);
+      const result = await response.json();
+
+      if (response.ok && result.Data) {
+        // ✅ فقط گروه‌های فعال با MemberCount > 0
+        const activeGroups = result.Data.filter(
+          (group: MemberGroup) => group.Active && group.MemberCount > 0
+        );
+        setData(activeGroups);
+      } else {
+        setError('خطا در دریافت اطلاعات گروه‌های اصلی');
+      }
+    } catch (err) {
+      setError('خطا در ارتباط با سرور');
+      console.error('Error fetching member groups:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMemberGroups();
+  }, []);
+
+  return { data, loading, error, refetch: fetchMemberGroups };
+};
 
 const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
@@ -253,12 +298,12 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
       Animated.sequence([
         Animated.timing(animatedValue, {
           toValue: 1,
-          duration: 1000,
+          duration: 3000,
           useNativeDriver: false,
         }),
         Animated.timing(animatedValue, {
           toValue: 0,
-          duration: 1000,
+          duration: 3000,
           useNativeDriver: false,
         }),
       ]).start(() => startPulseAnimation());
@@ -379,7 +424,7 @@ const PortfolioCard = ({ item, onPress }: { item: Portfolio; onPress?: (portfoli
             <AppText style={styles.dateText}>
               {toPersianDigits(
                 item.ShamsiInsertDate
-                 
+
               )}
             </AppText>
           </View>
@@ -399,11 +444,17 @@ const PortfolioCard = ({ item, onPress }: { item: Portfolio; onPress?: (portfoli
 };
 
 const BlogPostCard = ({ item, onPress }: { item: BlogPost; onPress?: (post: BlogPost) => void }) => {
+  const [imageError, setImageError] = useState(false);  // ✅ اضافه کردن state برای خطای تصویر
+
   const handlePress = () => {
     console.log('Blog post pressed:', item.BlogPostId, item.Title);
     if (onPress) {
       onPress(item);
     }
+  };
+
+  const handleImageError = () => {
+    setImageError(true);
   };
 
   return (
@@ -413,10 +464,11 @@ const BlogPostCard = ({ item, onPress }: { item: BlogPost; onPress?: (post: Blog
       onPress={handlePress}
     >
       <View style={styles.blogPostImageContainer}>
-        {item.FeaturedImageFileName ? (
+        {item.FeaturedImageURL && !imageError ? (  // ✅ تغییر
           <Image
-            source={{ uri: `${appConfig.mobileApi}BlogPost/GetFeaturedImage/${item.FeaturedImageFileName}` }}
+            source={{ uri: item.FeaturedImageURL }}  // ✅ تغییر - استفاده مستقیم از URL
             style={styles.blogPostImage}
+            onError={handleImageError}  // ✅ اضافه کردن
           />
         ) : (
           <View style={styles.blogPostImagePlaceholder}>
@@ -437,7 +489,7 @@ const BlogPostCard = ({ item, onPress }: { item: BlogPost; onPress?: (post: Blog
           <View style={styles.blogPostDateContainer}>
             <MaterialIcons name="calendar-month" size={16} color="#666" />
             <AppText style={styles.blogPostDateText}>
-              {toPersianDigits(item.ShamsiInsertDateTime)}
+              {toPersianDigits(item.ShamsiInsertDate)}  {/* ✅ تغییر از ShamsiInsertDateTime */}
             </AppText>
           </View>
 
@@ -452,8 +504,9 @@ const BlogPostCard = ({ item, onPress }: { item: BlogPost; onPress?: (post: Blog
     </TouchableOpacity>
   );
 };
-
 const GalleryCard = ({ item, onPress }: { item: ImageGallery; onPress?: (gallery: ImageGallery) => void }) => {
+  const [imageError, setImageError] = useState(false);
+
   const handlePress = () => {
     console.log('Gallery pressed:', item.ImageGalleryId, item.Title);
     if (onPress) {
@@ -461,13 +514,15 @@ const GalleryCard = ({ item, onPress }: { item: ImageGallery; onPress?: (gallery
     }
   };
 
-  const staticImages = [
-    require("../../assets/sample_clothe.jpg"),
-    require("../../assets/sample_clothe2.jpg"),
-  ];
+  const handleImageError = () => {
+    setImageError(true);
+  };
 
-  const imageIndex = item.ImageGalleryId % staticImages.length;
-  const selectedImage = staticImages[imageIndex];
+  useEffect(() => {
+    setImageError(false);
+  }, [item.FeaturedImageURL]);
+
+  // ✅ حذف staticImages
 
   return (
     <TouchableOpacity
@@ -476,10 +531,18 @@ const GalleryCard = ({ item, onPress }: { item: ImageGallery; onPress?: (gallery
       onPress={handlePress}
     >
       <View style={styles.galleryImageContainer}>
-        <Image
-          source={selectedImage}
-          style={styles.galleryImage}
-        />
+        {item.FeaturedImageURL && !imageError ? (
+          <Image
+            source={{ uri: item.FeaturedImageURL }}
+            style={styles.galleryImage}
+            onError={handleImageError}
+          />
+        ) : (
+          // ✅ نمایش placeholder به جای static images
+          <View style={[styles.galleryImagePlaceholder, { backgroundColor: '#e0e0e0' }]}>
+            <MaterialIcons name="photo-library" size={48} color="#9e9e9e" />
+          </View>
+        )}
 
         <LinearGradient
           colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.3)", "rgba(0,0,0,0.8)"]}
@@ -502,47 +565,54 @@ const GalleryCard = ({ item, onPress }: { item: ImageGallery; onPress?: (gallery
     </TouchableOpacity>
   );
 };
-
 const ProductCard = ({ item, onPress }: { item: Product; onPress?: (product: Product) => void }) => {
   const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [imageKey, setImageKey] = useState(0);
+  const maxRetries = 3;
+
   const price = safeNumber(item.Price);
   const specialPrice = safeNumber(item.SpecialSalePrice);
   const discountPercentage = specialPrice > 0 && price > 0
     ? Math.round(((price - specialPrice) / price) * 100)
     : 0;
 
-  const handlePress = () => {
-    console.log('Product pressed:', item.ProductId, item.ProductName);
-    if (onPress) {
-      onPress(item);
-    }
-  };
-
   const handleImageError = () => {
-    setImageError(true);
+    if (retryCount < maxRetries) {
+      setTimeout(() => {
+        setRetryCount(prev => prev + 1);
+        setImageKey(prev => prev + 1);
+      }, 1000 * (retryCount + 1));
+    } else {
+      setImageError(true);
+    }
   };
 
   useEffect(() => {
     setImageError(false);
+    setImageLoaded(false);
+    setRetryCount(0);
+    setImageKey(0);
   }, [item.FeaturedImageURL]);
 
   return (
-    <TouchableOpacity
-      style={styles.productCard}
-      activeOpacity={0.8}
-      onPress={handlePress}
-    >
+    <TouchableOpacity style={styles.productCard} activeOpacity={0.8} onPress={() => onPress?.(item)}>
       <View style={styles.productImageContainer}>
-        {item.FeaturedImageURL && !imageError ? (
+        {/* تصویر دیفالت همیشه نمایش داده میشه */}
+        <Image
+          source={require("../../assets/Product_icon.jpg")}
+          style={styles.productImage}
+        />
+
+        {/* تصویر اصلی روی دیفالت قرار میگیره و بعد از لود نمایش داده میشه */}
+        {item.FeaturedImageURL && !imageError && (
           <Image
-            source={{ uri: item.FeaturedImageURL }}
-            style={styles.productImage}
+            key={imageKey}
+            source={{ uri: `${item.FeaturedImageURL}?retry=${imageKey}` }}
+            style={[styles.productImage, { position: 'absolute', opacity: imageLoaded ? 1 : 0 }]}
+            onLoad={() => setImageLoaded(true)}
             onError={handleImageError}
-          />
-        ) : (
-          <Image
-            source={require("../../assets/Product_icon.jpg")}
-            style={styles.productImage}
           />
         )}
 
@@ -553,7 +623,7 @@ const ProductCard = ({ item, onPress }: { item: Product; onPress?: (product: Pro
         )}
         {!item.Active && (
           <View style={styles.unavailableBadge}>
-            <AppText style={styles.unavailableText}>ناموجود</AppText>
+            <AppText style={styles.unavailableText}>غیرفعال</AppText>
           </View>
         )}
       </View>
@@ -576,7 +646,7 @@ const ProductCard = ({ item, onPress }: { item: Product; onPress?: (product: Pro
 
 const Avatar = ({ name, size = 150, onPress, showOnline = false, member }: AvatarProps) => {
   const [imageError, setImageError] = useState(false);
-  const scaleValue = new Animated.Value(1);
+  const scaleValue = useRef(new Animated.Value(1)).current; // ✅
 
   const gradientColors = [
     ['#fa709a', '#fee140'],
@@ -713,6 +783,144 @@ const Avatar = ({ name, size = 150, onPress, showOnline = false, member }: Avata
     </TouchableOpacity>
   );
 };
+const MemberGroupCard = ({
+  item,
+  onPress
+}: {
+  item: MemberGroup;
+  onPress?: (group: MemberGroup) => void
+}) => {
+  const scaleValue = new Animated.Value(1);
+
+  // ✅ گرادیانت‌های زیباتر و متنوع‌تر
+  const gradientColors = [
+    ['#667eea', '#764ba2'],
+    ['#f093fb', '#f5576c'],
+    ['#4facfe', '#00f2fe'],
+    ['#43e97b', '#38f9d7'],
+    ['#fa709a', '#fee140'],
+    ['#30cfd0', '#330867'],
+    ['#a8edea', '#fed6e3'],
+    ['#ff9a9e', '#fecfef'],
+    ['#ffecd2', '#fcb69f'],
+    ['#ff6e7f', '#bfe9ff'],
+    ['#8EC5FC', '#E0C3FC'],
+    ['#fbc2eb', '#a6c1ee'],
+    ['#fdcbf1', '#e6dee9'],
+    ['#a1c4fd', '#c2e9fb'],
+    ['#d299c2', '#fef9d7'],
+    ['#FEE140', '#FA709A'],
+    ['#FDBB2D', '#22C1C3'],
+    ['#ee9ca7', '#ffdde1'],
+    ['#89f7fe', '#66a6ff'],
+    ['#cd9cf2', '#f6f3ff'],
+  ];
+
+  // ✅ ایکون‌های مربوط به لباس و خیاطی
+  const fashionIcons = [
+    "tshirt-crew",
+    "hanger",
+    
+    "ruler",
+    "draw",
+    "palette",
+    "scissors-cutting",
+    "content-cut",
+    "tag",
+    "shopping",
+    "badge-account",
+    "brush",
+ 
+    "dots-grid",
+
+  ];
+
+  const getGradientForGroup = (id: number) => {
+    const index = id % gradientColors.length;
+    return gradientColors[index];
+  };
+
+  const getIconForGroup = (id: number) => {
+    const index = id % fashionIcons.length;
+    return fashionIcons[index];
+  };
+
+  const handlePressIn = () => {
+    Animated.spring(scaleValue, {
+      toValue: 0.95,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleValue, {
+      toValue: 1,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePress = () => {
+    if (onPress) {
+      onPress(item);
+    }
+  };
+
+  const selectedGradient = getGradientForGroup(item.MemberGroupId);
+  const selectedIcon = getIconForGroup(item.MemberGroupId);
+
+  return (
+    <TouchableOpacity
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      activeOpacity={0.9}
+      disabled={!onPress}
+      style={styles.memberGroupCardWrapper}
+    >
+      <Animated.View
+        style={[
+          styles.memberGroupCard,
+          {
+            transform: [{ scale: scaleValue }],
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={selectedGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.memberGroupGradient}
+        >
+          <View style={styles.memberGroupContent}>
+            {/* ✅ ایکون در بالای کارت */}
+            <View style={styles.iconContainer}>
+              <MaterialCommunityIcons
+                name={selectedIcon}
+                size={28}
+                color="rgba(0, 0, 0, 0.95)"
+              />
+            </View>
+
+            {/* ✅ عنوان در پایین کارت */}
+            <AppText style={styles.memberGroupTitle} numberOfLines={2}>
+              {safeString(item.GroupName, 'گروه بدون نام')}
+            </AppText>
+          </View>
+        </LinearGradient>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+const MemberGroupCardSkeleton = () => {
+  return (
+    <View style={styles.memberGroupCardWrapper}>
+      <View style={styles.memberGroupCard}>
+        <SkeletonLoader width="100%" height="100%" borderRadius={20} />
+      </View>
+    </View>
+  );
+};
+
 
 const PortfolioCardSkeleton = () => {
   return (
@@ -809,6 +1017,12 @@ const HeaderSliderSkeleton = () => {
     </PagerView>
   );
 };
+
+
+
+
+
+
 
 const ProductCardSkeleton = () => {
   return (
@@ -908,8 +1122,54 @@ const HomeScreen = () => {
   const galleryPagerRef = useRef<PagerView>(null);
   const { handleSlideClick, isSlideClickable, getSlideTypeLabel } = useHomePageSlideNavigator();
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const {
+    data: memberGroups,
+    loading: memberGroupsLoading,
+    error: memberGroupsError,
+    refetch: refetchMemberGroups
+  } = useMemberGroups();
+  const [currentMemberGroupPage, setCurrentMemberGroupPage] = useState(0);
+  const memberGroupPagerRef = useRef<PagerView>(null);
 
-  const autoScrollInterval = 3000;
+  // ✅ در قسمت useEffect ها (بعد از useEffect مقالات):
+  const totalMemberGroupPages = Math.ceil(memberGroups.length / 3);
+  useEffect(() => {
+    Promise.all([
+      refetchSlides(),
+      refetchCourses(),
+      refetchMemberGroups(),
+    ]).then(() => {
+      setTimeout(() => {
+        refetchProducts();  
+        refetchMembers();
+        refetchGalleries();
+        refetchBlogPosts();
+        refetchPortfolios();
+      }, 2000);
+    });
+  }, []);
+  useEffect(() => {
+    if (totalMemberGroupPages > 1) {
+      const interval = setInterval(() => {
+        if (currentMemberGroupPage < totalMemberGroupPages - 1) {
+          memberGroupPagerRef.current?.setPage(currentMemberGroupPage + 1);
+          setCurrentMemberGroupPage(currentMemberGroupPage + 1);
+        } else {
+          memberGroupPagerRef.current?.setPage(0);
+          setCurrentMemberGroupPage(0);
+        }
+      }, autoScrollInterval + 1500);
+
+      return () => clearInterval(interval);
+    }
+  }, [currentMemberGroupPage, totalMemberGroupPages]);
+
+  useEffect(() => {
+    if (memberGroupsError) {
+      showToast('خطا در دریافت اطلاعات گروه‌های اصلی. لطفاً دوباره تلاش کنید.', 'error');
+    }
+  }, [memberGroupsError]);
+  const autoScrollInterval = 5000;
 
   const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
     setToastMessage(message);
@@ -1099,7 +1359,74 @@ const HomeScreen = () => {
       </View>
     ));
   };
+  const createMemberGroupSkeletonPages = () => {
+    return Array.from({ length: 2 }, (_, pageIndex) => (
+      <View key={`membergroup-skeleton-page-${pageIndex}`} style={{ transform: [{ scaleX: -1 }] }}>
+        <View style={styles.memberGroupContainer}>
+          {Array.from({ length: 3 }, (_, cardIndex) => (
+            <MemberGroupCardSkeleton key={`membergroup-skeleton-${pageIndex}-${cardIndex}`} />
+          ))}
+        </View>
+      </View>
+    ));
+  };
 
+  const createMemberGroupPages = () => {
+    if (memberGroups.length === 0) {
+      return [
+        <View key="no-membergroups" style={{ transform: [{ scaleX: -1 }] }}>
+          <View style={styles.noMemberGroupContainer}>
+            <MaterialIcons name="group" size={48} color="#9e9e9e" />
+            <AppText style={styles.noMemberGroupText}>هیچ گروهی موجود نیست</AppText>
+          </View>
+        </View>
+      ];
+    }
+
+    const pages = [];
+    const reversedGroups = [...memberGroups].reverse();
+
+    for (let i = 0; i < reversedGroups.length; i += 3) {
+      const pageGroups = reversedGroups.slice(i, i + 3);
+      pages.push(
+        <View key={`membergroup-page-${i}`} style={{ transform: [{ scaleX: -1 }] }}>
+          <View style={styles.memberGroupContainer}>
+            {pageGroups.map((group) => (
+              <MemberGroupCard
+                key={`membergroup-${group.MemberGroupId}`}
+                item={group}
+                onPress={handleMemberGroupPress}
+              />
+            ))}
+          </View>
+        </View>
+      );
+    }
+    return pages;
+  };
+  const handleMemberGroupPress = (groupData: MemberGroup) => {
+    console.log('Navigating to AllMembers with group filter:', groupData.MemberGroupId);
+    try {
+      navigation.navigate("AllMembers" as never, {
+        filterGroupId: groupData.MemberGroupId,
+        filterGroupName: groupData.GroupName
+      } as never);
+    } catch (error) {
+      console.error('Navigation error (MemberGroup):', error);
+      showToast('خطا در باز کردن گروه', 'error');
+    }
+  };
+
+  const handleViewAllMemberGroups = () => {
+    requestAnimationFrame(() => {
+      try {
+        navigation.navigate("AllMemberGroups" as never);
+      } catch (error) {
+        console.error('Navigation error (MemberGroups):', error);
+        showToast('خطا در باز کردن لیست گروه‌ها', 'error');
+      }
+    });
+  };
   const handleLogout = async () => {
     try {
       await logout();
@@ -1370,159 +1697,176 @@ const HomeScreen = () => {
     return pages;
   };
 
+  const handlePrevSlide = () => {
+    const newPage = currentPage2 > 0 ? currentPage2 - 1 : totalSlidePages - 1;
+    pagerRef2.current?.setPage(newPage);
+  };
 
-
+  const handleNextSlide = () => {
+    const newPage = currentPage2 < totalSlidePages - 1 ? currentPage2 + 1 : 0;
+    pagerRef2.current?.setPage(newPage);
+  };
 
   const createSlidePages = () => {
     if (slides.length === 0) {
-      return [
-        <Image
-          key="default-1"
-          style={styles.headerBox}
-          source={require("../../assets/sample_clothe.jpg")}
-        />,
-        <Image
-          key="default-2"
-          style={styles.headerBox}
-          source={require("../../assets/sample_clothe.jpg")}
-        />,
-        <Image
-          key="default-3"
-          style={styles.headerBox}
-          source={require("../../assets/sample_clothe.jpg")}
-        />
-      ];
+      return [];
     }
 
     return slides.map((slide) => (
-      <ClickableSlide
-        key={slide.HomePageSlideId}
-        slideData={slide}
-        showToast={showToast}
-        activeOpacity={isSlideClickable(slide) ? 0.8 : 1}
-        onSlidePress={(slideData) => {
-          console.log('Slide pressed:', {
-            id: slideData.HomePageSlideId,
-            type: getSlideTypeLabel(slideData.ClickTrigger),
-            clickTrigger: slideData.ClickTrigger
-          });
-        }}
-      >
-        <Image
-          style={styles.headerBox}
-          source={{
-            uri: slide.ImageURL
+      <View key={slide.HomePageSlideId} style={{ transform: [{ scaleX: -1 }] }}>
+        <ClickableSlide
+          slideData={slide}
+          showToast={showToast}
+          activeOpacity={isSlideClickable(slide) ? 0.8 : 1}
+          onSlidePress={(slideData) => {
+            console.log('Slide pressed:', {
+              id: slideData.HomePageSlideId,
+              type: getSlideTypeLabel(slideData.ClickTrigger),
+              clickTrigger: slideData.ClickTrigger
+            });
           }}
-          defaultSource={require("../../assets/sample_clothe.jpg")}
-        />
-      </ClickableSlide>
+        >
+          <Image
+            style={styles.headerBox}
+            source={{ uri: slide.ImageURL }}  // ✅ حذف defaultSource
+            resizeMode="cover"
+          />
+        </ClickableSlide>
+      </View>
     ));
   };
 
+
+
   const handlePortfolioPress = (portfolioData: Portfolio) => {
     console.log('Navigating to Portfolio with:', portfolioData);
-    try {
-      const portfolioId = portfolioData.PortfolioId || portfolioData.PotfolioId;
+    const portfolioId = portfolioData.PortfolioId || portfolioData.PotfolioId;
 
-      if (!portfolioId || portfolioId === 0) {
-        console.error('Invalid portfolio ID:', portfolioId);
-        showToast('خطا: شناسه نمونه کار نامعتبر است', 'error');
-        return;
-      }
-
-      console.log('Final portfolioId:', portfolioId);
-
-      navigation.navigate("PortfolioDetail" as never, {
-        title: portfolioData.Title,
-        portfolioId: portfolioId
-      } as never);
-    } catch (error) {
-      console.error('Navigation error (Portfolio):', error);
-      showToast('خطا در باز کردن نمونه کار', 'error');
+    if (!portfolioId || portfolioId === 0) {
+      console.error('Invalid portfolio ID:', portfolioId);
+      showToast('خطا: شناسه نمونه کار نامعتبر است', 'error');
+      return;
     }
+
+    console.log('Final portfolioId:', portfolioId);
+
+    requestAnimationFrame(() => {
+      try {
+        navigation.navigate("PortfolioDetail" as never, {
+          title: portfolioData.Title,
+          portfolioId: portfolioId
+        } as never);
+      } catch (error) {
+        console.error('Navigation error (Portfolio):', error);
+        showToast('خطا در باز کردن نمونه کار', 'error');
+      }
+    });
   };
 
   const handleViewAllPortfolios = () => {
-    navigation.navigate("AllPortfolio" as never);
+    requestAnimationFrame(() => {
+      navigation.navigate("AllPortfolio" as never);
+    });
   };
 
   const handleCoursePress = (courseData: Course) => {
     console.log('Navigating to CourseDetails with:', courseData.CourseId);
-    try {
-      navigation.navigate("CourseDetails" as never, { courseData } as never);
-    } catch (error) {
-      console.error('Navigation error (Course):', error);
-      showToast('خطا در باز کردن جزئیات دوره', 'error');
-    }
+    requestAnimationFrame(() => {
+      try {
+        navigation.navigate("CourseDetails" as never, { courseData } as never);
+      } catch (error) {
+        console.error('Navigation error (Course):', error);
+        showToast('خطا در باز کردن جزئیات دوره', 'error');
+      }
+    });
   };
 
   const handleProductPress = (productData: Product) => {
     console.log('Navigating to ProductDetails with:', productData.ProductId);
-    try {
-      navigation.navigate("ProductDetails" as never, {
-        productData: productData,
-        productId: productData.ProductId
-      } as never);
-    } catch (error) {
-      console.error('Navigation error (Product):', error);
-      showToast('خطا در باز کردن جزئیات محصول', 'error');
-    }
+    requestAnimationFrame(() => {
+      try {
+        navigation.navigate("ProductDetails" as never, {
+          productData: productData,
+          productId: productData.ProductId
+        } as never);
+      } catch (error) {
+        console.error('Navigation error (Product):', error);
+        showToast('خطا در باز کردن جزئیات محصول', 'error');
+      }
+    });
   };
 
   const handleMemberPress = (memberData: Member) => {
     console.log('Navigating to UserProfile with:', memberData.MemberId);
-    try {
-      navigation.navigate("UserProfile" as never, { userData: memberData } as never);
-    } catch (error) {
-      console.error('Navigation error (Member):', error);
-      showToast('خطا در باز کردن پروفایل کاربر', 'error');
-    }
+    requestAnimationFrame(() => {
+      try {
+        navigation.navigate("UserProfile" as never, { userData: memberData } as never);
+      } catch (error) {
+        console.error('Navigation error (Member):', error);
+        showToast('خطا در باز کردن پروفایل کاربر', 'error');
+      }
+    });
   };
 
   const handleBlogPostPress = (postData: BlogPost) => {
     console.log('Navigating to BlogPost with:', postData.BlogPostId);
-    try {
-      navigation.navigate("MagDetailes" as never, {
-        title: postData.Title,
-        blogId: postData.BlogPostId
-      } as never);
-    } catch (error) {
-      console.error('Navigation error (BlogPost):', error);
-      showToast('خطا در باز کردن مقاله', 'error');
-    }
+    requestAnimationFrame(() => {
+      try {
+        navigation.navigate("MagDetailes" as never, {
+          title: postData.Title,
+          blogId: postData.BlogPostId
+        } as never);
+      } catch (error) {
+        console.error('Navigation error (BlogPost):', error);
+        showToast('خطا در باز کردن مقاله', 'error');
+      }
+    });
   };
 
   const handleViewAllBlogPosts = () => {
-    navigation.navigate("مجله ی فریمد" as never);
+    requestAnimationFrame(() => {
+      navigation.navigate("وبلاگ" as never);
+    });
   };
 
   const handleGalleryPress = (galleryData: ImageGallery) => {
     console.log('Navigating to GalleryDetails with:', galleryData.ImageGalleryId);
-    try {
-      navigation.navigate("GalleryItem" as never, {
-        title: galleryData.Title,
-        galleryData: galleryData
-      } as never);
-    } catch (error) {
-      console.error('Navigation error (Gallery):', error);
-      showToast('خطا در باز کردن گالری', 'error');
-    }
+    requestAnimationFrame(() => {
+      try {
+        navigation.navigate("GalleryItem" as never, {
+          title: galleryData.Title,
+          galleryId: galleryData.ImageGalleryId,
+          galleryData: galleryData
+        } as never);
+      } catch (error) {
+        console.error('Navigation error (Gallery):', error);
+        showToast('خطا در باز کردن گالری', 'error');
+      }
+    });
   };
 
   const handleViewAllCourses = () => {
-    navigation.navigate("AllCourses" as never);
+    requestAnimationFrame(() => {
+      navigation.navigate("AllCourses" as never);
+    });
   };
 
   const handleViewAllProducts = () => {
-    navigation.navigate("AllProducts" as never);
+    requestAnimationFrame(() => {
+      navigation.navigate("AllProducts" as never);
+    });
   };
 
   const handleViewAllMembers = () => {
-    navigation.navigate("AllMembers" as never);
+    requestAnimationFrame(() => {
+      navigation.navigate("AllMembers" as never);
+    });
   };
 
   const handleViewAllGalleries = () => {
-    navigation.navigate("AllGalleries" as never);
+    requestAnimationFrame(() => {
+      navigation.navigate("AllGalleries" as never);
+    });
   };
 
   return (
@@ -1581,18 +1925,96 @@ const HomeScreen = () => {
             </TouchableOpacity>
           </View>
         ) : (
-          <PagerView
-            ref={pagerRef2}
-            style={[{ minHeight: 200, marginBottom: 20 }, { transform: [{ scaleX: -1 }] }]}
-            initialPage={0}
-            layoutDirection={"ltr"}
-            pageMargin={20}
-            onPageSelected={(e) => setCurrentPage2(e.nativeEvent.position)}
-          >
-            {createSlidePages()}
-          </PagerView>
+              <View style={styles.sliderContainer}>
+                <PagerView
+                  ref={pagerRef2}
+                  style={[{ minHeight: 200 }, { transform: [{ scaleX: -1 }] }]}
+                  initialPage={0}
+                  layoutDirection={"ltr"}
+                  pageMargin={20}
+                  onPageSelected={(e) => setCurrentPage2(e.nativeEvent.position)}
+                  overScrollMode="never"
+                >
+                  {createSlidePages()}
+                </PagerView>
+
+                {totalSlidePages > 1 && (
+                  <>
+                    <TouchableOpacity
+                      style={styles.sliderArrowRight}
+                      onPress={handlePrevSlide}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.arrowIconContainer}>
+                        <MaterialIcons name="chevron-right" size={28} color="#fff" />
+                      </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.sliderArrowLeft}
+                      onPress={handleNextSlide}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.arrowIconContainer}>
+                        <MaterialIcons name="chevron-left" size={28} color="#fff" />
+                      </View>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+                  
+        )}
+        <View style={styles.titleBox}>
+          <View style={{ flexDirection: "row-reverse", alignItems: "center" }}>
+            <View style={{ backgroundColor: '#00BCD4', width: 12, height: 12}} />
+            <AppText style={styles.bodyText}>گروه‌های اصلی</AppText>
+          </View>
+
+          {!memberGroupsError && (
+            <>
+              {memberGroupsLoading ? (
+                <SkeletonLoader width={80} height={30} borderRadius={15} />
+              ) : (
+                <TouchableOpacity
+                    hitSlop={{ top: 30, bottom: 30, left: 30, right: 30 }} 
+                    style={[styles.viewAllButton, { zIndex: 20 }]}
+                  onPress={handleViewAllMemberGroups}
+                >
+                  <MaterialIcons
+                    name="chevron-left"
+                    size={18}
+                    color={colors.primary}
+                    style={{ marginLeft: 6 }}
+                  />
+                  <AppText style={styles.viewAllText}>مشاهده همه</AppText>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
+        {memberGroupsError && (
+          <View style={styles.errorIconContainer}>
+            <MaterialIcons name="error" size={48} color="#9e9e9e" />
+            <AppText style={styles.errorIconText}>خطا در دریافت اطلاعات گروه‌ها</AppText>
+            <TouchableOpacity style={styles.retryButton} onPress={refetchMemberGroups}>
+              <MaterialIcons name="refresh" size={20} color={colors.white} />
+              <AppText style={styles.retryButtonText}>تلاش مجدد</AppText>
+            </TouchableOpacity>
+          </View>
         )}
 
+        {!memberGroupsError && (
+          <PagerView
+            ref={memberGroupPagerRef}
+            style={[{ minHeight:180 , marginTop:-30}, { transform: [{ scaleX: -1 }] }]}
+            initialPage={0}
+            layoutDirection={"ltr"} 
+            pageMargin={20}
+            onPageSelected={(e) => setCurrentMemberGroupPage(e.nativeEvent.position)}
+          >
+            {memberGroupsLoading ? createMemberGroupSkeletonPages() : createMemberGroupPages()}
+          </PagerView>
+        )}
         <View style={styles.titleBox}>
           <View style={{ flexDirection: "row-reverse", alignItems: "center" }}>
             <View
@@ -1979,6 +2401,7 @@ const HomeScreen = () => {
         visible={showMenuModal}
         onClose={() => setShowMenuModal(false)}
         onNavigate={handleMenuNavigation}
+        showToast={showToast}
       />
     </View>
   );
@@ -2052,10 +2475,11 @@ const styles = StyleSheet.create({
   bodyText: {
     fontSize: 20,
     marginRight: 10,
+
     fontFamily: "Yekan_Bakh_Bold",
   },
   headerBox: {
-    height: 200,
+    height:200,
     width: "100%",
     borderRadius: 20,
   },
@@ -2097,6 +2521,7 @@ const styles = StyleSheet.create({
     width: "100%",
     marginBottom: 10,
     paddingHorizontal: 10,
+    direction:"rtl"
   },
   avatarContainer: {
     alignItems: 'center',
@@ -2109,6 +2534,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 4,
     borderColor: '#fff',
+  },
+  sliderContainer: {
+    position: 'relative',
+    minHeight: 200,
+    marginBottom: 20,
+  },
+  sliderArrowLeft: {
+    position: 'absolute',
+    left: 15,
+    top: '50%',
+    marginTop: -20,
+    zIndex: 999,
+  },
+  sliderArrowRight: {
+    position: 'absolute',
+    right: 15,
+    top: '50%',
+    marginTop: -20,
+    zIndex: 999,
+  },
+  arrowIconContainer: {
+    width: 30,
+    height: 30,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 8,
   },
   nameText: {
     marginTop: 8,
@@ -2218,6 +2678,85 @@ const styles = StyleSheet.create({
     color: '#ff6b6b',
     textAlign: 'center',
   },
+  memberGroupContainer: {
+    minHeight: 180,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    paddingHorizontal: 10,
+    direction:"rtl"
+  },
+  memberGroupCardWrapper: {
+    marginHorizontal: 8,
+    marginVertical: 10,
+  },
+  memberGroupCard: {
+    width: 100,        // ✅ تغییر - عرض بیشتر
+    height: 100,       // ✅ تغییر - مربعی
+    borderRadius: 24,  // ✅ تغییر - گوشه‌های گردتر
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 6,       // ✅ تغییر - سایه عمیق‌تر
+    },
+    shadowOpacity: 0.25,  // ✅ تغییر
+    shadowRadius: 10,     // ✅ تغییر
+    elevation: 10,        // ✅ تغییر
+  },
+  memberGroupGradient: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 14,      // ✅ تغییر
+    borderWidth: 3,
+    borderColor: '#fff',
+    borderRadius: 24,
+},
+  memberGroupContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+  },
+  memberGroupTitle: {
+    fontSize: 12,      // ✅ تغییر - اندازه کوچک‌تر
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#000000',
+    textAlign: 'center',
+    lineHeight: 18,    // ✅ تغییر
+
+    paddingHorizontal: 4,  // ✅ اضافه کردن
+    marginBottom: 10,  
+  },
+  iconContainer: {
+    marginTop: 0,
+    marginBottom: 5,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+  },
+
+
+  noMemberGroupContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 180,
+    width: '100%',
+    marginVertical: 20,
+  },
+  noMemberGroupText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#9e9e9e',
+    marginTop: 12,
+    textAlign: 'center',
+  },
   galleryGrid: {
     flexDirection: 'row-reverse',
     justifyContent: 'space-between',
@@ -2249,6 +2788,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
     borderRadius: 16,
     overflow: 'hidden',
+    direction:"rtl"
   },
   galleryImage: {
     width: '100%',
@@ -2349,7 +2889,11 @@ const styles = StyleSheet.create({
     color: colors.white,
     marginRight: 8,
   },
-  errorSliderContainer: {
+  galleryImagePlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },  errorSliderContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     height: 200,
@@ -2380,9 +2924,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   courseSkeletonContainer: {
-    minHeight: 390, 
+    minHeight: 390,
     flexDirection: "column",
-    borderRadius: 16, 
+    borderRadius: 16,
     backgroundColor: '#fff',
     shadowColor: "#797979",
     shadowOffset: {
@@ -2394,11 +2938,11 @@ const styles = StyleSheet.create({
     elevation: 4,
     marginBottom: 8,
     overflow: 'hidden',
-    gap:8
+    gap: 8
   },
   courseImageSkeleton: {
     position: 'relative',
-    height: 250, 
+    height: 250,
     width: "100%",
   },
   courseDetailsSkeleton: {
@@ -2623,10 +3167,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 4,
+    overflow: 'hidden',
   },
   avatarImage: {
-    borderWidth: 4,
-    borderColor: '#fff',
+
+    
   },
   blueTickContainer: {
     position: 'absolute',
@@ -2695,10 +3240,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 10,
     width: '100%',
-    
+    minHeight: 420,
   },
   courseWrapper: {
-    width: '48%',
+    width: (screenWidth - 70) / 2,  // ✅ تغییر مهم - محاسبه دقیق عرض
+    marginHorizontal: 5,  // ✅ اضافه کردن
+    minHeight: 410,
   },
 });
 

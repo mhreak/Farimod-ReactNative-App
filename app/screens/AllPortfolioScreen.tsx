@@ -464,11 +464,7 @@ const AllPortfolioScreen = () => {
               <View style={styles.dateContainer}>
                 <MaterialIcons name="calendar-month" size={14} color="#666" />
                 <AppText style={styles.dateText}>
-                  {toPersianDigits(
-                    item.InsertDate
-                      ? new Date(item.InsertDate).toLocaleDateString('fa-IR')
-                      : 'بدون تاریخ'
-                  )}
+                  {toPersianDigits(item.ShamsiInsertDate || '')}
                 </AppText>
               </View>
 
@@ -555,7 +551,7 @@ const AllPortfolioScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons

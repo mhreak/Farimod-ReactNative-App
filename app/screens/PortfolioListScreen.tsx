@@ -22,6 +22,7 @@ import Toast from "../components/Toast";
 import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
 import { AppNavigationProp, RootStackParamList } from "../Navigators";
+import { useAuth } from "../contexts/AuthContext";
 
 const { width, height } = Dimensions.get('window');
 
@@ -49,7 +50,7 @@ const modernColors = {
 
 const ITEMS_PER_PAGE = 20;
 
-const usePortfoliosWithInfiniteLoading = () => {
+const usePortfoliosWithInfiniteLoading = (memberId) => {
   const [data, setData] = useState([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -62,15 +63,25 @@ const usePortfoliosWithInfiniteLoading = () => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `${appConfig.mobileApi}Portfolio/GetAll?currentPage=${newPage}&pageSize=${pageSize}`
-      );
+      // ✅ اضافه کردن log برای دیباگ
+      console.log('Fetching portfolios for memberId:', memberId);
+
+      // ✅ استفاده از filterMemberId در query
+      const url = memberId
+        ? `${appConfig.mobileApi}Portfolio/GetAll?filterMemberId=${memberId}&currentPage=${newPage}&pageSize=${pageSize}`
+        : `${appConfig.mobileApi}Portfolio/GetAll?currentPage=${newPage}&pageSize=${pageSize}`;
+
+      console.log('Fetching URL:', url);
+
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
+
+      console.log('Portfolio response:', result);
 
       if (newPage === 1) {
         setData(result.Data || []);
@@ -81,9 +92,9 @@ const usePortfoliosWithInfiniteLoading = () => {
       setTotal(result.Total || 0);
       setPage(newPage);
 
-      // تشخیص اینکه آیا صفحات بیشتری وجود دارد یا نه
       setHasMore((result.Data || []).length === pageSize && (result.Data || []).length > 0);
     } catch (err) {
+      console.error('Error fetching portfolios:', err);
       setError(err.message);
       if (newPage === 1) {
         setData([]);
@@ -111,6 +122,7 @@ const usePortfoliosWithInfiniteLoading = () => {
     page,
   };
 };
+
 
 const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
@@ -228,6 +240,7 @@ const PortfolioCardSkeleton = () => {
 
 const PortfolioListScreen = () => {
   const navigation = useNavigation<AppNavigationProp>();
+  const { user } = useAuth(); // دریافت اطلاعات کاربر
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -241,7 +254,7 @@ const PortfolioListScreen = () => {
     fetchPortfolios,
     loadMore,
     hasMore
-  } = usePortfoliosWithInfiniteLoading();
+  } = usePortfoliosWithInfiniteLoading(user?.MemberId); // ارسال userId به hook
 
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
@@ -256,7 +269,7 @@ const PortfolioListScreen = () => {
 
   useEffect(() => {
     fetchPortfolios(1, ITEMS_PER_PAGE);
-  }, []);
+  }, [user?.MemberId]); // fetch مجدد هنگام تغییر userId
 
   useEffect(() => {
     Animated.parallel([
@@ -382,13 +395,11 @@ const PortfolioListScreen = () => {
             <View style={styles.portfolioMeta}>
               <View style={styles.dateContainer}>
                 <MaterialIcons name="calendar-month" size={14} color="#666" />
+
                 <AppText style={styles.dateText}>
-                  {toPersianDigits(
-                    item.InsertDate
-                      ? new Date(item.InsertDate).toLocaleDateString('fa-IR')
-                      : 'بدون تاریخ'
-                  )}
+                  {toPersianDigits(item.ShamsiInsertDate || '')}
                 </AppText>
+
               </View>
 
               {item.Rating && (
@@ -407,7 +418,7 @@ const PortfolioListScreen = () => {
   };
 
   const renderFooter = () => {
-    if (!portfolioLoading) return null;
+    if (!portfolioLoading || portfolios.length === 0) return null;
 
     return (
       <View style={styles.loadingFooter}>
@@ -448,6 +459,22 @@ const PortfolioListScreen = () => {
     </View>
   );
 
+  // بررسی اینکه کاربر لاگین کرده است یا نه
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <MainBackground />
+        <View style={styles.errorContainer}>
+          <MaterialIcons name="login" size={80} color="#9e9e9e" />
+          <AppText style={styles.errorTitle}>لطفا وارد حساب کاربری خود شوید</AppText>
+          <AppText style={styles.errorSubtitle}>
+            برای مشاهده نمونه کارها باید وارد حساب کاربری شوید
+          </AppText>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -463,7 +490,7 @@ const PortfolioListScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons
@@ -484,7 +511,7 @@ const PortfolioListScreen = () => {
           ]}
         >
           <View style={styles.titleWrapper}>
-            <AppText style={styles.headerTitle}>نمونه کارها</AppText>
+            <AppText style={styles.headerTitle}>نمونه کارهای من</AppText>
           </View>
         </Animated.View>
 

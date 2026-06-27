@@ -12,6 +12,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Modal,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
@@ -25,7 +26,7 @@ import appConfig from "../config/config";
 import { useAuth } from '../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
-const CARD_WIDTH = (width - 60) / 2; // 20 padding از دو طرف و 20 فاصله وسط
+const CARD_WIDTH = (width - 60) / 2;
 
 const modernColors = {
   ...colors,
@@ -40,11 +41,16 @@ const modernColors = {
   medium: "#34495e",
   light: "#ecf0f1",
   success: "#2ecc71",
+  successDark: "#27ae60",
+  successLight: "#a8e6cf",
   warning: "#f39c12",
   error: "#e74c3c",
+  errorDark: "#c0392b",
   info: "#3498db",
   gradientStart: "#667eea",
   gradientEnd: "#764ba2",
+  greenGradientStart: "#013d38",
+  greenGradientEnd: "#38ef7e",
 };
 
 const ITEMS_PER_PAGE = 20;
@@ -224,8 +230,9 @@ const getStateIcon = (state) => {
   }
 };
 
-// Avatar Component
 const Avatar = ({ member, size = 60 }) => {
+  const [imageError, setImageError] = useState(false);
+
   const gradientColors = [
     ['#fa709a', '#fee140'],
     ['#667eea', '#764ba2'],
@@ -243,6 +250,37 @@ const Avatar = ({ member, size = 60 }) => {
   };
 
   const selectedGradient = getGradientForName(member?.MemberName);
+  const hasAvatar = member?.MemberAvatarImageURL && member.MemberAvatarImageURL.trim() !== '' && !imageError;
+
+  if (hasAvatar) {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: 3,
+          borderColor: '#fff',
+          overflow: 'hidden',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.3,
+          shadowRadius: 8,
+          elevation: 8,
+        }}
+      >
+        <Image
+          source={{ uri: member.MemberAvatarImageURL }}
+          style={{
+            width: '100%',
+            height: '100%',
+          }}
+          resizeMode="cover"
+          onError={() => setImageError(true)}
+        />
+      </View>
+    );
+  }
 
   return (
     <LinearGradient
@@ -265,7 +303,7 @@ const Avatar = ({ member, size = 60 }) => {
       }}
     >
       <MaterialCommunityIcons
-        name="account"
+        name="face-man"
         size={size * 0.6}
         color="white"
       />
@@ -273,7 +311,80 @@ const Avatar = ({ member, size = 60 }) => {
   );
 };
 
-// Student Drawer با انیمیشن Flip
+const StudentCard = ({ item, index, onPress }) => {
+  const cardAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(cardAnim, {
+      toValue: 1,
+      tension: 50,
+      friction: 7,
+      delay: index * 80,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      onPress={() => onPress(item)}
+    >
+      <Animated.View
+        style={[
+          styles.verticalCard,
+          {
+            opacity: cardAnim,
+            transform: [
+              {
+                scale: cardAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.8, 1],
+                }),
+              },
+              {
+                translateY: cardAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [50, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={['#ffffff', '#f8f9fa']}
+          style={styles.cardGradient}
+        >
+          <Avatar member={item} size={70} />
+
+          <AppText style={styles.cardName} numberOfLines={2}>
+            {item.MemberName}
+          </AppText>
+
+          <AppText style={styles.cardMobile} numberOfLines={1}>
+            {toPersianDigits(item.MemberMobile || '')}
+          </AppText>
+
+          <View style={styles.cardDivider} />
+
+
+
+          <View style={styles.cardAmountContainer}>
+            <AppText style={styles.cardAmount}>
+              {toPersianDigits(formatPrice(item.TotalAmount))}
+            </AppText>
+
+          </View>
+
+          <View style={[styles.cardStatusBadge, { backgroundColor: getStateColor(item.State) }]}>
+            <MaterialIcons name={getStateIcon(item.State)} size={14} color="#fff" />
+          </View>
+        </LinearGradient>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
 const StudentDrawer = ({ visible, student, onClose, onDelete }) => {
   const slideAnim = useRef(new Animated.Value(height)).current;
   const flipAnim = useRef(new Animated.Value(0)).current;
@@ -354,7 +465,6 @@ const StudentDrawer = ({ visible, student, onClose, onDelete }) => {
         >
           <View style={styles.drawerHandle} />
 
-          {/* Header */}
           <View style={styles.drawerHeader}>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <MaterialIcons name="close" size={24} color={modernColors.dark} />
@@ -365,9 +475,7 @@ const StudentDrawer = ({ visible, student, onClose, onDelete }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Flip Container */}
           <View style={styles.flipContainer}>
-            {/* Front Side */}
             <Animated.View
               style={[
                 styles.flipCard,
@@ -389,7 +497,7 @@ const StudentDrawer = ({ visible, student, onClose, onDelete }) => {
                 <View style={styles.registerInfo}>
                   <MaterialIcons name="calendar-today" size={18} color="rgba(255,255,255,0.9)" />
                   <AppText style={styles.registerInfoText}>
-                    تاریخ ثبت‌نام: {student.ShamsiRegisterDate}
+                    تاریخ ثبت‌نام: {toPersianDigits(student.ShamsiRegisterDate || '')}
                   </AppText>
                 </View>
 
@@ -402,7 +510,6 @@ const StudentDrawer = ({ visible, student, onClose, onDelete }) => {
               </LinearGradient>
             </Animated.View>
 
-            {/* Back Side */}
             <Animated.View
               style={[
                 styles.flipCard,
@@ -414,12 +521,17 @@ const StudentDrawer = ({ visible, student, onClose, onDelete }) => {
                 !showFront && styles.flipCardActive,
               ]}
             >
-              <View style={styles.backContent}>
+              <LinearGradient
+                colors={[modernColors.greenGradientStart, modernColors.greenGradientEnd]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.backContent}
+              >
                 <AppText style={styles.backTitle}>اطلاعات پرداخت</AppText>
 
                 <View style={styles.detailRow}>
                   <View style={styles.detailIcon}>
-                    <MaterialIcons name="payment" size={20} color={modernColors.primary} />
+                    <MaterialIcons name="payment" size={20} color="#ffffff" />
                   </View>
                   <View style={styles.detailContent}>
                     <AppText style={styles.detailLabel}>نوع پرداخت</AppText>
@@ -429,25 +541,25 @@ const StudentDrawer = ({ visible, student, onClose, onDelete }) => {
 
                 <View style={styles.detailRow}>
                   <View style={styles.detailIcon}>
-                    <MaterialIcons name="attach-money" size={20} color={modernColors.success} />
+                    <MaterialIcons name="attach-money" size={20} color="#ffffff" />
                   </View>
                   <View style={styles.detailContent}>
                     <AppText style={styles.detailLabel}>مبلغ دوره</AppText>
                     <AppText style={styles.detailValue}>
-                      {toPersianDigits(formatPrice(student.CourseRegisterAmount))} تومان
+                      {toPersianDigits(formatPrice(student.CourseRegisterAmount))}
                     </AppText>
                   </View>
                 </View>
 
                 {student.Discount > 0 && (
                   <View style={styles.detailRow}>
-                    <View style={[styles.detailIcon, { backgroundColor: '#e8f5e9' }]}>
-                      <MaterialIcons name="local-offer" size={20} color={modernColors.success} />
+                    <View style={[styles.detailIcon]}>
+                      <MaterialIcons name="local-offer" size={20} color="#ffffff" />
                     </View>
                     <View style={styles.detailContent}>
                       <AppText style={styles.detailLabel}>تخفیف</AppText>
-                      <AppText style={[styles.detailValue, { color: modernColors.success }]}>
-                        {toPersianDigits(formatPrice(student.Discount))} تومان
+                      <AppText style={[styles.detailValue]}>
+                        {toPersianDigits(formatPrice(student.Discount))}
                       </AppText>
                     </View>
                   </View>
@@ -456,25 +568,26 @@ const StudentDrawer = ({ visible, student, onClose, onDelete }) => {
                 <View style={styles.totalContainer}>
                   <AppText style={styles.totalLabel}>مبلغ نهایی</AppText>
                   <AppText style={styles.totalAmount}>
-                    {toPersianDigits(formatPrice(student.TotalAmount))} تومان
+                    {toPersianDigits(formatPrice(student.TotalAmount))}
                   </AppText>
                 </View>
-              </View>
+              </LinearGradient>
             </Animated.View>
           </View>
 
-          {/* Delete Button */}
           <TouchableOpacity
             style={styles.drawerDeleteButton}
             onPress={() => onDelete(student)}
             activeOpacity={0.8}
           >
             <LinearGradient
-              colors={[modernColors.error, '#c0392b']}
+              colors={['#ff6b6b', '#ee5a6f']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.drawerDeleteGradient}
             >
-              <MaterialIcons name="delete" size={20} color="#fff" />
-              <AppText style={styles.drawerDeleteText}>حذف دانشجو</AppText>
+              <MaterialIcons name="delete-forever" size={24} color="#fff" />
+              <AppText style={styles.drawerDeleteText}>حذف دانشجو از دوره</AppText>
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>
@@ -486,7 +599,7 @@ const StudentDrawer = ({ visible, student, onClose, onDelete }) => {
 const CourseStudentsScreen = ({ route }) => {
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { courseId, courseName } = route.params;
+  const { courseId, courseName } = route?.params || {};
 
   const {
     data,
@@ -506,16 +619,28 @@ const CourseStudentsScreen = ({ route }) => {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Toast states
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('info');
 
-  // Animation
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
 
+  const showToast = (message, type = 'info') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
+
   useEffect(() => {
+    if (!courseId) {
+      showToast('اطلاعات دوره یافت نشد', 'error');
+      setTimeout(() => {
+        navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
+      }, 2000);
+      return;
+    }
+
     fetchStudents();
 
     Animated.parallel([
@@ -530,13 +655,13 @@ const CourseStudentsScreen = ({ route }) => {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [courseId]);
 
-  const showToast = (message, type = 'info') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastVisible(true);
-  };
+  useEffect(() => {
+    if (error) {
+      showToast(error, 'error');
+    }
+  }, [error]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -566,95 +691,35 @@ const CourseStudentsScreen = ({ route }) => {
       setDeleteModalVisible(false);
       showToast('دانشجو با موفقیت حذف شد', 'success');
     } catch (error) {
-      showToast('خطا در حذف دانشجو', 'error');
+      showToast(error.message || 'خطا در حذف دانشجو', 'error');
     } finally {
       setIsDeleting(false);
       setSelectedStudent(null);
     }
   };
 
-  const renderStudentCard = ({ item, index }) => {
-    const cardAnim = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-      Animated.spring(cardAnim, {
-        toValue: 1,
-        tension: 50,
-        friction: 7,
-        delay: index * 80,
-        useNativeDriver: true,
-      }).start();
-    }, []);
-
+  if (!courseId) {
     return (
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPress={() => handleCardPress(item)}
-      >
-        <Animated.View
-          style={[
-            styles.verticalCard,
-            {
-              opacity: cardAnim,
-              transform: [
-                {
-                  scale: cardAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 1],
-                  }),
-                },
-                {
-                  translateY: cardAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [50, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <LinearGradient
-            colors={['#ffffff', '#f8f9fa']}
-            style={styles.cardGradient}
-          >
-            {/* Avatar */}
-            <Avatar member={item} size={70} />
-
-            {/* Name */}
-            <AppText style={styles.cardName} numberOfLines={2}>
-              {item.MemberName}
-            </AppText>
-
-            {/* Mobile */}
-            <AppText style={styles.cardMobile} numberOfLines={1}>
-              {toPersianDigits(item.MemberMobile || '')}
-            </AppText>
-
-            <View style={styles.cardDivider} />
-
-            {/* Date */}
-            <View style={styles.cardDateRow}>
-              <MaterialIcons name="calendar-today" size={14} color={modernColors.medium} />
-              <AppText style={styles.cardDate}>{item.ShamsiRegisterDate}</AppText>
-            </View>
-
-            {/* Amount */}
-            <View style={styles.cardAmountContainer}>
-              <AppText style={styles.cardAmount}>
-                {toPersianDigits(formatPrice(item.TotalAmount))}
-              </AppText>
-              <AppText style={styles.cardAmountLabel}>تومان</AppText>
-            </View>
-
-            {/* Status Badge */}
-            <View style={[styles.cardStatusBadge, { backgroundColor: getStateColor(item.State) }]}>
-              <MaterialIcons name={getStateIcon(item.State)} size={14} color="#fff" />
-            </View>
-          </LinearGradient>
-        </Animated.View>
-      </TouchableOpacity>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <MainBackground />
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator size="large" color={modernColors.primary} />
+          <AppText style={styles.emptyTitle}>در حال بازگشت...</AppText>
+        </View>
+        <Toast
+          visible={toastVisible}
+          message={toastMessage}
+          type={toastType}
+          onHide={() => setToastVisible(false)}
+        />
+      </View>
     );
-  };
+  }
+
+  const renderStudentCard = ({ item, index }) => (
+    <StudentCard item={item} index={index} onPress={handleCardPress} />
+  );
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -699,29 +764,10 @@ const CourseStudentsScreen = ({ route }) => {
           },
         ]}
       >
-        <LinearGradient
-          colors={[modernColors.gradientStart, modernColors.gradientEnd]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
-        >
-          <View style={styles.headerContent}>
-            <View style={styles.headerTextContainer}>
-              <AppText style={styles.headerTitle}>دانشجویان دوره</AppText>
-              <AppText style={styles.courseNameText} numberOfLines={1}>
-                {courseName}
-              </AppText>
-              {total > 0 && (
-                <AppText style={styles.headerSubtitle}>
-                  {toPersianDigits(total.toString())} دانشجو
-                </AppText>
-              )}
-            </View>
-            <View style={styles.headerIconContainer}>
-              <MaterialIcons name="people" size={32} color="#fff" />
-            </View>
-          </View>
-        </LinearGradient>
+        <View style={styles.headerCard}>
+          <AppText style={styles.headerTitle}>دانشجویان دوره</AppText>
+
+        </View>
       </Animated.View>
 
       {loading && data.length === 0 ? (
@@ -757,7 +803,6 @@ const CourseStudentsScreen = ({ route }) => {
         />
       )}
 
-      {/* Student Drawer */}
       <StudentDrawer
         visible={drawerVisible}
         student={selectedStudent}
@@ -765,7 +810,6 @@ const CourseStudentsScreen = ({ route }) => {
         onDelete={handleDeletePress}
       />
 
-      {/* Delete Confirmation Modal */}
       <Modal
         visible={deleteModalVisible}
         transparent
@@ -784,11 +828,11 @@ const CourseStudentsScreen = ({ route }) => {
 
             <View style={styles.deleteModalHeader}>
               <View style={styles.deleteWarningIcon}>
-                <MaterialIcons name="warning" size={36} color="#fff" />
+                <MaterialIcons name="warning" size={40} color="#fff" />
               </View>
               <AppText style={styles.deleteModalTitle}>حذف دانشجو</AppText>
               <AppText style={styles.deleteModalMessage}>
-                آیا از حذف این دانشجو از دوره اطمینان دارید؟ این عملیات قابل بازگشت نیست.
+                آیا از حذف این دانشجو از دوره اطمینان دارید؟{'\n'}این عملیات قابل بازگشت نیست.
               </AppText>
             </View>
 
@@ -801,7 +845,7 @@ const CourseStudentsScreen = ({ route }) => {
                   activeOpacity={0.8}
                 >
                   <LinearGradient
-                    colors={[modernColors.error, '#c0392b']}
+                    colors={['#ff6b6b', '#ee5a6f']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.confirmDeleteGradient}
@@ -810,7 +854,7 @@ const CourseStudentsScreen = ({ route }) => {
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
                       <>
-                        <MaterialIcons name="delete" size={20} color="#fff" />
+                        <MaterialIcons name="delete-forever" size={22} color="#fff" />
                         <AppText style={styles.confirmDeleteText}>بله، حذف شود</AppText>
                       </>
                     )}
@@ -873,54 +917,34 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 20,
   },
-  headerGradient: {
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: modernColors.primary,
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  headerContent: {
-    flexDirection: 'row-reverse',
+  headerCard: {
+    padding: 10,
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerTextContainer: {
-    flex: 1,
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 26,
     fontFamily: "Yekan_Bakh_Bold",
-    color: '#fff',
+    color: modernColors.dark,
     marginBottom: 6,
+    textAlign: 'center',
   },
   courseNameText: {
     fontSize: 15,
     fontFamily: "Yekan_Bakh_Regular",
-    color: 'rgba(255, 255, 255, 0.95)',
+    color: modernColors.medium,
     marginBottom: 4,
+    textAlign: 'center',
   },
   headerSubtitle: {
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Regular",
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  headerIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    color: modernColors.medium,
+    textAlign: 'center',
   },
   listContent: {
     paddingHorizontal: 20,
     paddingBottom: 20,
+    direction:"rtl"
   },
   columnWrapper: {
     justifyContent: 'space-between',
@@ -966,7 +990,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardDateRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     marginBottom: 10,
@@ -983,7 +1007,7 @@ const styles = StyleSheet.create({
   },
   cardAmount: {
     fontSize: 16,
-    fontFamily: "Yekan_Bakh_Heavy",
+    fontFamily: "Yekan_Bakh_Bold",
     color: modernColors.primary,
   },
   cardAmountLabel: {
@@ -1051,8 +1075,6 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     alignItems: 'center',
   },
-
-  // Drawer Styles
   drawerContainer: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -1184,21 +1206,20 @@ const styles = StyleSheet.create({
   },
   backContent: {
     flex: 1,
-    backgroundColor: '#fff',
     borderRadius: 25,
     padding: 25,
   },
   backTitle: {
     fontSize: 20,
     fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.dark,
+    color: '#ffffff',
     textAlign: 'center',
     marginBottom: 25,
   },
   detailRow: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     borderRadius: 15,
     padding: 15,
     marginBottom: 12,
@@ -1207,7 +1228,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#e8f0fe',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
     marginLeft: 12,
@@ -1218,49 +1239,51 @@ const styles = StyleSheet.create({
   detailLabel: {
     fontSize: 12,
     fontFamily: "Yekan_Bakh_Regular",
-    color: modernColors.medium,
+    color: 'rgba(255, 255, 255, 0.85)',
     marginBottom: 4,
   },
   detailValue: {
     fontSize: 15,
     fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.dark,
+    color: '#ffffff',
   },
   totalContainer: {
-    backgroundColor: modernColors.primaryLight,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
     borderRadius: 15,
     padding: 20,
     marginTop: 15,
+    marginBottom:15,
+    
     alignItems: 'center',
   },
   totalLabel: {
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Regular",
-    color: modernColors.primary,
-    marginBottom: 8,
+    color: '#ffffff',
+    marginBottom: -2,
   },
   totalAmount: {
     fontSize: 24,
-    fontFamily: "Yekan_Bakh_Heavy",
-    color: modernColors.primary,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#ffffff',
   },
   drawerDeleteButton: {
     borderRadius: 15,
     overflow: 'hidden',
-    shadowColor: modernColors.error,
+    shadowColor: '#ff6b6b',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 6,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
   },
   drawerDeleteGradient: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
+    paddingVertical: 18,
     gap: 10,
   },
   drawerDeleteText: {
@@ -1268,8 +1291,6 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: '#ffffff',
   },
-
-  // Delete Modal Styles
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -1311,24 +1332,24 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   deleteWarningIcon: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: modernColors.error,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#ff6b6b',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    shadowColor: modernColors.error,
+    shadowColor: '#ff6b6b',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 6,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
   },
   deleteModalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: "Yekan_Bakh_Bold",
     color: "#2c3e50",
     marginBottom: 15,
@@ -1338,7 +1359,7 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Regular",
     color: "#6c757d",
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: 26,
   },
   deleteModalActions: {
     marginTop: 10,
@@ -1351,14 +1372,14 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 15,
     overflow: 'hidden',
-    shadowColor: modernColors.error,
+    shadowColor: '#ff6b6b',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 6,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 10,
   },
   confirmDeleteGradient: {
     flexDirection: 'row-reverse',
@@ -1379,7 +1400,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 15,
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: '#e9ecef',
   },
   deleteModalCancelText: {

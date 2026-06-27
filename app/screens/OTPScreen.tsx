@@ -47,12 +47,12 @@ const OTPScreen = () => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  
+
   // Handle back button - Fixed version
   useFocusEffect(
     React.useCallback(() => {
       const onBackPress = () => {
-        navigation.goBack();
+        navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
         return true;
       };
 
@@ -260,7 +260,7 @@ const OTPScreen = () => {
 
               {/* Content */}
               <View style={styles.contentContainer}>
-                <AppText style={styles.logingText}>تایید کد یکبار مصرف</AppText>
+                <AppText style={styles.logingText}>کد تائید یکبار مصرف</AppText>
                 <AppText style={styles.otpDescription}>
                   کد تایید ۵ رقمی به شماره {mobileNumber} ارسال شد
                 </AppText>
@@ -313,7 +313,7 @@ const OTPScreen = () => {
 
                       <TouchableOpacity
                         style={styles.backButton}
-                        onPress={() => navigation.goBack()}
+                        onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
                       >
                         <MaterialIcons name="arrow-forward" size={20} color={colors.primary} />
                         <AppText style={styles.backText}>تغییر شماره موبایل</AppText>

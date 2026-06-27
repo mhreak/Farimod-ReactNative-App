@@ -3,7 +3,6 @@ import { TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 /**
- * کامپوننت مدیریت navigation برای اسلایدهای صفحه اصلی
  * @param {Object} slideData - اطلاعات اسلاید شامل ClickTrigger و ShowOrder
  * @param {Function} showToast - تابع نمایش Toast message
  */
@@ -17,7 +16,6 @@ export const useHomePageSlideNavigator = () => {
    */
   const handleSlideClick = async (slideData, showToast) => {
     try {
-      // بررسی وجود ClickTrigger
       if (!slideData.ClickTrigger) {
         console.log('No ClickTrigger defined for this slide');
         return;
@@ -282,16 +280,13 @@ export const ClickableSlide = ({
   const handlePress = async () => {
     if (disabled) return;
 
-    // اگر callback دلخواه ارائه شده، آن را اجرا کن
     if (onSlidePress) {
       onSlidePress(slideData);
     }
 
-    // سپس navigation پیش‌فرض را اجرا کن
     await handleSlideClick(slideData, showToast);
   };
 
-  // اگر اسلاید قابل کلیک نیست، فقط children را برگردان
   if (!isSlideClickable(slideData)) {
     return children;
   }

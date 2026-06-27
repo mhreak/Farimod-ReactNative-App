@@ -1,12 +1,10 @@
-// config/appInfo.js
 const appInfo = {
   name: "farimod",
   slug: "farimod-2",
-  version: "1.1.0",
-  versionNumber: 1.1, 
+  version: "1.45.0",
+  versionNumber: 1.45,
   packageName: "com.yeganeh0.farimod2",
   owner: "yeganeh0",
-
 
   stores: {
     cafeBazar: {
@@ -19,9 +17,8 @@ const appInfo = {
     },
   },
 
-
   api: {
-    baseUrl: "http://89.42.208.49/api/MobileApp/",
+    baseUrl: "http://my.farimod.ir/api/MobileApp/",
     updateCheck: "AppRun/NotifyAppRun",
   },
 };

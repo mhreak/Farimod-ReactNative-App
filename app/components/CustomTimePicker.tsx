@@ -9,12 +9,10 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 const { height: screenHeight } = Dimensions.get('window');
 
-// Individual Time Wheel Component
-const TimeWheel = ({ data, selectedValue, onValueChange, itemHeight = 50 }) => {
+ const TimeWheel = ({ data, selectedValue, onValueChange, itemHeight = 50 }) => {
   const flatListRef = useRef(null);
 
-  // Find initial index
-  const getInitialIndex = () => {
+   const getInitialIndex = () => {
     const index = data.findIndex(item => item === selectedValue);
     return index >= 0 ? index : 0;
   };
@@ -34,7 +32,7 @@ const TimeWheel = ({ data, selectedValue, onValueChange, itemHeight = 50 }) => {
 
   const onMomentumScrollEnd = (event) => {
     const scrollY = event.nativeEvent.contentOffset.y;
-    const centerIndex = Math.round(scrollY / itemHeight) - 1; // +2 for padding offset
+    const centerIndex = Math.round(scrollY / itemHeight) - 1;  
 
     if (centerIndex >= 0 && centerIndex < data.length) {
       onValueChange(data[centerIndex]);
@@ -43,7 +41,7 @@ const TimeWheel = ({ data, selectedValue, onValueChange, itemHeight = 50 }) => {
 
   const onScroll = (event) => {
     const scrollY = event.nativeEvent.contentOffset.y;
-    const centerIndex = Math.round(scrollY / itemHeight) - 1; // +2 for padding offset
+    const centerIndex = Math.round(scrollY / itemHeight) - 1; 
 
     if (centerIndex >= 0 && centerIndex < data.length) {
       onValueChange(data[centerIndex]);
@@ -73,7 +71,6 @@ const TimeWheel = ({ data, selectedValue, onValueChange, itemHeight = 50 }) => {
 
   return (
     <View style={styles.wheelContainer}>
-      {/* Top gradient overlay */}
       <LinearGradient
         colors={['rgba(255,255,255,0.9)', 'rgba(255,255,255,0)']}
         style={styles.gradientTop}
@@ -109,12 +106,10 @@ const TimeWheel = ({ data, selectedValue, onValueChange, itemHeight = 50 }) => {
         }}
       />
 
-      {/* Center Selection Indicator */}
-      <View style={styles.centerSelection} pointerEvents="none">
+       <View style={styles.centerSelection} pointerEvents="none">
         <View style={styles.selectionBox} />
       </View>
-      {/* Bottom gradient overlay */}
-      <LinearGradient
+       <LinearGradient
         colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.9)']}
         style={styles.gradientBottom}
         pointerEvents="none"
@@ -123,31 +118,29 @@ const TimeWheel = ({ data, selectedValue, onValueChange, itemHeight = 50 }) => {
   );
 };
 
-// Main Custom Time Picker Component
-const CustomTimePicker = ({ value, onTimeChange, placeholder, icon, style }) => {
+ const CustomTimePicker = ({ value, onTimeChange, placeholder, icon, style }) => {
   const [showPicker, setShowPicker] = useState(false);
   const slideAnim = useRef(new Animated.Value(screenHeight)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
-  // Generate hour and minute arrays
-  const hours = Array.from({ length: 24 }, (_, i) => i);
+   const hours = Array.from({ length: 24 }, (_, i) => i);
   const minutes = Array.from({ length: 60 }, (_, i) => i);
 
-  // Parse current time or set default
   const parseTime = (timeString) => {
     if (timeString && timeString.includes(':')) {
-      // تبدیل اعداد فارسی به انگلیسی قبل از پارس کردن
-      const englishTime = timeString.replace(/[۰-۹]/g, (match) => {
+       const englishTime = timeString.replace(/[۰-۹]/g, (match) => {
         return String.fromCharCode(
           match.charCodeAt(0) - "۰".charCodeAt(0) + "0".charCodeAt(0)
         );
       });
+
       const [h, m] = englishTime.split(':');
       return {
-        hour: parseInt(h, 10),
-        minute: parseInt(m, 10)
+        hour: parseInt(h, 10) || 0,  
+        minute: parseInt(m, 10) || 0  
       };
     }
+
     const now = new Date();
     return {
       hour: now.getHours(),
@@ -159,7 +152,6 @@ const CustomTimePicker = ({ value, onTimeChange, placeholder, icon, style }) => 
   const [selectedHour, setSelectedHour] = useState(currentTime.hour);
   const [selectedMinute, setSelectedMinute] = useState(currentTime.minute);
 
-  // Animation functions
   const showDrawer = () => {
     setShowPicker(true);
     Animated.parallel([
@@ -194,14 +186,12 @@ const CustomTimePicker = ({ value, onTimeChange, placeholder, icon, style }) => 
   };
 
   const handleConfirm = () => {
-    // ارسال زمان با اعداد فارسی
     const timeString = `${toPersianDigits(selectedHour.toString().padStart(2, '0'))}:${toPersianDigits(selectedMinute.toString().padStart(2, '0'))}`;
     onTimeChange(timeString);
     hideDrawer();
   };
 
   const handleCancel = () => {
-    // Reset to original values
     const originalTime = parseTime(value);
     setSelectedHour(originalTime.hour);
     setSelectedMinute(originalTime.minute);
@@ -209,15 +199,13 @@ const CustomTimePicker = ({ value, onTimeChange, placeholder, icon, style }) => 
   };
 
   const handlePress = () => {
-    // Update current selection when opening
     const currentTime = parseTime(value);
     setSelectedHour(currentTime.hour);
     setSelectedMinute(currentTime.minute);
     showDrawer();
   };
 
-  // Reset animation values when component unmounts
-  useEffect(() => {
+   useEffect(() => {
     return () => {
       slideAnim.setValue(screenHeight);
       opacityAnim.setValue(0);
@@ -238,16 +226,14 @@ const CustomTimePicker = ({ value, onTimeChange, placeholder, icon, style }) => 
         </View>
       </TouchableOpacity>
 
-      {/* Custom Time Picker Bottom Drawer */}
-      <Modal
+       <Modal
         visible={showPicker}
         transparent={true}
         animationType="none"
         onRequestClose={handleCancel}
       >
         <View style={styles.modalContainer}>
-          {/* Backdrop */}
-          <Animated.View
+           <Animated.View
             style={[
               styles.backdrop,
               { opacity: opacityAnim }
@@ -260,7 +246,7 @@ const CustomTimePicker = ({ value, onTimeChange, placeholder, icon, style }) => 
             />
           </Animated.View>
 
-          {/* Bottom Drawer */}
+           
           <Animated.View
             style={[
               styles.drawer,
@@ -273,10 +259,10 @@ const CustomTimePicker = ({ value, onTimeChange, placeholder, icon, style }) => 
               colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,1)']}
               style={styles.drawerContent}
             >
-              {/* Handle */}
+      
               <View style={styles.handle} />
 
-              {/* Header */}
+            
               <View style={styles.drawerHeader}>
                 <View style={styles.headerTitleContainer}>
                   <MaterialIcons name="access-time" size={24} color={colors.primary} />
@@ -287,11 +273,9 @@ const CustomTimePicker = ({ value, onTimeChange, placeholder, icon, style }) => 
                 </AppText>
               </View>
 
-              {/* Custom Time Picker */}
-              <View style={styles.timePickerContainer}>
+               <View style={styles.timePickerContainer}>
                 <View style={styles.timePickerRow}>
-                  {/* Hour Picker */}
-                  <View style={styles.timeColumn}>
+                   <View style={styles.timeColumn}>
                     <AppText style={styles.columnLabel}>ساعت</AppText>
                     <TimeWheel
                       data={hours}
@@ -301,13 +285,11 @@ const CustomTimePicker = ({ value, onTimeChange, placeholder, icon, style }) => 
                     />
                   </View>
 
-                  {/* Separator */}
-                  <View style={styles.timeSeparator}>
+                   <View style={styles.timeSeparator}>
                     <AppText style={styles.separatorText}>:</AppText>
                   </View>
 
-                  {/* Minute Picker */}
-                  <View style={styles.timeColumn}>
+                   <View style={styles.timeColumn}>
                     <AppText style={styles.columnLabel}>دقیقه</AppText>
                     <TimeWheel
                       data={minutes}
@@ -319,8 +301,7 @@ const CustomTimePicker = ({ value, onTimeChange, placeholder, icon, style }) => 
                 </View>
               </View>
 
-              {/* Buttons */}
-              <View style={styles.buttonContainer}>
+               <View style={styles.buttonContainer}>
                 <TouchableOpacity
                   style={styles.resetButton}
                   onPress={handleCancel}
@@ -355,8 +336,7 @@ const CustomTimePicker = ({ value, onTimeChange, placeholder, icon, style }) => 
 };
 
 const styles = StyleSheet.create({
-  // Bottom Drawer styles
-  modalContainer: {
+   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
   },
@@ -417,8 +397,7 @@ const styles = StyleSheet.create({
     color: colors.primary,
     letterSpacing: 2,
   },
-  // Custom Time Picker styles
-  timePickerContainer: {
+   timePickerContainer: {
     marginBottom: 30,
   },
   timePickerRow: {
@@ -512,8 +491,7 @@ const styles = StyleSheet.create({
     height: 50,
     zIndex: 2,
   },
-  // Button styles
-  buttonContainer: {
+   buttonContainer: {
     flexDirection: 'row-reverse',
     paddingHorizontal: 20,
     paddingVertical: 20,

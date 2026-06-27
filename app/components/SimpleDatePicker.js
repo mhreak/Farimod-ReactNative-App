@@ -122,6 +122,32 @@ const SimpleDatePicker = ({ isVisible, onClose, onConfirm, initialDate }) => {
     name: persianMonths[i],
   }));
 
+  const handleYearScroll = (event) => {
+    const yOffset = event.nativeEvent.contentOffset.y;
+    const index = Math.round(yOffset / ITEM_HEIGHT);
+    const year = years[index];
+    if (year && year !== tempSelectedYear) {
+      handleYearChange(year);
+    }
+  };
+
+  const handleMonthScroll = (event) => {
+    const yOffset = event.nativeEvent.contentOffset.y;
+    const index = Math.round(yOffset / ITEM_HEIGHT);
+    const month = index + 1;
+    if (month && month !== tempSelectedMonth) {
+      handleMonthChange(month);
+    }
+  };
+
+  const handleDayScroll = (event) => {
+    const yOffset = event.nativeEvent.contentOffset.y;
+    const index = Math.round(yOffset / ITEM_HEIGHT);
+    const day = index + 1;
+    if (day && day !== tempSelectedDay && day <= days.length) {
+      setTempSelectedDay(day);
+    }
+  };
   // تعداد روزهای هر ماه در تقویم شمسی
   const getDaysInMonth = (month, year) => {
     if (month <= 6) return 31;
@@ -313,6 +339,9 @@ const SimpleDatePicker = ({ isVisible, onClose, onConfirm, initialDate }) => {
                     style={styles.pickerScroll}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContainer}
+                    onMomentumScrollEnd={handleDayScroll}
+                    snapToInterval={ITEM_HEIGHT}
+                    decelerationRate="fast"
                   >
                     {days.map((day) => (
                       <TouchableOpacity
@@ -345,6 +374,9 @@ const SimpleDatePicker = ({ isVisible, onClose, onConfirm, initialDate }) => {
                     style={styles.pickerScroll}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContainer}
+                    onMomentumScrollEnd={handleMonthScroll}
+                    snapToInterval={ITEM_HEIGHT}
+                    decelerationRate="fast"
                   >
                     {months.map((month) => (
                       <TouchableOpacity
@@ -379,6 +411,9 @@ const SimpleDatePicker = ({ isVisible, onClose, onConfirm, initialDate }) => {
                     style={styles.pickerScroll}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.scrollContainer}
+                    onMomentumScrollEnd={handleYearScroll}
+                    snapToInterval={ITEM_HEIGHT}
+                    decelerationRate="fast"
                   >
                     {years.map((year) => (
                       <TouchableOpacity
@@ -423,8 +458,7 @@ const SimpleDatePicker = ({ isVisible, onClose, onConfirm, initialDate }) => {
                 activeOpacity={0.8}
               >
                 <LinearGradient
-          
-                  colors={["#667eea","#764ba2"]}
+                  colors={["#667eea", "#764ba2"]}
                   style={styles.applyButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}

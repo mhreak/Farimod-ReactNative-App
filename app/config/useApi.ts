@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { Alert } from "react-native";
 import appConfig from "./config";
@@ -11,15 +12,13 @@ import {
   MemberGroup,
   MemberGroupResponse,
   UseApiState,
-  MemberProfile, 
-
+  MemberProfile,
 } from "./type";
-
 
 // Generic API hook
 export const useApi = <T>(
   endpoint: string,
-  initialData: T[] = []
+  initialData: T[] = [],
 ): UseApiState<T> => {
   const [data, setData] = useState<T[]>(initialData);
   const [loading, setLoading] = useState(true);
@@ -62,9 +61,10 @@ export const useApi = <T>(
   return { data, loading, error, refetch };
 };
 
-// NEW: Hook for single member profile with detailed information
+// ✅ FIXED: Hook for single member profile with current member context
 export const useMemberProfile = (
-  memberId: number | null
+  memberId: number | null,
+  currentMemberId: number | null, // ✅ اضافه کردن پارامتر دوم
 ): {
   data: MemberProfile | null;
   loading: boolean;
@@ -77,6 +77,7 @@ export const useMemberProfile = (
 
   const fetchMemberProfile = useCallback(async () => {
     if (!memberId) {
+      console.log("⚠️ No memberId provided");
       setLoading(false);
       return;
     }
@@ -85,37 +86,52 @@ export const useMemberProfile = (
       setLoading(true);
       setError(null);
 
-      const response = await fetch(
-        `${appConfig.mobileApi}Member/Get?memberId=${memberId}`
-      );
+      // ✅ اضافه کردن currentMemberId به URL
+      const url = currentMemberId
+        ? `${appConfig.mobileApi}Member/Get?currentMemberId=${currentMemberId}&memberId=${memberId}`
+        : `${appConfig.mobileApi}Member/Get?memberId=${memberId}`;
+
+      console.log("📡 Fetching member profile from:", url);
+
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
+      console.log("📥 Member profile API response:", {
+        LikeCount: result.Data?.LikeCount,
+        IsCurrentMemberLikedThisMember:
+          result.Data?.IsCurrentMemberLikedThisMember,
+      });
 
       if (result && result.Data) {
         setData(result.Data);
+        console.log("✅ Member profile data set successfully");
       } else {
         throw new Error("Invalid data format received from API");
       }
     } catch (err) {
-      console.error(`Error fetching member profile for ID ${memberId}:`, err);
+      console.error(
+        `❌ Error fetching member profile for ID ${memberId}:`,
+        err,
+      );
       setError(
-        err instanceof Error ? err.message : "خطا در دریافت اطلاعات پروفایل"
+        err instanceof Error ? err.message : "خطا در دریافت اطلاعات پروفایل",
       );
     } finally {
       setLoading(false);
     }
-  }, [memberId]);
+  }, [memberId, currentMemberId]); // ✅ اضافه کردن currentMemberId به dependencies
 
   useEffect(() => {
     fetchMemberProfile();
   }, [fetchMemberProfile]);
 
   const refetch = useCallback(() => {
-    fetchMemberProfile();
+    console.log("🔄 Refetching member profile...");
+    return fetchMemberProfile();
   }, [fetchMemberProfile]);
 
   return { data, loading, error, refetch };

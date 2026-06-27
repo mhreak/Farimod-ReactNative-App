@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Dimensions,
   StatusBar,
+  Linking,
+  Alert,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
@@ -99,6 +101,22 @@ const EventsScreen = () => {
       );
     } catch (error) {
       console.error('Error completing intro:', error);
+    }
+  };
+
+  const handleOpenTutorial = async () => {
+    const tutorialUrl = 'https://farimod.ir/app-use'; // لینک آموزش - می‌تونی تغییرش بدی
+
+    try {
+      const supported = await Linking.canOpenURL(tutorialUrl);
+      if (supported) {
+        await Linking.openURL(tutorialUrl);
+      } else {
+        Alert.alert('خطا', 'امکان باز کردن لینک وجود ندارد');
+      }
+    } catch (error) {
+      console.error('Error opening tutorial:', error);
+      Alert.alert('خطا', 'مشکلی در باز کردن لینک پیش آمد');
     }
   };
 
@@ -237,6 +255,7 @@ const EventsScreen = () => {
               </LinearGradient>
             </Animated.View>
 
+
             <Animated.View
               style={[
                 styles.buttonsContainer,
@@ -248,7 +267,8 @@ const EventsScreen = () => {
             >
               <TouchableOpacity
                 style={styles.primaryButton}
-                onPress={handleRegister}                activeOpacity={0.8}
+                onPress={handleRegister}
+                activeOpacity={0.8}
               >
                 <LinearGradient
                   colors={['#E91E63', '#AD1457']}
@@ -277,13 +297,43 @@ const EventsScreen = () => {
                   <MaterialCommunityIcons
                     name="login"
                     size={20}
-                    color="white"
+                    color={colors.primary}
                     style={{ marginRight: 8 }}
                   />
                   <Text style={styles.secondaryButtonText}>ورود به حساب کاربری</Text>
                 </LinearGradient>
               </TouchableOpacity>
+              <Animated.View
+                style={[
+                  styles.tutorialSection,
+                  {
+                    opacity: fadeAnim,
+                    transform: [{ translateY: slideAnim }],
+                  },
+                ]}
+              >
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={handleOpenTutorial}
+                  style={styles.tutorialButton}
+                >
+                  <MaterialCommunityIcons
+                    name="play-circle-outline"
+                    size={18}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.tutorialButtonText}>
+                    آموزش استفاده از فریمد
+                  </Text>
+                  <MaterialCommunityIcons
+                    name="chevron-left"
+                    size={16}
+                    color={colors.primary}
+                  />
+                </TouchableOpacity>
+              </Animated.View>
             </Animated.View>
+
           </View>
         </ScrollView>
       </LinearGradient>
@@ -461,6 +511,27 @@ const styles = StyleSheet.create({
     bottom: 180,
     right: 50,
   },
+  tutorialSection: {
+    marginTop: 20,
+    marginBottom: 25,
+    alignItems: 'center',
+  },
+  tutorialButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  tutorialButtonText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: colors.primary,
+  },
   buttonsContainer: {
     alignItems: "center",
     marginBottom: 25,
@@ -506,7 +577,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 15,
     fontFamily: "Yekan_Bakh_Regular",
-    color: "white",
+    color: colors.primary,
     textAlign: "center",
   },
 });

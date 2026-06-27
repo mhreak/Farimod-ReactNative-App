@@ -1,5 +1,4 @@
 class PermissionService {
-  // دریافت وضعیت دسترسی‌ها از userData
   static getPermissions(userData) {
     if (!userData || !userData.ActiveSubscriptionPlan) {
       return {

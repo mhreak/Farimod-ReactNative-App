@@ -478,21 +478,36 @@ const AllGalleriesScreen = () => {
     }));
   };
 
-  const renderItem = (item) => {
-    if (item.id && item.id.startsWith('skeleton')) {
-      return <GalleryCardSkeleton />;
-    }
+  // اضافه کردن GalleryItem component قبل از AllGalleriesScreen:
+  const GalleryItem = ({ item, onPress }) => {
+    const [imageError, setImageError] = useState(false);
+
+    useEffect(() => {
+      setImageError(false);
+    }, [item.FeaturedImageURL]);
+
+    const handleImageError = () => {
+      setImageError(true);
+    };
 
     return (
       <TouchableOpacity
         style={styles.gridItem}
-        onPress={() => handleGalleryPress(item)}
+        onPress={() => onPress(item)}
       >
         <View style={styles.imageContainer}>
-          <Image
-            style={styles.image}
-            source={require("../../assets/sample_clothe2.jpg")}
-          />
+          {item.FeaturedImageURL && !imageError ? (
+            <Image
+              style={styles.image}
+              source={{ uri: item.FeaturedImageURL }}
+              onError={handleImageError}
+            />
+          ) : (
+            <Image
+              style={styles.image}
+              source={require("../../assets/sample_clothe2.jpg")}
+            />
+          )}
 
           {/* Top overlay icons */}
           <View style={styles.topOverlay}>
@@ -531,6 +546,26 @@ const AllGalleriesScreen = () => {
       </TouchableOpacity>
     );
   };
+
+  // تغییر renderItem به:
+  const renderItem = ({ item }) => {
+    // چک برای undefined
+    if (!item) {
+      return null;
+    }
+
+    if (item.id && item.id.startsWith('skeleton')) {
+      return <GalleryCardSkeleton />;
+    }
+
+    if (item?.isEmpty) {
+      return <View style={[styles.gridItem, { backgroundColor: 'transparent' }]} />;
+    }
+
+    return <GalleryItem item={item} onPress={handleGalleryPress} />;
+  };
+
+
 
   const renderEmptyComponent = () => {
     if (galleriesLoading) return null;
@@ -578,7 +613,7 @@ const AllGalleriesScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons
@@ -602,7 +637,7 @@ const AllGalleriesScreen = () => {
            
 
             <View style={styles.titleWrapper}>
-              <AppText style={styles.headerTitle}>همه گالری‌ها</AppText>
+              <AppText style={styles.headerTitle}>گالری‌ها</AppText>
               <View style={styles.sparkleContainer}>
                 <Animated.View style={[{ transform: [{ rotate: spin }] }]}>
                   <MaterialIcons
@@ -640,29 +675,27 @@ const AllGalleriesScreen = () => {
             renderErrorComponent()
           ) : (
             <>
-              <FlatList
-                data={galleriesLoading ? createSkeletonData() : (galleries.length % 2 === 1 ? [...galleries, { isEmpty: true }] : galleries)}
-                numColumns={2}
-                renderItem={({ item }) => {
-                  if (item?.isEmpty) {
-                    return <View style={[styles.gridItem, { backgroundColor: 'transparent' }]} />;
+                <FlatList
+                  data={galleriesLoading ? createSkeletonData() : (galleries.length % 2 === 1 ? [...galleries, { isEmpty: true, id: 'empty-placeholder' }] : galleries)}
+                  numColumns={2}
+                  renderItem={renderItem}
+                  keyExtractor={(item, index) => {
+                    if (!item) return `item-${index}`;
+                    return item.ImageGalleryId?.toString() || item.id || `item-${index}`;
+                  }}
+                  contentContainerStyle={styles.list}
+                  showsVerticalScrollIndicator={false}
+                  refreshControl={
+                    <RefreshControl
+                      refreshing={refreshing}
+                      onRefresh={onRefresh}
+                      colors={[modernColors.primary]}
+                      tintColor={modernColors.primary}
+                    />
                   }
-                  return renderItem(item);
-                }}
-                keyExtractor={(item) => item.ImageGalleryId?.toString() || item.id || 'empty'}
-                contentContainerStyle={styles.list}
-                showsVerticalScrollIndicator={false}
-                refreshControl={
-                  <RefreshControl
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
-                    colors={[modernColors.primary]}
-                    tintColor={modernColors.primary}
-                  />
-                }
-                ListEmptyComponent={renderEmptyComponent}
-                style={styles.flatListContainer}
-              />
+                  ListEmptyComponent={renderEmptyComponent}
+                  style={styles.flatListContainer}
+                />
 
               {!galleriesLoading && !galleriesError && totalPages > 1 && (
                 <PaginationComponent

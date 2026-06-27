@@ -9,14 +9,18 @@ import AppText from "./Text";
 import SimpleDatePicker from "./SimpleDatePicker";
 import colors from "../config/colors";
 
-// تابع تبدیل میلادی به شمسی (باید دقیقاً مثل SimpleDatePicker باشد)
+
 const gregorianToPersian = (gregorianDate) => {
   if (!gregorianDate) return null;
 
   const gDate = new Date(gregorianDate);
-  let gy = gDate.getFullYear();
-  let gm = gDate.getMonth() + 1;
-  let gd = gDate.getDate();
+
+  let gy = gDate.getUTCFullYear();
+  let gm = gDate.getUTCMonth() + 1;
+  let gd = gDate.getUTCDate();
+
+  console.log('🔄 gregorianToPersian - ورودی:', gregorianDate);
+  console.log('🔄 gregorianToPersian - UTC Components:', { gy, gm, gd });
 
   const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
 
@@ -53,11 +57,13 @@ const gregorianToPersian = (gregorianDate) => {
     jd = 1 + ((days - 186) % 30);
   }
 
+  console.log('🔄 gregorianToPersian - نتیجه شمسی:', [jy, jm, jd]);
   return [jy, jm, jd];
 };
 
-// تابع تبدیل شمسی به میلادی (الگوریتم دقیق)
 const persianToGregorian = (jy, jm, jd) => {
+  console.log('🔄 ورودی persianToGregorian:', { jy, jm, jd });
+
   let gy, gm, gd;
 
   let jy2 = (jy > 979) ? 1600 : 621;
@@ -106,10 +112,17 @@ const persianToGregorian = (jy, jm, jd) => {
 
   gd = days;
 
-  return new Date(gy, gm - 1, gd);
+  console.log('🔄 خروجی میلادی:', { gy, gm, gd });
+
+  const gregorianDate = new Date(Date.UTC(gy, gm - 1, gd, 12, 0, 0, 0));
+
+  gregorianDate._fromPersianPicker = true;
+
+  console.log('🔄 Date Object ساخته شده:', gregorianDate.toISOString());
+
+  return gregorianDate;
 };
 
-// تبدیل اعداد انگلیسی به فارسی
 const toFarsiDigits = (str) => {
   if (!str) return "";
   return str.toString().replace(/[0-9]/g, function (w) {
@@ -118,34 +131,17 @@ const toFarsiDigits = (str) => {
   });
 };
 
-const persianMonths = [
-  "فروردین",
-  "اردیبهشت",
-  "خرداد",
-  "تیر",
-  "مرداد",
-  "شهریور",
-  "مهر",
-  "آبان",
-  "آذر",
-  "دی",
-  "بهمن",
-  "اسفند",
-];
-
-// فرمت کردن تاریخ شمسی برای نمایش
 const formatPersianDate = (persianDate) => {
   if (!persianDate || persianDate.length !== 3) return "";
 
   const [year, month, day] = persianDate;
 
-  // اضافه کردن صفر به اول اعداد تک رقمی
   const formattedDay = day < 10 ? `0${day}` : `${day}`;
   const formattedMonth = month < 10 ? `0${month}` : `${month}`;
 
-  // تبدیل به اعداد فارسی
   return `${toFarsiDigits(year)}/${toFarsiDigits(formattedMonth)}/${toFarsiDigits(formattedDay)}`;
 };
+
 interface AppDatePickerProps {
   icon: React.ComponentProps<typeof MaterialIcons>["name"];
   placeholder: string;
@@ -170,15 +166,25 @@ const AppDatePicker: React.FC<AppDatePickerProps> = ({
   error,
 }) => {
   const [isPickerVisible, setPickerVisible] = useState(false);
+  const [selectedPersianDate, setSelectedPersianDate] = useState(null);
 
-  // تبدیل تاریخ میلادی به شمسی برای نمایش
-  const persianDate = value ? gregorianToPersian(value) : null;
+  const persianDate = value
+    ? (value._fromPersianPicker && selectedPersianDate
+      ? selectedPersianDate
+      : gregorianToPersian(value))
+    : null;
+
   const displayText = persianDate ? formatPersianDate(persianDate) : "";
 
-  const handleConfirm = (selectedPersianDate) => {
-    // تبدیل تاریخ شمسی انتخاب شده به میلادی
-    const [year, month, day] = selectedPersianDate;
+  const handleConfirm = (newPersianDate) => {
+    console.log('📅 تاریخ شمسی انتخاب شده:', newPersianDate);
+
+    setSelectedPersianDate(newPersianDate);
+
+    const [year, month, day] = newPersianDate;
     const gregorianDate = persianToGregorian(year, month, day);
+
+    console.log('📅 تاریخ میلادی تبدیل شده:', gregorianDate);
     onDateChange(gregorianDate);
     setPickerVisible(false);
   };

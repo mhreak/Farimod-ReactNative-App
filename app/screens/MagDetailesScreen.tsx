@@ -13,6 +13,7 @@ import {
   Image
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import RenderHTML from "react-native-render-html/src/RenderHTML";
 import colors from "../config/colors";
 import MainBackground from "../components/MainBackground";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -48,6 +49,56 @@ const modernColors = {
   schoolIcon: "#2ecc71",
   fashionGold: "#ffd700",
 };
+
+const htmlTagsStyles = {
+  p: {
+    marginBottom: 10,
+    textAlign: "right" as const,
+    direction: "rtl" as const,
+    writingDirection: "rtl" as const,
+  },
+  div: {
+    marginBottom: 10,
+    textAlign: "right" as const,
+    direction: "rtl" as const,
+    writingDirection: "rtl" as const,
+  },
+  ul: {
+    marginBottom: 10,
+    paddingRight: 20,
+    textAlign: "right" as const,
+    direction: "rtl" as const,
+    writingDirection: "rtl" as const,
+  },
+  ol: {
+    marginBottom: 10,
+    paddingRight: 20,
+    textAlign: "right" as const,
+    direction: "rtl" as const,
+    writingDirection: "rtl" as const,
+  },
+  li: {
+    marginBottom: 6,
+    textAlign: "right" as const,
+    direction: "rtl" as const,
+    writingDirection: "rtl" as const,
+  },
+  strong: {
+    fontFamily: "Yekan_Bakh_Bold",
+  },
+  em: {
+    fontStyle: "italic",
+  },
+  a: {
+    color: "#1976d2",
+    textDecorationLine: "underline",
+  },
+  img: {
+    resizeMode: "contain",
+    marginVertical: 12,
+    borderRadius: 12,
+  },
+} as const;
 
 const transformContentReviewToRatingOptions = (contentReviewList) => {
   if (!contentReviewList || contentReviewList.length === 0) {
@@ -444,7 +495,7 @@ const MagDetailesScreen = ({ route }) => {
   };
 
   const handleLike = async () => {
-    if (isLiking || !blogPost) return;
+    if (isLiking || !blogPost || !user?.MemberId) return;
 
     setIsLiking(true);
 
@@ -514,7 +565,7 @@ const MagDetailesScreen = ({ route }) => {
 
     try {
       const response = await fetch(
-        `${appConfig.mobileApi}BlogPost/Like?id=${blogPost.BlogPostId}`,
+        `${appConfig.mobileApi}BlogPost/Like?id=${blogPost.BlogPostId}&memberId=${user.MemberId}`,
         {
           method: 'POST',
           headers: {
@@ -555,7 +606,7 @@ const MagDetailesScreen = ({ route }) => {
       if (response.ok) {
         showToast('پست با موفقیت حذف شد', 'success');
         setTimeout(() => {
-          navigation.goBack();
+          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
         }, 2000);
       } else {
         const errorData = await response.json();
@@ -570,26 +621,35 @@ const MagDetailesScreen = ({ route }) => {
   };
 
   const renderContentItems = () => {
-    if (!blogPost.ContentReviewItemList || blogPost.ContentReviewItemList.length === 0) {
+    const rawContent = blogPost?.Content || '';
+    const trimmedContent = rawContent.trim();
+
+    if (!trimmedContent) {
+      return null;
+    }
+
+    const hasHtmlMarkup = /<[^>]+>/i.test(trimmedContent);
+
+    if (hasHtmlMarkup) {
       return (
-        <AppText style={styles.bodyText}>
-          {toPersianDigits(blogPost.Content)}
-        </AppText>
+        <View style={styles.htmlContentContainer}>
+          <RenderHTML
+            source={{ html: trimmedContent }}
+            contentWidth={width - 50}
+            baseStyle={styles.htmlBase}
+            tagsStyles={htmlTagsStyles}
+            defaultTextProps={{
+              selectable: true,
+            }}
+          />
+        </View>
       );
     }
 
-    const sortedItems = blogPost.ContentReviewItemList
-      .filter(item => item.Active)
-      .sort((a, b) => a.ShowOrder - b.ShowOrder);
-
     return (
-      <View>
-        {blogPost.Content && blogPost.Content.trim() !== '' && (
-          <AppText style={styles.bodyText}>
-            {toPersianDigits(blogPost.Content)}
-          </AppText>
-        )}
-      </View>
+      <AppText style={styles.bodyText}>
+        {toPersianDigits(trimmedContent)}
+      </AppText>
     );
   };
 
@@ -699,7 +759,7 @@ const MagDetailesScreen = ({ route }) => {
           <AppText style={styles.titleText}>
             {toPersianDigits(blogPost.Title)}
           </AppText>
-   
+
           {renderContentItems()}
           {blogPost.MemberName && (
             <View style={styles.authorContainer}>
@@ -906,7 +966,7 @@ const MagDetailesScreen = ({ route }) => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons
@@ -939,7 +999,7 @@ const MagDetailesScreen = ({ route }) => {
           ]}
         >
           <View style={styles.titleWrapper}>
-            <AppText style={styles.headerTitle}>مقاله</AppText>
+            <AppText style={styles.headerTitle}></AppText>
           </View>
         </Animated.View>
 
@@ -1278,6 +1338,8 @@ const MagDetailesScreen = ({ route }) => {
   );
 };
 
+// ... بقیه کدهای بالا بدون تغییر باقی می‌مانند
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1460,16 +1522,33 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: "right",
     lineHeight: 32,
+    direction: "ltr",
+    writingDirection: "rtl", // جهت قرارگیری کلمات انگلیسی در تایتل اصلاح شد
   },
   bodyText: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
     color: "#34495e",
-    textAlign: "justify",
+    textAlign: "right",
+    alignSelf: 'stretch',
     lineHeight: 28,
     marginBottom: 30,
     textAlignVertical: "top",
+    direction: "ltr",
+    writingDirection: "ltr",
+  },
+  htmlContentContainer: {
+    marginBottom: 24,
+    alignSelf: 'stretch',
+  },
+  htmlBase: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "#34495e",
+    lineHeight: 28,
+    textAlign: "right",
     direction: "rtl",
+    writingDirection: "rtl",
   },
   categoriesContainer: {
     marginBottom: 25,
@@ -1513,7 +1592,6 @@ const styles = StyleSheet.create({
   ratingComponent: {
     alignItems: 'flex-end',
   },
-  // امتیازات تفصیلی کاربر
   userDetailedRatingsContainer: {
     marginTop: 20,
     backgroundColor: '#e8f5e8',
@@ -1563,7 +1641,6 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: modernColors.success,
   },
-  // میانگین امتیازات سایر کاربران
   detailedRatingsContainer: {
     marginTop: 20,
     backgroundColor: '#f8f9fa',
@@ -1644,7 +1721,6 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Regular",
     marginRight: 8,
   },
-  // Skeleton Loader Styles
   skeletonContainer: {
     flex: 1,
   },
@@ -1676,7 +1752,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#f0f0f0',
   },
-  // Error Container Styles
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1719,7 +1794,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     marginRight: 8,
   },
-  // Empty Container Styles
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1742,7 +1816,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
-  // Floating Decorations
   floatingDecoration1: {
     position: 'absolute',
     top: 200,
@@ -1792,7 +1865,6 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     pointerEvents: 'none',
   },
-  // Modal Styles
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -1893,7 +1965,6 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: '#6c757d',
   },
-  // Delete Modal Styles
   deleteModalContent: {
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 25,
@@ -1995,7 +2066,6 @@ const styles = StyleSheet.create({
     marginBottom: 25,
     borderRadius: 16,
     overflow: 'hidden',
- 
   },
   authorGradient: {
     padding: 16,
@@ -2017,7 +2087,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
     color: 'black',
- 
   },
   authorCardBorder: {
     flexDirection: 'row-reverse',
@@ -2026,9 +2095,7 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderRightWidth: 4,
-    
     borderRightColor: '#866bff',
-  
   },
 });
 

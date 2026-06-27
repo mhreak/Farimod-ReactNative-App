@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import {
   View,
   TextInput,
@@ -6,24 +6,16 @@ import {
   TextInputProps,
   Text,
   Platform,
-  I18nManager,
-  Keyboard,
-  KeyboardEvent,
-  EmitterSubscription,
-  TouchableOpacity,
+  Pressable,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-
 import colors from "../config/colors";
 
-// تابع انتخاب فونت مناسب
 const getFontFamily = (baseFont: string, weight: string): string => {
   if (Platform.OS === "android") {
     switch (weight) {
       case "700":
       case "bold":
-        return "Yekan_Bakh_Bold";
       case "500":
       case "600":
       case "semi-bold":
@@ -35,36 +27,17 @@ const getFontFamily = (baseFont: string, weight: string): string => {
   return baseFont;
 };
 
-/**
- * تبدیل اعداد انگلیسی به فارسی
- * این تابع تمام اعداد انگلیسی در رشته ورودی را به معادل فارسی آن‌ها تبدیل می‌کند
- * اعداد فارسی موجود در رشته بدون تغییر باقی می‌مانند
- */
+const PERSIAN = "۰۱۲۳۴۵۶۷۸۹";
+const ENGLISH = "0123456789";
+
 const toPersianDigits = (input: string | number | null | undefined): string => {
   if (input === null || input === undefined) return "";
-
-  const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
-  const englishDigits = "0123456789";
-
-  return input.toString().replace(/[0-9]/g, (match) => {
-    return persianDigits[englishDigits.indexOf(match)];
-  });
+  return input.toString().replace(/[0-9]/g, (m) => PERSIAN[+m]);
 };
 
-/**
- * تبدیل اعداد فارسی به انگلیسی
- * این تابع تمام اعداد فارسی در رشته ورودی را به معادل انگلیسی آن‌ها تبدیل می‌کند
- * اعداد انگلیسی موجود در رشته بدون تغییر باقی می‌مانند
- */
 const toEnglishDigits = (input: string | null | undefined): string => {
   if (input === null || input === undefined) return "";
-
-  const persianDigits = "۰۱۲۳۴۵۶۷۸۹";
-  const englishDigits = "0123456789";
-
-  return input.toString().replace(/[۰-۹]/g, (match) => {
-    return englishDigits[persianDigits.indexOf(match)];
-  });
+  return input.toString().replace(/[۰-۹]/g, (m) => ENGLISH[PERSIAN.indexOf(m)]);
 };
 
 interface AppTextInputProps extends TextInputProps {
@@ -80,8 +53,8 @@ interface AppTextInputProps extends TextInputProps {
   inputContainerStyle?: any;
   labelStyle?: any;
   isLargeInput?: boolean;
-  error?: string; // Add error prop
-  [key: string]: any; // Allow other props (e.g., multiline, numberOfLines)
+  error?: string;
+  [key: string]: any;
 }
 
 const AppTextInput: React.FC<AppTextInputProps> = ({
@@ -91,7 +64,7 @@ const AppTextInput: React.FC<AppTextInputProps> = ({
   label,
   inputId = "",
   onChangeInput,
-  value,
+  value = "",
   placeholder = "",
   style,
   containerStyle,
@@ -102,138 +75,85 @@ const AppTextInput: React.FC<AppTextInputProps> = ({
   error,
   ...otherProps
 }) => {
-  const [inputRef, setInputRef] = useState<TextInput | null>(null);
-  // حالت داخلی برای نگهداری نسخه فارسی متن نمایشی
-  const [displayText, setDisplayText] = useState<string>(
-    value ? toPersianDigits(value) : ""
-  );
+  const inputRef = useRef<TextInput>(null);
 
-  // استفاده از حالت داخلی برای نمایش متن فارسی
-  // و به‌روزرسانی آن هنگامی که value از بیرون تغییر می‌کند
+  const lastValueRef = useRef<string>("");
+
   useEffect(() => {
-    if (value !== undefined) {
-      setDisplayText(toPersianDigits(value));
+    const persianValue = toPersianDigits(value);
+    if (value !== undefined && toEnglishDigits(lastValueRef.current) !== toEnglishDigits(value)) {
+      lastValueRef.current = persianValue;
+      inputRef.current?.setNativeProps({ text: persianValue });
     }
   }, [value]);
 
-  // تبدیل پلیس‌هولدر به فارسی
+  const handleTextChange = useCallback(
+    (text: string) => {
+      const englishText = toEnglishDigits(text);
+      const persianText = toPersianDigits(text);
+
+      lastValueRef.current = persianText;
+
+      if (onChangeInput && inputId) {
+        onChangeInput(inputId, englishText);
+      }
+      if (onChangeText) {
+        onChangeText(englishText);
+      }
+    },
+    [onChangeInput, inputId, onChangeText]
+  );
+
+  const focusInput = () => {
+    inputRef.current?.focus();
+  };
+
   const displayPlaceholder = placeholder ? toPersianDigits(placeholder) : "";
 
-  // تابع برای مدیریت تغییر متن
-  const handleTextChange = (text: string) => {
-    // ورودی کاربر می‌تواند شامل ترکیبی از اعداد فارسی و انگلیسی باشد
-
-    // ابتدا متن را به صورت انگلیسی برای ذخیره‌سازی آماده می‌کنیم
-    const englishText = toEnglishDigits(text);
-
-    // سپس متن انگلیسی را به فارسی تبدیل می‌کنیم برای نمایش در TextInput
-    const persianText = toPersianDigits(englishText);
-
-    // به‌روزرسانی حالت داخلی برای نمایش متن فارسی
-    setDisplayText(persianText);
-
-    // انتقال مقدار اصلی (انگلیسی) به callback
-    if (onChangeInput && inputId) {
-      onChangeInput(inputId, englishText);
-    }
-
-    if (onChangeText) {
-      onChangeText(englishText);
-    }
-  };
-
-  // تابع برای فعال کردن اینپوت با کلیک
-  const handleContainerPress = () => {
-    if (inputRef) {
-      inputRef.focus();
-    }
-  };
-
   return (
-    <View
-      style={[
-        styles.inputContainer,
-        width ? { width } : undefined,
-        containerStyle,
-      ]}
-    >
+    <View style={[styles.inputContainer, width ? { width } : undefined, containerStyle]}>
       {label && <Text style={[styles.inputLabel, labelStyle]}>{label}</Text>}
-      {isLargeInput ? (
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={handleContainerPress}
+
+      <Pressable
+        onPress={focusInput}
+        style={[
+          styles.textInputContainer,
+          inputContainerStyle,
+          isLargeInput ? { height, alignItems: "flex-start" } : undefined,
+        ]}
+      >
+        {icon && (
+          <MaterialIcons
+            name={icon as any}
+            size={20}
+            color={colors.medium}
+            style={[styles.icon, isLargeInput ? { marginTop: 12 } : undefined]}
+          />
+        )}
+        <TextInput
+          ref={inputRef}
+          defaultValue={toPersianDigits(value)}
+          onChangeText={handleTextChange}
+          placeholder={displayPlaceholder}
+          placeholderTextColor={colors.darkGray}
+          textAlign="right"
+          writingDirection="rtl"
+          autoCapitalize="none"
+          spellCheck={false}
+          autoCorrect={false}
+          allowFontScaling={false}
           style={[
-            styles.textInputContainer,
-            inputContainerStyle,
-            { height, alignItems: "flex-start" },
+            styles.textInput,
+            style,
+            isLargeInput ? { textAlignVertical: "top" } : undefined,
+            height && !isLargeInput ? { height } : undefined,
           ]}
-        >
-          {icon && (
-            <MaterialIcons
-              name={icon as any}
-              size={20}
-              color={colors.medium}
-              style={[styles.icon, { marginTop: 12 }]}
-            />
-          )}
-          <TextInput
-            ref={(ref) => setInputRef(ref)}
-            style={[styles.textInput, { textAlignVertical: "top" }, style]}
-            placeholder={displayPlaceholder}
-            placeholderTextColor={colors.darkGray}
-            value={displayText}
-            onChangeText={handleTextChange}
-            multiline={true}
-            // تنظیمات مختص راست به چپ
-            textAlign="right"
-            writingDirection="rtl"
-            // تنظیمات سیستمی
-            autoCapitalize="none"
-            keyboardType="default"
-            spellCheck={false}
-            autoCorrect={false}
-            // ویژگی‌های اضافی برای بهبود نمایش فارسی
-            allowFontScaling={false}
-            {...otherProps}
-          />
-        </TouchableOpacity>
-      ) : (
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={handleContainerPress}
-          style={[styles.textInputContainer, inputContainerStyle]}
-        >
-          {icon && (
-            <MaterialIcons
-              name={icon as any}
-              size={20}
-              color={colors.medium}
-              style={styles.icon}
-            />
-          )}
-          <TextInput
-            ref={(ref) => setInputRef(ref)}
-            style={[styles.textInput, style, height ? { height } : undefined]}
-            placeholder={displayPlaceholder}
-            placeholderTextColor={colors.darkGray}
-            value={displayText}
-            onChangeText={handleTextChange}
-            // تنظیمات مختص راست به چپ
-            textAlign="right"
-            writingDirection="rtl"
-            // تنظیمات سیستمی
-            autoCapitalize="none"
-            keyboardType="default"
-            spellCheck={false}
-            autoCorrect={false}
-            // ویژگی‌های اضافی برای بهبود نمایش فارسی
-            allowFontScaling={false}
-            {...otherProps}
-          />
-        </TouchableOpacity>
-      )}
+          multiline={isLargeInput}
+          {...otherProps}
+        />
+      </Pressable>
+
       {error && <Text style={styles.errorText}>{error}</Text>}
-      {/* Render error */}
     </View>
   );
 };
@@ -270,7 +190,7 @@ const styles = StyleSheet.create({
     writingDirection: "rtl",
   },
   errorText: {
-    /* Added error text style */ color: colors.danger,
+    color: colors.danger,
     fontSize: 12,
     marginTop: 5,
     textAlign: "right",

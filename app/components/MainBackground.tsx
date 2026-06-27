@@ -2,9 +2,9 @@ import React from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { StyleSheet, ImageBackground, View } from "react-native";
 
-const MainBackground = () => {
+const MainBackground = React.memo(() => {
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents="none">
       <ImageBackground
         source={require('../../assets/backgrounds/background-1.jpg')}
         style={styles.background}
@@ -16,7 +16,7 @@ const MainBackground = () => {
       />
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

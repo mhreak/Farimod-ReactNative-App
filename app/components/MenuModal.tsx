@@ -1,120 +1,151 @@
 import React, { useRef, useEffect, useState } from 'react';
 import {
-  Modal,
   View,
   TouchableOpacity,
   Animated,
   StyleSheet,
   Dimensions,
-  StatusBar,
   ScrollView,
   Pressable,
+  Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, MaterialCommunityIcons, Fontisto } from '@expo/vector-icons';
 import AppText from './Text';
-import colors from '../config/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const { height } = Dimensions.get('window');
+const { height, width } = Dimensions.get('window');
 
-const MenuModal = ({ visible, onClose, onNavigate }) => {
-  const modalSlideAnim = useRef(new Animated.Value(0)).current;
+const MenuModal = ({ visible, onClose, onNavigate, showToast }) => {
+  const logoutSlideAnim = useRef(new Animated.Value(300)).current;
+  const logoutOpacityAnim = useRef(new Animated.Value(0)).current;
+  const modalSlideAnim = useRef(new Animated.Value(height)).current;
   const modalBackdropAnim = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
 
-  // State برای مدال خروج
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [logoutSlideAnim] = useState(new Animated.Value(300));
-  const [logoutOpacityAnim] = useState(new Animated.Value(0));
+  const [showSupportTooltip, setShowSupportTooltip] = useState(false);
+  const [isRendered, setIsRendered] = useState(false);
 
   const menuItems = [
     {
       id: 'courses',
       title: ' دوره‌ها',
       icon: 'school',
-      colors: ['#002fff', '#c993ff'], // آبی به بنفش
+      colors: ['#002fff', '#c993ff'],
       screen: 'AllCourses'
     },
     {
       id: 'members',
       title: ' اعضا',
       icon: 'people',
-      colors: ['#5eff00', '#9fb9ff'], // صورتی به قرمز
+      colors: ['#5eff00', '#9fb9ff'],
       screen: 'AllMembers'
     },
     {
       id: 'products',
       title: ' محصولات',
       icon: 'shopping-bag',
-      colors: ['#0088ff', '#98ff98'], // آبی روشن به آبی نئون
+      colors: ['#0088ff', '#98ff98'],
       screen: 'AllProducts'
     },
     {
       id: 'articles',
       title: ' مقالات',
       icon: 'article',
-      colors: ['#2cff72', '#c900a7'], // سبز به فیروزه‌ای
-      screen: 'مجله ی فریمد'
+      colors: ['#2cff72', '#c900a7'],
+      screen: 'وبلاگ'
     },
     {
       id: 'portfolios',
       title: ' نمونه کارها',
       icon: 'brush',
-      colors: ['#ff457d', '#ffe550'], // صورتی به زرد
+      colors: ['#ff457d', '#ffe550'],
       screen: 'AllPortfolio'
     },
     {
       id: 'galleries',
       title: ' گالری‌ها',
       icon: 'photo-library',
-      colors: ['#90ebe6', '#4456ff'], // آبی پاستل به صورتی پاستل
+      colors: ['#90ebe6', '#4456ff'],
       screen: 'AllGalleries'
     },
     {
       id: 'profile',
       title: 'پروفایل من',
       icon: 'account-circle',
-      colors: ['#8aafff', '#ff7345'], // کرم به نارنجی
+      colors: ['#8aafff', '#ff7345'],
       screen: "پروفایل"
+    },
+    {
+      id: 'instagram',
+      title: 'اینستاگرام فریمد',
+      icon: 'camera',
+
+      colors: ['#6F0EF7', '#F70060'],
+      screen: 'INSTAGRAM'
+    },
+    {
+      id: 'support-guide',
+      title: 'راهنمای تماس با پشتیبانی',
+      icon: 'help',
+      colors: ['#258067', '#4DBCA0'],
+      screen: 'SUPPORT_GUIDE'
+    },
+    {
+      id: 'farimod-app',
+      title: 'استفاده از اپلیکیشن فریمد',
+      icon: 'devices',
+      colors: ['#667eea', '#764ba2', '#fa709a'],
+      screen: 'farimod_APP',
     },
     {
       id: 'logout',
       title: 'خروج از حساب کاربری',
       icon: 'logout',
-      colors: ['#bd001f', '#ff5050'], // قرمز صورتی به صورتی
+      colors: ['#bd001f', '#ff5050'],
       screen: 'LOGOUT'
     }
   ];
 
   useEffect(() => {
     if (visible) {
-      // ریست انیمیشن‌ها
-      modalSlideAnim.setValue(0);
-      modalBackdropAnim.setValue(0);
-
+      setIsRendered(true);
+      requestAnimationFrame(() => {
+        Animated.parallel([
+          Animated.timing(modalBackdropAnim, {
+            toValue: 1,
+            duration: 220,
+            useNativeDriver: true,
+          }),
+          Animated.spring(modalSlideAnim, {
+            toValue: 0,
+            tension: 100,
+            friction: 8,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    } else {
       Animated.parallel([
         Animated.timing(modalBackdropAnim, {
-          toValue: 1,
-          duration: 250,
+          toValue: 0,
+          duration: 180,
           useNativeDriver: true,
         }),
-        Animated.spring(modalSlideAnim, {
-          toValue: 1,
-          tension: 100,
-          friction: 8,
+        Animated.timing(modalSlideAnim, {
+          toValue: height,
+          duration: 200,
           useNativeDriver: true,
         }),
-      ]).start();
-    } else {
-      // ریست کردن مقادیر هنگام بسته شدن
-      modalSlideAnim.setValue(0);
-      modalBackdropAnim.setValue(0);
-      setShowLogoutModal(false); // بستن مدال خروج
+      ]).start(() => {
+        setIsRendered(false);
+        setShowLogoutModal(false);
+        setShowSupportTooltip(false);
+      });
     }
   }, [visible]);
 
-  // انیمیشن مدال خروج
   useEffect(() => {
     if (showLogoutModal) {
       Animated.parallel([
@@ -147,185 +178,166 @@ const MenuModal = ({ visible, onClose, onNavigate }) => {
   }, [showLogoutModal]);
 
   const handleClose = () => {
-    Animated.parallel([
-      Animated.timing(modalBackdropAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(modalSlideAnim, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      onClose();
-    });
+    onClose();
+  };
+
+  const handleCallSupport = async () => {
+    const baleUrl = "https://web.bale.ai/chat?uid=550124215";
+    try {
+      await Linking.openURL(baleUrl);
+    } catch {
+      showToast("خطا در باز کردن پیام‌رسان بله", "error");
+    }
   };
 
   const handleMenuItemPress = (screen) => {
     if (screen === 'LOGOUT') {
       setShowLogoutModal(true);
-    } else {
+    } else if (screen === 'SUPPORT_GUIDE') {
+      setShowSupportTooltip(true);
+    } else if (screen === 'farimod_APP') {
+      Linking.openURL('https://farimod.ir/app-use').catch(() => {
+        showToast("خطا در باز کردن لینک", "error");
+      });
       handleClose();
-      // کاهش تاخیر
-      setTimeout(() => {
-        onNavigate(screen);
-      }, 200);
+    } else if (screen === 'INSTAGRAM') {
+      Linking.openURL('https://www.instagram.com/farimod.comm').catch(() => {
+        showToast("خطا در باز کردن اینستاگرام", "error");
+      });
+      handleClose();
+    } else {
+      onNavigate(screen);
+      handleClose();
     }
   };
 
   const handleLogoutConfirm = () => {
+    onNavigate('LOGOUT');
     setShowLogoutModal(false);
     handleClose();
-    setTimeout(() => {
-      onNavigate('LOGOUT');
-    }, 200);
   };
 
-  const handleLogoutCancel = () => {
-    setShowLogoutModal(false);
-  };
+  if (!isRendered) return null;
 
   return (
-    <>
-      <Modal
-        visible={visible}
-        transparent={true}
-        animationType="none"
-        onRequestClose={handleClose}
-        statusBarTranslucent={true}
+    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+      <Animated.View
+        style={[styles.modalBackdrop, { opacity: modalBackdropAnim }]}
+        pointerEvents={visible ? 'auto' : 'none'}
       >
-        <View style={styles.modalContainer}>
-          <Animated.View
-            style={[
-              styles.modalBackdrop,
-              {
-                opacity: modalBackdropAnim,
-              },
-            ]}
-          >
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          onPress={handleClose}
+          activeOpacity={1}
+        />
+      </Animated.View>
+
+      <Animated.View
+        style={[
+          styles.modalContent,
+          {
+            paddingBottom: insets.bottom,
+            transform: [{ translateY: modalSlideAnim }],
+          },
+        ]}
+        pointerEvents={visible ? 'auto' : 'none'}
+      >
+        <View style={styles.modalHandle} />
+
+        <View style={styles.modalHeader}>
+          <View style={styles.headerTitleRow}>
             <TouchableOpacity
-              style={styles.backdropTouchable}
+              style={styles.closeIcon}
               onPress={handleClose}
-              activeOpacity={1}
-            />
-          </Animated.View>
-
-          <Animated.View
-            style={[
-              styles.modalContent,
-              {
-                paddingBottom: insets.bottom, // فقط safe area، بدون padding اضافی
-                transform: [
-                  {
-                    translateY: modalSlideAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [300, 0],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          >
-            {/* آیکون بستن همراه با عنوان */}
-            <View style={styles.modalHandle} />
-
-            <View style={styles.modalHeader}>
-              <View style={styles.headerTitleRow}>
-                <TouchableOpacity
-                  style={styles.closeIcon}
-                  onPress={handleClose}
-                  activeOpacity={0.8}
-                >
-                  <MaterialIcons name="close" size={30} color="#DC2626" />
-                </TouchableOpacity>
-                <AppText style={styles.modalTitle}>منوی اصلی</AppText>
-              </View>
-              <AppText style={styles.modalSubtitle}>دسترسی سریع به تمام بخش‌ها</AppText>
-            </View>
-
-            {/* قسمت اسکرول شونده */}
-            <ScrollView
-              style={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              bounces={true}
+              activeOpacity={0.8}
             >
-              <View style={styles.menuItems}>
-                {menuItems.map((item, index) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.menuItem}
-                    onPress={() => handleMenuItemPress(item.screen)}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.menuItemContent}>
-                      <LinearGradient
-                        colors={item.colors}
-                        style={styles.menuItemIcon}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                      >
-                        <MaterialIcons name={item.icon} size={28} color="#ffffff" />
-                      </LinearGradient>
-
-                      <View style={styles.menuItemText}>
-                        <AppText style={styles.menuItemTitle}>{item.title}</AppText>
-                      </View>
-
-                      <MaterialIcons name="chevron-left" size={24} color="#9e9e9e" />
-                    </View>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-
-
-          </Animated.View>
+              <MaterialIcons name="close" size={30} color="#DC2626" />
+            </TouchableOpacity>
+            <AppText style={styles.modalTitle}>منوی اصلی</AppText>
+          </View>
+          <AppText style={styles.modalSubtitle}>دسترسی سریع به تمام بخش‌ها</AppText>
         </View>
-      </Modal>
 
-      {/* مدال تأیید خروج */}
-      <Modal
-        visible={showLogoutModal}
-        transparent={true}
-        animationType="none"
-        onRequestClose={handleLogoutCancel}
-        statusBarTranslucent={true}
-      >
-        <Pressable style={styles.logoutModalOverlay} onPress={handleLogoutCancel}>
+        <ScrollView
+          style={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+        >
+          <View style={styles.menuItems}>
+            {menuItems.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.menuItem}
+                onPress={() => handleMenuItemPress(item.screen)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.menuItemContent}>
+                  <LinearGradient
+                    colors={item.colors}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.menuItemIcon}
+                  >
+                    {item.iconFamily === 'MaterialCommunityIcons' ? (
+                      <MaterialCommunityIcons name={item.icon} size={28} color="white" />
+                    ) : (
+                      <MaterialIcons name={item.icon} size={28} color="white" />
+                    )}
+                  </LinearGradient>
+
+                  <View style={styles.menuItemText}>
+                    <AppText style={styles.menuItemTitle}>{item.title}</AppText>
+                  </View>
+
+                  <MaterialIcons name="chevron-left" size={24} color="#9e9e9e" />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        <View style={styles.fixedBottomSection}>
+          <TouchableOpacity
+            style={styles.supportButton}
+            onPress={handleCallSupport}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="headset-mic" size={20} color="white" />
+            <AppText style={styles.supportText}>پشتیبانی بله</AppText>
+          </TouchableOpacity>
+          <AppText style={styles.versionText}>نسخه 1.45</AppText>
+        </View>
+      </Animated.View>
+
+      {showLogoutModal && (
+        <Animated.View
+          style={[styles.logoutOverlay, { opacity: logoutOpacityAnim }]}
+          pointerEvents="auto"
+        >
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowLogoutModal(false)} />
           <Animated.View
             style={[
               styles.logoutModalContent,
               {
                 transform: [{ translateY: logoutSlideAnim }],
-                opacity: logoutOpacityAnim,
                 marginBottom: Math.max(insets.bottom, 20),
               }
             ]}
           >
-            {/* Icon */}
             <View style={styles.logoutIconContainer}>
               <MaterialIcons name="logout" size={48} color="#EF4444" />
             </View>
-
-            {/* Title */}
             <AppText style={styles.logoutTitle}>خروج از حساب کاربری</AppText>
-
-            {/* Message */}
             <AppText style={styles.logoutMessage}>
               آیا مطمئن هستید که می‌خواهید از حساب کاربری خود خارج شوید؟
             </AppText>
-
-            {/* Buttons */}
             <View style={styles.logoutButtonsContainer}>
               <TouchableOpacity
                 style={[styles.logoutButton, styles.cancelLogoutButton]}
-                onPress={handleLogoutCancel}
+                onPress={() => setShowLogoutModal(false)}
               >
                 <AppText style={styles.cancelLogoutText}>انصراف</AppText>
               </TouchableOpacity>
-
               <TouchableOpacity
                 style={[styles.logoutButton, styles.confirmLogoutButton]}
                 onPress={handleLogoutConfirm}
@@ -334,64 +346,85 @@ const MenuModal = ({ visible, onClose, onNavigate }) => {
               </TouchableOpacity>
             </View>
           </Animated.View>
-        </Pressable>
-      </Modal>
-    </>
+        </Animated.View>
+      )}
+
+      {showSupportTooltip && (
+        <TouchableOpacity
+          style={styles.tooltipModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSupportTooltip(false)}
+          pointerEvents="auto"
+        >
+          <View style={styles.tooltipContainer}>
+            <LinearGradient
+              colors={['#10b981', '#059669']}
+              style={styles.tooltipHeader}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <View style={styles.tooltipHeaderContent}>
+                <View style={styles.tooltipIconWrapper}>
+                  <MaterialIcons name="help" size={32} color="white" />
+                </View>
+                <AppText style={styles.tooltipTitle}>راهنمای تماس با پشتیبانی</AppText>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowSupportTooltip(false)}
+                style={styles.tooltipCloseButton}
+              >
+                <MaterialIcons name="close" size={24} color="white" />
+              </TouchableOpacity>
+            </LinearGradient>
+
+            <View style={styles.tooltipContent}>
+              <AppText style={styles.tooltipText}>
+                برای ارتباط با پشتیبانی می‌توانید از طریق پیام‌رسان بله با ما در ارتباط باشید. بدین منظور از دکمه پشتیبانی بله در پایین منو استفاده کنید.
+              </AppText>
+              <TouchableOpacity
+                style={styles.tooltipGotItButton}
+                onPress={() => setShowSupportTooltip(false)}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={['#10b981', '#059669']}
+                  style={styles.tooltipGotItGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <MaterialIcons name="check" size={20} color="white" />
+                  <AppText style={styles.tooltipGotItText}>متوجه شدم</AppText>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-
-  },
   modalBackdrop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  backdropTouchable: {
-    flex: 1,
-  },
   modalContent: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     paddingTop: 15,
     paddingHorizontal: 20,
-    maxHeight: height * 0.90,
+    maxHeight: height * 0.75,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -5,
-    },
+    shadowOffset: { width: 0, height: -5 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 10,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    width: '100%',
-  },
-  closeIcon: {
-    position: 'absolute',
-    left: 0,
-    width: 40,
-    height: 40,
-    borderRadius: 100,
-    top: 5,
-
-    borderWidth: 3,
-    borderColor: '#DC2626',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   modalHandle: {
     width: 40,
@@ -408,6 +441,25 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
+  headerTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    width: '100%',
+  },
+  closeIcon: {
+    position: 'absolute',
+    left: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 100,
+    top: 5,
+    borderWidth: 3,
+    borderColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalTitle: {
     fontSize: 20,
     fontFamily: "Yekan_Bakh_Bold",
@@ -418,6 +470,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Regular",
     color: "#6c757d",
+  },
+  scrollContent: {
+    flex: 1,
   },
   menuItems: {
     marginBottom: 20,
@@ -430,7 +485,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8f9fa',
     borderWidth: 1,
     borderColor: '#e9ecef',
-
   },
   menuItemContent: {
     flexDirection: 'row-reverse',
@@ -455,27 +509,38 @@ const styles = StyleSheet.create({
     color: "#2c3e50",
     marginBottom: 4,
   },
-
-  closeButton: {
-    backgroundColor: "#ef444450", 
-    paddingVertical: 15,
-    borderRadius: 15,
+  fixedBottomSection: {
+    paddingTop: 15,
+    paddingBottom: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e9ecef',
+    backgroundColor: '#ffffff',
     alignItems: 'center',
+  },
+  supportButton: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: '#10B981',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#DC2626', 
-    marginTop: 10,
-    marginBottom: 40,
-
+    borderColor: '#10B981',
+    gap: 6,
   },
-  closeButtonText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#DC2626', // متن سفید
+  supportText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: 'white',
   },
-
-  // استایل‌های مدال خروج
-  logoutModalOverlay: {
-    flex: 1,
+  versionText: {
+    fontSize: 13,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#9CA3AF',
+  },
+  logoutOverlay: {
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
     justifyContent: 'center',
     alignItems: 'center',
@@ -487,10 +552,7 @@ const styles = StyleSheet.create({
     padding: 30,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 15,
@@ -549,6 +611,96 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
     color: '#FFFFFF',
+  },
+  tooltipModalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  tooltipContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    maxWidth: width - 40,
+    width: '100%',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 15,
+  },
+  tooltipHeader: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  tooltipHeaderContent: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  tooltipIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  tooltipTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontFamily: 'Yekan_Bakh_Bold',
+    color: 'white',
+    textAlign: 'right',
+  },
+  tooltipCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tooltipContent: {
+    padding: 24,
+  },
+  tooltipText: {
+    fontSize: 16,
+    fontFamily: 'Yekan_Bakh_Regular',
+    color: '#374151',
+    lineHeight: 28,
+    textAlign: 'justify',
+    marginBottom: 24,
+  },
+  tooltipGotItButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  tooltipGotItGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  tooltipGotItText: {
+    fontSize: 16,
+    fontFamily: 'Yekan_Bakh_Bold',
+    color: 'white',
   },
 });
 

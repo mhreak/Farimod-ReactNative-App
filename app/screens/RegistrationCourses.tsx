@@ -284,7 +284,7 @@ const PaginationComponent = ({
   );
 };
 
-const AllCoursesScreen = () => {
+const RegistrationCourse = () => {
   const navigation = useNavigation();
   const route = useRoute();
 
@@ -305,14 +305,14 @@ const AllCoursesScreen = () => {
         setLoading(true);
         setError(null);
 
-        let queryParams = `filterActive=true&currentPage=${page}&pageSize=${pageSize}`;
+        let queryParams = `currentPage=${page}&pageSize=${pageSize}`;
 
-        if (filters.filterMemberId) {
-          queryParams += `&filterMemberId=${filters.filterMemberId}`;
+        if (filters.memberId) {
+          queryParams += `&memberId=${filters.memberId}`;
         }
 
         const response = await fetch(
-          `${appConfig.mobileApi}Course/GetAll?${queryParams}`
+          `${appConfig.mobileApi}CourseRegistration/GetRegisteredCoursesOfMember?${queryParams}`
         );
 
         if (!response.ok) {
@@ -354,7 +354,7 @@ const AllCoursesScreen = () => {
     const initialFilters = {};
 
     if (filteredMemberId && filterType === 'member') {
-      initialFilters.filterMemberId = filteredMemberId;
+      initialFilters.memberId = filteredMemberId;
       showToast(`نمایش دوره‌های ${filteredMemberName}`, 'info');
     }
 
@@ -412,7 +412,7 @@ const AllCoursesScreen = () => {
     if (filteredMemberId && filteredMemberName) {
       return `دوره‌های ${filteredMemberName}`;
     }
-    return 'دوره‌های آموزشی';
+    return 'دوره های ثبت نام شده';
   };
 
   const handleCoursePress = (courseData) => {
@@ -762,7 +762,7 @@ const styles = StyleSheet.create({
   courseItemContainer: {
     width: (width - 70) / 2, // Calculate width for 2 columns with margins
     marginBottom: 15,
-    marginHorizontal: 5, 
+    marginHorizontal: 5,
   },
   pagination: {
     marginBottom: 40,
@@ -1029,4 +1029,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default AllCoursesScreen;
+export default RegistrationCourse;

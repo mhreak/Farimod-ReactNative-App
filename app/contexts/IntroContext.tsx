@@ -2,7 +2,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { IntroStorageService } from '../services/IntroStorageService';
 
-const IntroContext = createContext();
+type IntroContextType = {
+  isIntroCompleted: boolean;
+  isLoading: boolean;
+  completeIntro: () => Promise<void>;
+  resetIntro: () => Promise<void>;
+};
+
+const IntroContext = createContext<IntroContextType | null>(null);
 
 export const useIntro = () => {
   const context = useContext(IntroContext);

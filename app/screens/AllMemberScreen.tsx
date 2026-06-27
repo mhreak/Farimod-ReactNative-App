@@ -18,10 +18,11 @@ import colors from "../config/colors";
 import MainBackground from "../components/MainBackground";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useRoute } from "@react-navigation/native";
 import Toast from "../components/Toast";
 import { safeString } from "../utils/converters";
 import appConfig from "../config/config";
+import FilterModal from "../components/FilterModal";
 
 const { width, height } = Dimensions.get('window');
 
@@ -55,14 +56,15 @@ const useMembersWithInfiniteLoading = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  const fetchMembers = async (newPage = 1, pageSize = ITEMS_PER_PAGE, isLoadMore = false) => {
+  const [filters, setFilters] = useState({});
+  const [memberGroups, setMemberGroups] = useState([]);
+  useEffect(() => {
+    fetchMemberGroups();
+  }, []);
+  const fetchMemberGroups = async () => {
     try {
-      setLoading(true);
-      setError(null);
-
       const response = await fetch(
-        `${appConfig.mobileApi}Member/GetAll?currentPage=${newPage}&pageSize=${pageSize}`
+        `${appConfig.mobileApi}MemberGroup/GetAll?currentPage=1&pageSize=100`
       );
 
       if (!response.ok) {
@@ -71,18 +73,52 @@ const useMembersWithInfiniteLoading = () => {
 
       const result = await response.json();
 
+      if (result.Data) {
+        setMemberGroups(result.Data);
+      }
+    } catch (error) {
+      console.error("Error fetching member groups:", error);
+    }
+  };
+  const fetchMembers = async (newPage = 1, pageSize = ITEMS_PER_PAGE, isLoadMore = false, filterParams = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      let filterQuery = "";
+
+      // اضافه کردن فیلتر نام
+      if (filterParams.filterName) {
+        console.log('Adding filterName to query:', filterParams.filterName);
+        filterQuery += `&filterName=${encodeURIComponent(filterParams.filterName)}`;
+      }
+
+      // 👇 این خط جدید است - اضافه کردن فیلتر گروه
+      if (filterParams.filterMemberGroupId && filterParams.filterMemberGroupId !== 'all') {
+        console.log('Adding filterMemberGroupId to query:', filterParams.filterMemberGroupId);
+        filterQuery += `&filterMemberGroupId=${filterParams.filterMemberGroupId}`;
+      }
+
+      const finalUrl = `${appConfig.mobileApi}Member/GetAll?currentPage=${newPage}&pageSize=${pageSize}${filterQuery}`;
+      console.log('Final API URL:', finalUrl);
+
+      const response = await fetch(finalUrl);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+
       if (isLoadMore) {
-        // برای load more، اطلاعات جدید را به انتهای لیست اضافه کن
         setData(prevData => [...prevData, ...(result.Data || [])]);
       } else {
-        // برای refresh، لیست را جایگزین کن
         setData(result.Data || []);
       }
 
       setTotal(result.Total || 0);
       setPage(newPage);
-
-      // بررسی اینکه آیا صفحه بعدی وجود دارد یا نه
+      setFilters(filterParams);
       setHasMore((result.Data || []).length === pageSize && (result.Data || []).length > 0);
 
     } catch (err) {
@@ -98,14 +134,14 @@ const useMembersWithInfiniteLoading = () => {
 
   const loadMore = () => {
     if (!loading && hasMore) {
-      fetchMembers(page + 1, ITEMS_PER_PAGE, true);
+      fetchMembers(page + 1, ITEMS_PER_PAGE, true, filters);
     }
   };
 
   const refresh = () => {
     setPage(1);
     setHasMore(true);
-    fetchMembers(1, ITEMS_PER_PAGE, false);
+    fetchMembers(1, ITEMS_PER_PAGE, false, filters);
   };
 
   return {
@@ -118,6 +154,8 @@ const useMembersWithInfiniteLoading = () => {
     refresh,
     hasMore,
     page,
+    filters,
+    memberGroups,
   };
 };
 
@@ -177,6 +215,8 @@ const MemberCardSkeleton = () => {
 
 const Avatar = ({ name, size = 80, onPress, member }) => {
   const scaleValue = new Animated.Value(1);
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
 
   const gradientColors = [
     ['#fa709a', '#fee140'],
@@ -214,8 +254,27 @@ const Avatar = ({ name, size = 80, onPress, member }) => {
     }
   };
 
+  const handleImageLoad = () => {
+    setImageLoading(false);
+    setImageError(false);
+  };
+
+  const handleImageError = () => {
+    setImageLoading(false);
+    setImageError(true);
+  };
+
+  // ✅ Reset states when URL changes
+  useEffect(() => {
+    if (member?.AvatarImageURL) {
+      setImageLoading(true);
+      setImageError(false);
+    }
+  }, [member?.AvatarImageURL]);
+
   const selectedGradient = getGradientForName(name);
   const hasProfileImage = member?.AvatarImageURL && member.AvatarImageURL.trim() !== '';
+  const shouldShowImage = hasProfileImage && !imageError && !imageLoading;
 
   return (
     <TouchableOpacity
@@ -234,48 +293,49 @@ const Avatar = ({ name, size = 80, onPress, member }) => {
           },
         ]}
       >
-        {hasProfileImage ? (
-          <Image
-            source={{ uri: member.AvatarImageURL }}
-            style={{
+        {/* ✅ همیشه گرادیانت را نمایش بده */}
+        <LinearGradient
+          colors={selectedGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[
+            styles.avatarGradient,
+            {
               width: size,
               height: size,
               borderRadius: size / 2,
-              borderWidth: 0,
-              shadowColor: '#000',
-              shadowOffset: {
-                width: 0,
-                height: 2,
-              },
-              shadowOpacity: 0.1,
-              shadowRadius: 4,
-              elevation: 3,
+              borderWidth: 3,
+              borderColor: '#fff',
+            },
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={member?.Gender ? "face-man" : "face-woman"}
+            size={size * 0.6}
+            color="white"
+          />
+        </LinearGradient>
+
+        {/* ✅ اگر عکس باید نمایش داده شود، روی گرادیانت قرار بده */}
+        {hasProfileImage && (
+          <Image
+            source={{ uri: member.AvatarImageURL }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: size,
+              height: size,
+              borderRadius: size / 2,
+              borderWidth: 3,
+              borderColor: '#fff',
+              opacity: shouldShowImage ? 1 : 0,
               backgroundColor: 'transparent',
             }}
             resizeMode="cover"
+            onLoad={handleImageLoad}
+            onError={handleImageError}
           />
-        ) : (
-          <LinearGradient
-            colors={selectedGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={[
-              styles.avatarGradient,
-              {
-                width: size,
-                height: size,
-                borderRadius: size / 2,
-                borderWidth: 3,
-                borderColor: '#fff',
-              },
-            ]}
-          >
-            <MaterialCommunityIcons
-              name={member?.Gender ? "face-man" : "face-woman"}
-              size={size * 0.6}
-              color="white"
-            />
-          </LinearGradient>
         )}
 
         {member?.ShowBlueTick && (
@@ -355,10 +415,16 @@ const chunkData = (data, chunkSize) => {
 
 const AllMembersScreen = () => {
   const navigation = useNavigation();
-
+  const route = useRoute();
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState({});
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const filterGroupId = route.params?.filterGroupId;
+  const filterGroupName = route.params?.filterGroupName;
+
 
   const {
     data: members,
@@ -368,7 +434,10 @@ const AllMembersScreen = () => {
     fetchMembers,
     loadMore,
     refresh,
-    hasMore
+    hasMore,
+    page,
+    filters,
+    memberGroups,
   } = useMembersWithInfiniteLoading();
 
   const [toastVisible, setToastVisible] = useState(false);
@@ -378,9 +447,17 @@ const AllMembersScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchMembers(1, ITEMS_PER_PAGE);
-  }, []);
-
+    if (filterGroupId) {
+      const initialFilter = {
+        filterMemberGroupId: filterGroupId.toString()
+      };
+      setAppliedFilters(initialFilter);
+      setHasActiveFilters(true);
+      fetchMembers(1, ITEMS_PER_PAGE, false, initialFilter);
+    } else {
+      fetchMembers(1, ITEMS_PER_PAGE);
+    }
+  }, [filterGroupId]);
   useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -427,11 +504,7 @@ const AllMembersScreen = () => {
     });
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await refresh();
-    setRefreshing(false);
-  };
+
 
   const handleLoadMore = () => {
     if (!membersLoading && hasMore) {
@@ -484,6 +557,61 @@ const AllMembersScreen = () => {
       </View>
     );
   };
+  const handleApplyFilters = (newFilters) => {
+    console.log('Received filters in AllMembersScreen:', newFilters);
+
+    setAppliedFilters(newFilters);
+
+    const hasFilters = Object.keys(newFilters).some(key => {
+      const value = newFilters[key];
+      return value !== false && value !== '' && value !== 'all' && value !== undefined && value !== null;
+    });
+
+    console.log('Has active filters:', hasFilters);
+    setHasActiveFilters(hasFilters);
+
+    if (hasFilters) {
+      showToast('فیلتر اعمال شد', 'success');
+    }
+
+    console.log('Calling fetchMembers with filters:', newFilters);
+    fetchMembers(1, ITEMS_PER_PAGE, false, newFilters);
+  };
+
+  const clearAllFilters = () => {
+    setAppliedFilters({});
+    setHasActiveFilters(false);
+    fetchMembers(1, ITEMS_PER_PAGE, false, {});
+    showToast('فیلتر پاک شد', 'info');
+  };
+
+  const prepareFilterOptions = () => {
+    const memberGroupOptions = [
+      { label: "همه گروه‌ها", value: "all" },
+      ...memberGroups
+        .filter(group => group.Active)
+        .map(group => ({
+          label: `${group.GroupName} `,
+          value: group.MemberGroupId.toString(),
+        })),
+    ];
+
+    return {
+      title: 'جستجو و فیلتر اعضا',
+      icon: 'people',
+      sections: [
+        {
+          key: "memberGroupId",
+          options: memberGroupOptions,
+        },
+      ],
+    };
+  };
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await refresh();
+    setRefreshing(false);
+  };
 
   const renderEmptyComponent = () => {
     if (membersLoading && members.length === 0) return null;
@@ -519,11 +647,19 @@ const AllMembersScreen = () => {
   const renderMembersInfo = () => {
     if (membersLoading && members.length === 0 || membersError || total === 0) return null;
 
-    return (
-      <View></View>
-    );
+    if (filterGroupName) {
+      return (
+        <View style={styles.groupFilterChip}>
+          <MaterialIcons name="group" size={16} color={modernColors.primary} />
+          <AppText style={styles.groupFilterText}>{filterGroupName}</AppText>
+        </View>
+      );
+    }
+
+    return <View></View>;
   };
 
+  // ✅ تغییر در headerTitle برای نمایش نام گروه
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -539,7 +675,7 @@ const AllMembersScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons
@@ -559,8 +695,26 @@ const AllMembersScreen = () => {
             },
           ]}
         >
-          <View style={styles.titleWrapper}>
-            <AppText style={styles.headerTitle}>اعضای فریمد</AppText>
+          <View style={styles.headerRow}>
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={() => setFilterModalVisible(true)}
+            >
+              <View style={[styles.filterIconContainer, hasActiveFilters && styles.activeFilterIcon]}>
+                <MaterialIcons
+                  name="search"
+                  size={24}
+                  color={hasActiveFilters ? "#ffffff" : "#6366f1"}
+                />
+                {hasActiveFilters && <View style={styles.filterBadge} />}
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.titleWrapper}>
+              <AppText style={styles.headerTitle}>
+                اعضای فریمد
+              </AppText>
+            </View>
           </View>
         </Animated.View>
 
@@ -666,6 +820,14 @@ const AllMembersScreen = () => {
           </View>
         </View>
       </View>
+      <FilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        onApplyFilters={handleApplyFilters}
+        filterType="members"
+        initialFilters={appliedFilters}
+        customFilterOptions={prepareFilterOptions()}
+      />
     </>
   );
 };
@@ -760,6 +922,82 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     alignItems: 'center',
+  },
+  headerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    position: "relative",
+  },
+  filterButton: {
+    position: "absolute",
+    left: 0,
+  },
+  filterIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    position: 'relative',
+  },
+  activeFilterIcon: {
+    backgroundColor: modernColors.primary,
+  },
+  groupFilterChip: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.3)',
+  },
+  groupFilterText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: modernColors.primary,
+    marginRight: 6,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#ff6b6b',
+    borderWidth: 2,
+    borderColor: '#ffffff',
+  },
+  clearFiltersButton: {
+    position: "absolute",
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
   },
   listContainer: {
     paddingBottom: 20,

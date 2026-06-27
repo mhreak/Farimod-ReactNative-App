@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import {
   View,
   StyleSheet,
@@ -6,10 +6,10 @@ import {
   Modal,
   Animated,
   ScrollView,
-  Dimensions,
   TouchableOpacity,
   Platform,
   Pressable,
+  useWindowDimensions,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -29,17 +29,15 @@ interface IProps {
   PickerItemComponent?: React.ReactNode;
   placeholder: string;
   selectedItem?: any;
-  selectedItems?: any[]; // برای حالت multi-select
+  selectedItems?: any[]; 
   width?: string;
   error?: string;
   disabled?: boolean;
   onPress?: () => void;
   theme?: 'default' | 'subscription';
-  multiSelect?: boolean; // پراپ جدید برای فعال کردن multi-select
-  onMultiSelectChange?: (items: any[]) => void; // callback برای multi-select
+  multiSelect?: boolean; 
+  onMultiSelectChange?: (items: any[]) => void; 
 }
-
-const { width, height } = Dimensions.get('window');
 
 const modernColors = {
   primary: "#667eea",
@@ -84,14 +82,21 @@ const AppPicker: React.FC<IProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [tempSelectedItem, setTempSelectedItem] = useState(selectedItem);
   const [tempSelectedItems, setTempSelectedItems] = useState<any[]>(selectedItems);
+  const { height: screenHeight } = useWindowDimensions();
 
   const modalSlideAnim = useRef(new Animated.Value(300)).current;
   const modalOpacityAnim = useRef(new Animated.Value(0)).current;
 
+  const modalHeight = useMemo(() => {
+    const baseHeight = Math.min(screenHeight * 0.9, 760);
+    const contentHeight = items.length > 10 ? Math.min(screenHeight * 0.96, 820) : baseHeight;
+    return Math.max(320, Math.min(contentHeight, 820));
+  }, [screenHeight, items.length]);
+
   const SAFE_AREA_BOTTOM = Platform.select({
-    ios: height > 736 ? 34 : 0,
-    android: 0,
-    default: 0,
+    ios: screenHeight > 736 ? 24 : 8,
+    android: 8,
+    default: 8,
   });
 
   const getThemeColors = () => {
@@ -198,7 +203,6 @@ const AppPicker: React.FC<IProps> = ({
     }
   };
 
-  // تابع برای نمایش متن انتخاب شده
   const getDisplayText = () => {
     if (multiSelect) {
       if (selectedItems.length === 0) {
@@ -206,9 +210,8 @@ const AppPicker: React.FC<IProps> = ({
       } else if (selectedItems.length === 1) {
         return selectedItems[0].label;
       } else {
-        // نمایش تعداد آیتم‌های انتخاب شده یا لیست آنها با کاما
         const labels = selectedItems.map(item => item.label).join('، ');
-        if (labels.length > 40) { // اگر متن خیلی طولانی شد، فقط تعداد نمایش دهید
+        if (labels.length > 40) { 
           return `${selectedItems.length} مورد انتخاب شده`;
         }
         return labels;
@@ -264,14 +267,16 @@ const AppPicker: React.FC<IProps> = ({
       <Modal
         visible={modalVisible}
         transparent={true}
-        animationType="none"
+        animationType="fade"
         onRequestClose={closeModal}
+        statusBarTranslucent={Platform.OS === 'android'}
       >
         <Pressable style={styles.modalOverlay} onPress={closeModal}>
           <Animated.View
             style={[
               styles.modalContent,
               {
+                height: modalHeight,
                 transform: [{ translateY: modalSlideAnim }],
                 opacity: modalOpacityAnim,
               }
@@ -284,7 +289,7 @@ const AppPicker: React.FC<IProps> = ({
                   <MaterialIcons name={icon} size={24} color={themeColors.primary} />
                   <AppText style={styles.modalTitle}>
                     {placeholder}
-                  
+
                   </AppText>
                 </View>
 
@@ -307,6 +312,8 @@ const AppPicker: React.FC<IProps> = ({
                 style={styles.scrollContainer}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled={true}
               >
                 {items.map((item, index) => (
                   <TouchableOpacity
@@ -367,7 +374,7 @@ const AppPicker: React.FC<IProps> = ({
               </ScrollView>
             </View>
 
-            <View style={styles.actionButtons}>
+            <View style={[styles.actionButtons, { paddingBottom: Platform.OS === 'ios' ? 18 + SAFE_AREA_BOTTOM : 18 }]}>
               <TouchableOpacity
                 style={styles.resetButton}
                 onPress={closeModal}
@@ -471,7 +478,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
-    height: '85%',
+    width: '100%',
+    maxHeight: '95%',
   },
   modalSafeArea: {
     backgroundColor: '#FFFFFF',
@@ -534,12 +542,14 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 10,
+    minHeight: 0,
   },
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
     paddingVertical: 8,
+    paddingBottom: 12,
   },
   selectionOption: {
     backgroundColor: '#f8fafc',

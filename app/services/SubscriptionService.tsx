@@ -1,76 +1,222 @@
 import AuthService from "./AuthService";
 
-const API_BASE_URL = "http://89.42.208.49/api/MobileApp/SubscriptionPlan";
+const API_BASE_URL = "http://my.farimod.ir/api/MobileApp/SubscriptionPlan";
+
+const fetchWithTimeout = (url: string, options: RequestInit, timeout: number = 10000): Promise<Response> => {
+  return Promise.race([
+    fetch(url, options),
+    new Promise<Response>((_, reject) =>
+      setTimeout(() => reject(new Error('Request timeout')), timeout)
+    )
+  ]);
+};
 
 class SubscriptionService {
-  // دریافت اطلاعات اشتراک فعال کاربر
-  async getActiveSubscriptionPlan() {
+  async getAllActivePlans() {
     try {
-      const token = await AuthService.getUserToken();
+      const response = await fetchWithTimeout(`${API_BASE_URL}/GetAllActive`, {
+        method: "GET",
+        headers: {
+          accept: "*/*",
+        },
+      });
 
-      if (!token) {
-        throw new Error('User not authenticated');
+      const data = await response.json();
+
+      if (response.ok) {
+        return {
+          success: true,
+          data: data.Data || [],
+          message: "لیست اشتراک‌ها دریافت شد",
+        };
+      } else {
+        return {
+          success: false,
+          message: data.Message || "خطا در دریافت اشتراک‌ها",
+        };
+      }
+    } catch (error) {
+      console.error("Error fetching plans:", error);
+      return {
+        success: false,
+        message: error.message === 'Request timeout' ? "زمان درخواست به پایان رسید" : "خطا در اتصال به سرور",
+      };
+    }
+  }
+
+  // دریافت اشتراک فعال کاربر - اصلاح شده
+  async getActiveSubscriptionPlan(memberId: number) {
+    try {
+      if (!memberId) {
+        return {
+          success: false,
+          data: null,
+          message: "شناسه کاربر موجود نیست",
+        };
       }
 
-      const response = await fetch(
-        `${API_BASE_URL}/GetActiveSubscriptionPlanOfMember`,
+      const token = await AuthService.getUserToken();
+
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/GetActiveSubscriptionPlanOfMember?memberId=${memberId}`,
         {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`,
+            Authorization: token ? `Bearer ${token}` : "",
             accept: "*/*",
           },
         }
       );
 
-      if (response.ok) {
-        const data = await response.json();
+      const text = await response.text();
+
+      if (!text || text.trim() === '') {
+        return {
+          success: false,
+          data: null,
+          message: "اشتراک فعالی یافت نشد",
+        };
+      }
+
+      const data = JSON.parse(text);
+
+      if (response.ok && data) {
         return {
           success: true,
           data,
           message: "اطلاعات اشتراک دریافت شد",
         };
       } else {
-        const errorData = await response.json().catch(() => ({}));
         return {
           success: false,
-          message: errorData.Message || "خطا در دریافت اطلاعات اشتراک",
+          data: null,
+          message: data?.Message || "اشتراک فعالی یافت نشد",
         };
       }
     } catch (error) {
-      console.error('Error fetching subscription:', error);
+      console.error("Error fetching subscription:", error);
       return {
         success: false,
-        message: "خطا در اتصال به سرور",
+        data: null,
+        message: error.message === 'Request timeout' ? "زمان درخواست به پایان رسید" : "خطا در اتصال به سرور",
       };
     }
   }
 
-  // ذخیره اطلاعات اشتراک در AuthService
-  async updateUserSubscription() {
+  async applyDiscountCode(subscriptionPlanId: number, code: string, timePeriod: number) {
     try {
-      const result = await this.getActiveSubscriptionPlan();
-
-      if (result.success) {
-        const userData = await AuthService.getUserData();
-        if (userData) {
-          await AuthService.updateUserData({
-            ...userData,
-            ActiveSubscriptionPlan: result.data
-          });
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/ApplyDiscountCode?subscriptionPlanId=${subscriptionPlanId}&code=${encodeURIComponent(
+          code
+        )}&timePeriod=${timePeriod}`,
+        {
+          method: "GET",
+          headers: {
+            accept: "*/*",
+          },
         }
-        return result;
-      }
+      );
 
-      return result;
+      const data = await response.json();
+
+      if (response.ok) {
+        return {
+          success: true,
+          data,
+          message: "کد تخفیف اعمال شد",
+        };
+      } else {
+        return {
+          success: false,
+          message: data.Message || "کد تخفیف معتبر نیست",
+        };
+      }
     } catch (error) {
-      console.error('Error updating subscription:', error);
+      console.error("Error applying discount:", error);
       return {
         success: false,
-        message: "خطا در بروزرسانی اطلاعات اشتراک",
+        message: error.message === 'Request timeout' ? "زمان درخواست به پایان رسید" : "خطا در اعمال کد تخفیف",
       };
     }
+  }
+
+  // خرید اشتراک
+  async buySubscriptionPlan(memberId: number, subscriptionPlanId: number, subscriptionTotalDays: number, discountCode: string = "") {
+    try {
+      const token = await AuthService.getUserToken();
+
+      if (!token) {
+        return {
+          success: false,
+          message: "کاربر وارد نشده است",
+        };
+      }
+
+      const requestBody = {
+        MemberId: memberId,
+        SubscriptionPlanId: subscriptionPlanId,
+        SubscriptionTotalDays: subscriptionTotalDays,
+        DiscountCode: discountCode,
+      };
+
+      const response = await fetchWithTimeout(`${API_BASE_URL}/BuySubscriptionPlan`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          accept: "*/*",
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        return {
+          success: true,
+          data,
+          message: "اشتراک با موفقیت ثبت شد",
+        };
+      } else {
+        return {
+          success: false,
+          message: data.Message || "خطا در ثبت اشتراک",
+        };
+      }
+    } catch (error) {
+      console.error("Error buying subscription:", error);
+      return {
+        success: false,
+        message: error.message === 'Request timeout' ? "زمان درخواست به پایان رسید" : "خطا در اتصال به سرور",
+      };
+    }
+  }
+
+  // محاسبه تعداد روزها بر اساس نوع اشتراک
+  calculateDays(subscriptionType: string): number {
+    const daysMap: { [key: string]: number } = {
+      fourteen_days: 14,
+      one_month: 30,
+      three_months: 90,
+      six_months: 180,
+      annual: 365,
+    };
+
+    return daysMap[subscriptionType] || 30;
+  }
+
+  // گرفتن قیمت بر اساس نوع اشتراک
+  getPrice(plan: any, subscriptionType: string): number {
+    const priceMap: { [key: string]: number } = {
+      fourteen_days: plan.FourteenDaysSubscriptionPrice,
+      one_month: plan.OneMonthSubscriptionPrice,
+      three_months: plan.ThreeMonthsSubscriptionPrice,
+      six_months: plan.SixMonthsSubscriptionPrice,
+      annual: plan.AnnualSubscriptionPrice,
+    };
+
+    return priceMap[subscriptionType] || 0;
   }
 }
 

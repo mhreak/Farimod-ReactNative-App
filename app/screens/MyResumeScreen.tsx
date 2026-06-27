@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import AppText from "../components/Text";
+import Toast from "../components/Toast";
 import {
   ScrollView,
   StyleSheet,
@@ -11,8 +12,9 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Alert,
-  Platform
+  Pressable,
+  Platform,
+  Linking
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
@@ -23,7 +25,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import appConfig from "../config/config";
 import { usePostApi, useDeleteApi } from "../config/useApi";
 import { useAuth } from '../contexts/AuthContext';
-
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width, height } = Dimensions.get('window');
 
@@ -61,62 +63,71 @@ const modernColors = {
 };
 
 const documentColors = [
-  "#6366f1", // Primary Blue
-  "#8b5cf6", // Purple
-  "#10b981", // Green
-  "#f59e0b", // Orange
-  "#ef4444", // Red
-  "#06b6d4", // Cyan
+  "#6366f1",
+  "#8b5cf6",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#06b6d4",
 ];
 
 const MyResumeScreen = () => {
   const { user } = useAuth();
   const navigation = useNavigation();
-  const { postData, loading: postLoading, error: postError } = usePostApi();
   const { deleteData, loading: deleteLoading, error: deleteError } = useDeleteApi();
-    // const isOwnContent = contentData.MemberId === user?.MemberId;
+  const insets = useSafeAreaInsets();
 
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
+  const [deleteSlideAnim] = useState(new Animated.Value(300));
+  const [deleteOpacityAnim] = useState(new Animated.Value(0));
 
   const [documentTypes, setDocumentTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState('');
   const [error, setError] = useState(null);
   const [uploadedFiles, setUploadedFiles] = useState({});
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [fileToDelete, setFileToDelete] = useState(null);
+  const [toast, setToast] = useState({
+    visible: false,
+    message: '',
+    type: 'info'
+  });
 
   const [personalData, setPersonalData] = useState({
-    name: "فاطمه رضایی",
+    name: user?.MemberName || "کاربر",
     title: "طراح پارچه و لباس",
     bio: "من فاطمه هستم، طراح پارچه و لباس با نگاهی نو به ترکیب سنت و مدرنیته. علاقه‌مند به خلق طراحی‌هایی که هویت ایرانی را با جهانی‌بودن ترکیب کند.",
   });
+
+  const showToast = (message, type = 'info') => {
+    setToast({ visible: true, message, type });
+  };
+
+  const hideToast = () => {
+    setToast({ ...toast, visible: false });
+  };
 
   const fetchDocumentTypes = async () => {
     try {
       setLoading(true);
       setError(null);
-      // const memberId = 1; // Changed to 1 as requested
-      console.log('🔍 Fetching document types for memberId:',  user?.MemberId);
+      console.log('🔍 Fetching all document types...');
 
-      const response = await fetch(`${appConfig.mobileApi}MemberDocumentType/GetAllByMemberId?memberId=${user?.MemberId}`);
-      console.log('📥 Document types response status:', response.status);
+      const typesResponse = await fetch(`${appConfig.mobileApi}MemberDocumentType/GetAll?filterActive=true&currentPage=1&pageSize=50`);
+      console.log('📥 Document types response status:', typesResponse.status);
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (!typesResponse.ok) {
+        throw new Error(`HTTP error! status: ${typesResponse.status}`);
       }
 
-      const result = await response.json();
-      console.log('📋 Document types result:', result);
+      const typesResult = await typesResponse.json();
+      console.log('📋 Document types result:', typesResult);
 
-      if (result.Data && Array.isArray(result.Data) && result.Data.length > 0) {
-        const uniqueTypes = result.Data.filter((item, index, self) =>
-          index === self.findIndex(t => t.MemberDocumentTypeId === item.MemberDocumentTypeId)
-        );
-        console.log('✅ Unique document types:', uniqueTypes);
-        setDocumentTypes(uniqueTypes);
+      if (typesResult.Data && Array.isArray(typesResult.Data) && typesResult.Data.length > 0) {
+        console.log('✅ Document types loaded:', typesResult.Data.length);
+        setDocumentTypes(typesResult.Data);
+
+        await fetchExistingDocuments();
       } else {
         console.log('⚠️ No document types found');
         setDocumentTypes([]);
@@ -130,55 +141,66 @@ const MyResumeScreen = () => {
     }
   };
 
-  // Test function to check FormData creation
-  const testFormDataCreation = (file) => {
-    console.log('🧪 Testing FormData creation for file:', file);
-
+  const fetchExistingDocuments = async () => {
     try {
-      const formData = new FormData();
+      console.log('🔍 Fetching existing documents for memberId:', user?.MemberId);
 
-      // Test different approaches
-      const approaches = [
-        // Approach 1: Basic object
-        {
-          name: 'Basic Object',
-          data: {
-            uri: file.uri,
-            type: file.mimeType || 'application/pdf',
-            name: file.name,
+      const documentsResponse = await fetch(`${appConfig.mobileApi}MemberDocument/GetAllByMemberId?memberId=${user?.MemberId}`);
+      console.log('📥 Documents response status:', documentsResponse.status);
+
+      if (!documentsResponse.ok) {
+        throw new Error(`HTTP error! status: ${documentsResponse.status}`);
+      }
+
+      const documentsResult = await documentsResponse.json();
+      console.log('📋 Existing documents result:', documentsResult);
+
+      if (documentsResult.Data && Array.isArray(documentsResult.Data) && documentsResult.Data.length > 0) {
+        const organizedFiles = {};
+        documentsResult.Data.forEach(doc => {
+          const typeId = doc.MemberDocumentTypeId;
+          if (!organizedFiles[typeId]) {
+            organizedFiles[typeId] = [];
           }
-        },
-        // Approach 2: Platform specific
-        {
-          name: 'Platform Specific',
-          data: Platform.OS === 'ios' ? {
-            uri: file.uri,
-            type: file.mimeType || 'application/pdf',
-            name: file.name,
-          } : {
-            uri: file.uri,
-            type: file.mimeType || 'application/pdf',
-            name: file.name,
-          }
-        }
-      ];
 
-      approaches.forEach((approach, index) => {
-        try {
-          const testFormData = new FormData();
-          testFormData.append('memberDocumentFile', approach.data);
-          console.log(`✅ ${approach.name} approach works:`, approach.data);
-        } catch (err) {
-          console.error(`❌ ${approach.name} approach failed:`, err);
-        }
-      });
+          organizedFiles[typeId].push({
+            memberDocumentId: doc.MemberDocumentId,
+            name: doc.MemberDocumentFileName || 'فایل بدون نام',
+            size: null,
+            uri: doc.FileURL ? `${doc.FileURL}` : '',
+            uploadDate: doc.InsertDate,
+            documentTypeName: doc.MemberDocumentTypeName,
+          });
+        });
 
+        console.log('✅ Organized files:', organizedFiles);
+        setUploadedFiles(organizedFiles);
+      } else {
+        console.log('⚠️ No existing documents found');
+        setUploadedFiles({});
+      }
     } catch (error) {
-      console.error('❌ FormData test failed:', error);
+      console.error('❌ Error fetching existing documents:', error);
+      setUploadedFiles({});
     }
   };
 
-  // Enhanced pickDocument function with proper API integration and detailed logging
+  const openFileUrl = async (url) => {
+    try {
+      console.log('🔗 Opening URL:', url);
+      const supported = await Linking.canOpenURL(url);
+
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        showToast('امکان باز کردن این فایل وجود ندارد', 'error');
+      }
+    } catch (error) {
+      console.error('❌ Error opening URL:', error);
+      showToast('مشکلی در باز کردن فایل پیش آمد', 'error');
+    }
+  };
+
   const pickDocument = async (documentTypeId) => {
     console.log('🚀 Starting pickDocument for documentTypeId:', documentTypeId);
 
@@ -194,9 +216,8 @@ const MyResumeScreen = () => {
 
       console.log('📋 Document picker result:', result);
 
-      // Fix: Check for new DocumentPicker structure
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const files = result.assets; // Use assets array instead
+        const files = result.assets;
         const documentType = documentTypes.find(doc => doc.MemberDocumentTypeId === documentTypeId);
 
         console.log('📝 Selected files:', files);
@@ -205,7 +226,6 @@ const MyResumeScreen = () => {
         let successCount = 0;
         let totalFiles = files.length;
 
-        // Process each file
         for (let i = 0; i < files.length; i++) {
           const file = files[i];
           console.log(`\n📄 Processing file ${i + 1}/${totalFiles}:`, {
@@ -213,64 +233,42 @@ const MyResumeScreen = () => {
             size: file.size,
             uri: file.uri,
             mimeType: file.mimeType,
-            type: file.type
           });
 
           try {
-            // Step 1: Add document record via API
-            const addDocumentPayload = {
-              MemberDocumentId: 0,
-              Title: file.name,
-              MemberId: user?.MemberId,
-              MemberName: personalData.name,
-              MemberDocumentTypeId: documentTypeId,
-              MemberDocumentTypeName: documentType.Name,
-              InsertDate: new Date().toISOString(),
-              ShamsiInsertDate: new Date().toLocaleDateString('fa-IR'),
-              MemberDocumentFileName: file.name
-            };
-
-            console.log('📤 Sending add document request with payload:', addDocumentPayload);
-            const addDocumentResult = await postData('MemberDocument/Add', addDocumentPayload);
-            console.log('✅ Add document response:', addDocumentResult);
-
-            // Check if the API returned a document ID
-            const memberDocumentId = addDocumentResult.Data?.MemberDocumentId || addDocumentResult.MemberDocumentId;
-            console.log('🆔 Extracted memberDocumentId:', memberDocumentId);
-
-            if (!memberDocumentId) {
-              throw new Error('No document ID returned from API');
-            }
-
-            // Step 2: Upload the actual file
             console.log('📁 Creating FormData for file upload...');
             const formData = new FormData();
 
-            // Log different approaches for different file types
             const fileObj = {
               uri: file.uri,
-              type: file.mimeType || 'application/pdf', // Default to PDF for PDF files
+              type: file.mimeType || 'application/octet-stream',
               name: file.name,
             };
+            formData.append('file', fileObj);
 
-            console.log('📎 File object for FormData:', fileObj);
-            formData.append('memberDocumentFile', fileObj);
+            formData.append('MemberDocumentId', '0');
+            formData.append('MemberId', user?.MemberId.toString());
+            formData.append('MemberName', personalData.name);
+            formData.append('MemberDocumentTypeId', documentTypeId.toString());
+            formData.append('MemberDocumentTypeName', documentType.Name);
+            formData.append('InsertDate', new Date().toISOString());
+            formData.append('ShamsiInsertDate', new Date().toLocaleDateString('fa-IR'));
+            formData.append('MemberDocumentFileName', '');
+            formData.append('FileURL', '');
 
-            const uploadUrl = `${appConfig.mobileApi}MemberDocument/UploadMemberDocumentFile?memberDocumentId=${memberDocumentId}`;
-            console.log('🔗 Upload URL:', uploadUrl);
+            const addUrl = `${appConfig.mobileApi}MemberDocument/Add`;
+            console.log('🔗 Add URL:', addUrl);
 
-            console.log('📤 Starting file upload...');
-            const uploadResponse = await fetch(uploadUrl, {
+            console.log('📤 Starting file upload with Add API...');
+            const uploadResponse = await fetch(addUrl, {
               method: 'POST',
               headers: {
                 'accept': '*/*',
-                'Content-Type': 'multipart/form-data',
               },
               body: formData,
             });
 
             console.log('📥 Upload response status:', uploadResponse.status);
-            console.log('📥 Upload response headers:', Object.fromEntries(uploadResponse.headers.entries()));
 
             if (!uploadResponse.ok) {
               const errorText = await uploadResponse.text();
@@ -278,42 +276,22 @@ const MyResumeScreen = () => {
               throw new Error(`Failed to upload file: ${uploadResponse.status} - ${errorText}`);
             }
 
-            const uploadResult = await uploadResponse.text();
+            const uploadResult = await uploadResponse.json();
             console.log('✅ Upload successful, response:', uploadResult);
-
-            // Add the file to local state with the document ID for future reference
-            const fileWithId = {
-              ...file,
-              memberDocumentId: memberDocumentId,
-              uploadDate: new Date().toISOString(),
-              documentTypeName: documentType.Name
-            };
-
-            console.log('💾 Adding file to local state:', fileWithId);
-
-            setUploadedFiles(prev => ({
-              ...prev,
-              [documentTypeId]: [...(prev[documentTypeId] || []), fileWithId]
-            }));
 
             successCount++;
             console.log(`✅ File ${i + 1} uploaded successfully`);
 
           } catch (fileError) {
             console.error(`❌ Error uploading file ${file.name}:`, fileError);
-            console.error('❌ Full error details:', {
-              message: fileError.message,
-              stack: fileError.stack,
-              name: fileError.name
-            });
-            Alert.alert('خطا در اپلود', `مشکلی در اپلود فایل ${file.name} پیش آمد: ${fileError.message}`);
+            showToast(`مشکلی در اپلود فایل ${file.name} پیش آمد`, 'error');
           }
         }
 
-        // Show success message
         console.log(`🎉 Upload process completed. Success: ${successCount}/${totalFiles}`);
         if (successCount > 0) {
-          Alert.alert('موفق', `${successCount} از ${totalFiles} فایل به بخش ${documentType.Name} اپلود شد`);
+          showToast(`یک فایل به بخش ${documentType.Name} اپلود شد`, 'success');
+          await fetchExistingDocuments();
         }
 
       } else if (result.canceled) {
@@ -323,102 +301,108 @@ const MyResumeScreen = () => {
       }
     } catch (error) {
       console.error('❌ Error in pickDocument:', error);
-      console.error('❌ Full error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
-      Alert.alert('خطا', 'مشکلی در انتخاب فایل پیش آمد');
+      showToast('مشکلی در انتخاب فایل پیش آمد', 'error');
     } finally {
       setIsUploading('');
       console.log('🏁 pickDocument process finished');
     }
   };
 
-  // Enhanced removeFile function with API integration
-  const removeFile = async (documentTypeId, index) => {
+  const removeFile = (documentTypeId, index) => {
     const documentType = documentTypes.find(doc => doc.MemberDocumentTypeId === documentTypeId);
     const file = uploadedFiles[documentTypeId][index];
 
-    Alert.alert(
-      'حذف فایل',
-      `آیا از حذف این فایل از بخش ${documentType.Name} اطمینان دارید؟`,
-      [
-        { text: 'لغو', style: 'cancel' },
-        {
-          text: 'حذف',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // If file has a memberDocumentId, call delete API
-              if (file.memberDocumentId) {
-                await deleteData(`MemberDocument/Delete?id=${file.memberDocumentId}`);
-              }
+    setFileToDelete({ documentTypeId, index, file, documentType });
+    setDeleteModalVisible(true);
+  };
 
-              // Remove from local state
-              setUploadedFiles(prev => ({
-                ...prev,
-                [documentTypeId]: (prev[documentTypeId] || []).filter((_, i) => i !== index)
-              }));
+  const confirmDelete = async () => {
+    if (!fileToDelete) return;
 
-              Alert.alert('موفق', 'فایل با موفقیت حذف شد');
+    const { documentTypeId, index, file } = fileToDelete;
 
-            } catch (error) {
-              console.error('Error deleting file:', error);
-              Alert.alert('خطا', 'مشکلی در حذف فایل از سرور پیش آمد');
-            }
-          }
+    try {
+      console.log('🗑️ Deleting file with ID:', file.memberDocumentId);
+
+      if (file.memberDocumentId) {
+        const deleteUrl = `${appConfig.mobileApi}MemberDocument/Delete?memberDocumentId=${file.memberDocumentId}`;
+        console.log('🔗 Delete URL:', deleteUrl);
+
+        const deleteResponse = await fetch(deleteUrl, {
+          method: 'DELETE',
+          headers: {
+            'accept': '*/*',
+          },
+        });
+
+        if (!deleteResponse.ok) {
+          throw new Error(`Delete failed: ${deleteResponse.status}`);
         }
-      ]
-    );
+
+        const result = await deleteResponse.json();
+        console.log('✅ File deleted from server:', result);
+      }
+
+      setUploadedFiles(prev => ({
+        ...prev,
+        [documentTypeId]: (prev[documentTypeId] || []).filter((_, i) => i !== index)
+      }));
+
+      setDeleteModalVisible(false);
+      showToast('فایل با موفقیت حذف شد', 'success');
+
+      await fetchExistingDocuments();
+
+    } catch (error) {
+      console.error('❌ Error deleting file:', error);
+      setDeleteModalVisible(false);
+      showToast('مشکلی در حذف فایل از سرور پیش آمد', 'error');
+    } finally {
+      setFileToDelete(null);
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteModalVisible(false);
+    setFileToDelete(null);
   };
 
   useEffect(() => {
-    fetchDocumentTypes();
-  }, []);
+    if (deleteModalVisible) {
+      Animated.parallel([
+        Animated.spring(deleteSlideAnim, {
+          toValue: 0,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(deleteOpacityAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        })
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(deleteSlideAnim, {
+          toValue: 300,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(deleteOpacityAnim, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        })
+      ]).start();
+    }
+  }, [deleteModalVisible]);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 8000,
-        useNativeDriver: true,
-      })
-    ).start();
-  }, []);
-
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
+    if (user?.MemberId) {
+      fetchDocumentTypes();
+    }
+  }, [user?.MemberId]);
 
   const getColorForIndex = (index) => {
     return documentColors[index % documentColors.length];
@@ -467,24 +451,25 @@ const MyResumeScreen = () => {
             </LinearGradient>
             <View style={{ flex: 1 }}>
               <AppText style={styles.label}>{documentType.Name}</AppText>
-              <AppText style={styles.categoryDescription}>{documentType.Name}</AppText>
+              {documentType.ShortDescription && (
+                <AppText style={styles.categoryDescription}>{documentType.ShortDescription}</AppText>
+              )}
             </View>
           </View>
         </View>
 
         <View style={styles.contentContainer}>
-          {/* Upload Button */}
           <TouchableOpacity
             style={[styles.uploadButton, isCurrentlyUploading && styles.uploadButtonDisabled]}
             onPress={() => pickDocument(documentType.MemberDocumentTypeId)}
-            disabled={isCurrentlyUploading || postLoading}
+            disabled={isCurrentlyUploading}
           >
             <LinearGradient
               colors={[color, color + 'DD']}
               style={styles.uploadButtonGradient}
             >
               <MaterialIcons
-                name={isCurrentlyUploading ? "hourglass_empty" : "add"}
+                name={isCurrentlyUploading ? "timer" : "add"}
                 size={24}
                 color={modernColors.surface}
               />
@@ -494,48 +479,73 @@ const MyResumeScreen = () => {
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Uploaded Files List */}
           {files.length > 0 && (
             <View style={styles.filesContainer}>
-              <AppText style={styles.filesTitle}>
-                فایل‌های اپلود شده ({files.length}):
-              </AppText>
-              {files.map((file, fileIndex) => (
-                <View key={fileIndex} style={styles.fileItem}>
-                  <View style={styles.fileInfo}>
-                    <MaterialIcons
-                      name={getFileIcon(file.name)}
-                      size={20}
-                      color={color}
-                      style={styles.fileIcon}
-                    />
-                    <View style={styles.fileDetails}>
-                      <AppText style={styles.fileName} numberOfLines={1}>
-                        {file.name}
-                      </AppText>
-                      <AppText style={styles.fileSize}>
-                        {file.size ? `${(file.size / 1024).toFixed(1)} KB` : 'نامشخص'}
-                      </AppText>
-                      {file.uploadDate && (
-                        <AppText style={styles.uploadDate}>
-                          {new Date(file.uploadDate).toLocaleDateString('fa-IR')}
-                        </AppText>
-                      )}
-                    </View>
-                  </View>
+              <View style={styles.filesTitleContainer}>
+                <MaterialIcons
+                  name="check-circle"
+                  size={18}
+                  color={color}
+                  style={styles.filesTitleIcon}
+                />
+                <AppText style={styles.filesTitle}>
+                  فایل های آپلود شده
+                </AppText>
+              </View>
+              <View style={styles.filesGrid}>
+                {files.map((file, fileIndex) => (
                   <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => removeFile(documentType.MemberDocumentTypeId, fileIndex)}
-                    disabled={deleteLoading}
+                    key={fileIndex}
+                    style={[styles.fileCard, { borderColor: color + '30' }]}
+                    onPress={() => openFileUrl(file.uri)}
+                    activeOpacity={0.7}
                   >
-                    <MaterialIcons
-                      name={deleteLoading ? "hourglass_empty" : "close"}
-                      size={18}
-                      color={modernColors.error}
-                    />
+                    <LinearGradient
+                      colors={[color + '15', color + '05']}
+                      style={styles.fileCardGradient}
+                    >
+                      <View style={[styles.fileIconContainer, { backgroundColor: color + '20' }]}>
+                        <MaterialIcons
+                          name={getFileIcon(file.name)}
+                          size={28}
+                          color={color}
+                        />
+                      </View>
+
+                      <View style={styles.fileActions}>
+                        <TouchableOpacity
+                          style={[styles.viewButton, { backgroundColor: color + '20' }]}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            openFileUrl(file.uri);
+                          }}
+                        >
+                          <MaterialIcons
+                            name="visibility"
+                            size={16}
+                            color={color}
+                          />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.deleteButton}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            removeFile(documentType.MemberDocumentTypeId, fileIndex);
+                          }}
+                          disabled={deleteLoading}
+                        >
+                          <MaterialIcons
+                            name={deleteLoading ? "hourglass_empty" : "delete-outline"}
+                            size={16}
+                            color="#ef4444"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </LinearGradient>
                   </TouchableOpacity>
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
           )}
 
@@ -576,7 +586,6 @@ const MyResumeScreen = () => {
     </View>
   );
 
-  // Show error state if API fails
   if (!loading && error) {
     return (
       <>
@@ -586,7 +595,7 @@ const MyResumeScreen = () => {
 
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons
@@ -616,7 +625,6 @@ const MyResumeScreen = () => {
     );
   }
 
-  // Show empty state if no documents found
   if (!loading && !error && documentTypes.length === 0) {
     return (
       <>
@@ -626,7 +634,7 @@ const MyResumeScreen = () => {
 
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons
@@ -638,25 +646,17 @@ const MyResumeScreen = () => {
           </TouchableOpacity>
 
           <View style={styles.errorContainer}>
-            <MaterialIcons name="folder_open" size={80} color="#9e9e9e" />
+            <MaterialIcons name="folder" size={80} color="#9e9e9e" />
             <AppText style={styles.errorTitle}>هیچ نوع مدرکی یافت نشد</AppText>
             <AppText style={styles.errorSubtitle}>
               در حال حاضر هیچ دسته‌ای برای آپلود مدارک تعریف نشده است
             </AppText>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => fetchDocumentTypes()}
-            >
-              <MaterialIcons name="refresh" size={20} color={modernColors.surface} />
-              <AppText style={styles.retryButtonText}>بررسی مجدد</AppText>
-            </TouchableOpacity>
           </View>
         </View>
       </>
     );
   }
 
-  // Show loading skeleton while data is being fetched
   if (loading) {
     return (
       <>
@@ -671,7 +671,7 @@ const MyResumeScreen = () => {
           >
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => navigation.goBack()}
+              onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
             >
               <View style={styles.backButtonContainer}>
                 <MaterialIcons
@@ -682,26 +682,10 @@ const MyResumeScreen = () => {
               </View>
             </TouchableOpacity>
 
-            <Animated.View
-              style={[
-                styles.profileHeaderContainer,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                },
-              ]}
-            >
-            </Animated.View>
+            <View style={styles.profileHeaderContainer}>
+            </View>
 
-            <Animated.View
-              style={[
-                styles.sectionTitleContainer,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                },
-              ]}
-            >
+            <View style={styles.sectionTitleContainer}>
               <AppText style={styles.sectionTitle}>فایل ها و مدارک</AppText>
               <View style={styles.sparkleContainer}>
                 <MaterialIcons
@@ -717,21 +701,13 @@ const MyResumeScreen = () => {
                   style={styles.sparkle2}
                 />
               </View>
-            </Animated.View>
+            </View>
 
-            <Animated.View
-              style={[
-                styles.cardsContainer,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                },
-              ]}
-            >
+            <View style={styles.cardsContainer}>
               {[1, 2, 3].map((index) => (
                 <SkeletonCard key={index} />
               ))}
-            </Animated.View>
+            </View>
 
             <View style={styles.bottomSpacer} />
           </ScrollView>
@@ -744,8 +720,14 @@ const MyResumeScreen = () => {
     <>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
       <View style={styles.container}>
-        {/* Main Background */}
         <MainBackground />
+
+        <Toast
+          visible={toast.visible}
+          message={toast.message}
+          type={toast.type}
+          onHide={hideToast}
+        />
 
         <ScrollView
           style={styles.scrollView}
@@ -754,7 +736,7 @@ const MyResumeScreen = () => {
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons
@@ -765,28 +747,10 @@ const MyResumeScreen = () => {
             </View>
           </TouchableOpacity>
 
-          {/* Profile Header */}
-          <Animated.View
-            style={[
-              styles.profileHeaderContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
-          </Animated.View>
+          <View style={styles.profileHeaderContainer}>
+          </View>
 
-          {/* Section Title */}
-          <Animated.View
-            style={[
-              styles.sectionTitleContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
+          <View style={styles.sectionTitleContainer}>
             <AppText style={styles.sectionTitle}>فایل ها و مدارک</AppText>
             <View style={styles.sparkleContainer}>
               <MaterialIcons
@@ -802,17 +766,9 @@ const MyResumeScreen = () => {
                 style={styles.sparkle2}
               />
             </View>
-          </Animated.View>
+          </View>
 
-          <Animated.View
-            style={[
-              styles.cardsContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
-            ]}
-          >
+          <View style={styles.cardsContainer}>
             {documentTypes.map((documentType, index) => (
               <FileUploadCard
                 key={documentType.MemberDocumentTypeId}
@@ -820,44 +776,61 @@ const MyResumeScreen = () => {
                 index={index}
               />
             ))}
-          </Animated.View>
-
-          <View style={styles.decorativeElements}>
-            <View style={styles.floatingElements}>
-              <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
-                <MaterialIcons
-                  name="auto-awesome"
-                  size={22}
-                  color="rgba(139, 92, 246, 0.3)"
-                />
-              </Animated.View>
-              <Animated.View style={[styles.star2, { transform: [{ rotate: spin }] }]}>
-                <MaterialIcons
-                  name="palette"
-                  size={18}
-                  color="rgba(99, 102, 241, 0.3)"
-                />
-              </Animated.View>
-              <Animated.View style={[styles.star3, { transform: [{ rotate: spin }] }]}>
-                <MaterialIcons
-                  name="brush"
-                  size={20}
-                  color="rgba(6, 182, 212, 0.3)"
-                />
-              </Animated.View>
-              <Animated.View style={[styles.star4, { transform: [{ rotate: spin }] }]}>
-                <MaterialIcons
-                  name="cut"
-                  size={24}
-                  color="rgba(139, 92, 246, 0.2)"
-                />
-              </Animated.View>
-            </View>
           </View>
 
-          {/* Bottom Spacer */}
           <View style={styles.bottomSpacer} />
         </ScrollView>
+
+        {/* Delete Confirmation Modal */}
+        <Modal
+          visible={deleteModalVisible}
+          transparent={true}
+          animationType="none"
+          onRequestClose={cancelDelete}
+        >
+          <Pressable style={styles.deleteModalOverlay} onPress={cancelDelete}>
+            <Animated.View
+              style={[
+                styles.deleteModalContent,
+                {
+                  transform: [{ translateY: deleteSlideAnim }],
+                  opacity: deleteOpacityAnim,
+                  marginBottom: Math.max(insets.bottom, 20),
+                }
+              ]}
+            >
+              {/* Icon */}
+              <View style={styles.deleteIconContainer}>
+                <MaterialIcons name="warning" size={48} color="#EF4444" />
+              </View>
+
+              {/* Title */}
+              <AppText style={styles.deleteTitle}>حذف فایل</AppText>
+
+              {/* Message */}
+              <AppText style={styles.deleteMessage}>
+                آیا مطمئن هستید که می‌خواهید این فایل را از بخش {fileToDelete?.documentType?.Name} حذف کنید؟
+              </AppText>
+
+              {/* Buttons */}
+              <View style={styles.deleteButtonsContainer}>
+                <TouchableOpacity
+                  style={[styles.deleteButton, styles.cancelDeleteButton]}
+                  onPress={cancelDelete}
+                >
+                  <AppText style={styles.cancelDeleteText}>خیر</AppText>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.deleteButton, styles.confirmDeleteButton]}
+                  onPress={confirmDelete}
+                >
+                  <AppText style={styles.confirmDeleteText}>بله، حذف کن</AppText>
+                </TouchableOpacity>
+              </View>
+            </Animated.View>
+          </Pressable>
+        </Modal>
       </View>
     </>
   );
@@ -993,20 +966,10 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-
-  // File Upload Styles
   uploadButton: {
     borderRadius: 18,
     overflow: 'hidden',
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
   uploadButtonDisabled: {
     opacity: 0.7,
@@ -1023,16 +986,6 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: '#ffffff',
     marginLeft: 10,
-  },
-  filesContainer: {
-    marginTop: 10,
-  },
-  filesTitle: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    marginBottom: 15,
-    textAlign: 'right',
   },
   fileItem: {
     flexDirection: 'row-reverse',
@@ -1069,6 +1022,85 @@ const styles = StyleSheet.create({
     color: "#6b7280",
     textAlign: 'right',
   },
+  filesContainer: {
+    marginTop: 15,
+  },
+  filesTitleContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    marginBottom: 15,
+    paddingHorizontal: 4,
+  },
+  filesTitleIcon: {
+    marginLeft: 8,
+  },
+  filesTitle: {
+    fontSize: 15,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "#2c3e50",
+    textAlign: 'right',
+  },
+  filesGrid: {
+    flexDirection: 'row-reverse',
+    flexWrap: 'wrap',
+    marginHorizontal: -6,
+  },
+  fileCard: {
+    width: '48%',
+    margin: '1%',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+  },
+  fileCardGradient: {
+    padding: 16,
+    minHeight: 140,
+    justifyContent: 'space-between',
+  },
+  fileIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  fileDateContainer: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  fileDate: {
+    fontSize: 12,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "#6b7280",
+    marginLeft: 4,
+  },
+  fileActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  viewButton: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  deleteButton: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+  },
   uploadDate: {
     fontSize: 11,
     fontFamily: "Yekan_Bakh_Regular",
@@ -1103,15 +1135,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-  loadingText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#6b7280",
-    marginTop: 12,
-    textAlign: 'center',
-  },
-
-  // Skeleton Styles
   skeletonCard: {
     marginBottom: 20,
     backgroundColor: "rgba(248, 250, 252, 0.3)",
@@ -1168,8 +1191,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#f1f5f9',
     borderRadius: 12,
   },
-
-  // Error state styles
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1212,44 +1233,79 @@ const styles = StyleSheet.create({
     color: modernColors.surface,
     marginRight: 8,
   },
-
   bottomSpacer: {
     height: 50,
   },
-  decorativeElements: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: -1,
+  // Delete Modal Styles
+  deleteModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 30,
   },
-  floatingElements: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+  deleteModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 30,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 15,
+    width: '100%',
+    maxWidth: 350,
   },
-  star1: {
-    position: "absolute",
-    top: 400,
-    left: 60,
+  deleteIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  star2: {
-    position: "absolute",
-    top: 600,
-    right: 70,
+  deleteTitle: {
+    fontSize: 20,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#1F2937',
+    marginBottom: 12,
+    textAlign: 'center',
   },
-  star3: {
-    position: "absolute",
-    top: 800,
-    left: 50,
+  deleteMessage: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 30,
   },
-  star4: {
-    position: "absolute",
-    top: 1000,
-    right: 90,
+  deleteButtonsContainer: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  cancelDeleteButton: {
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  confirmDeleteButton: {
+    backgroundColor: '#EF4444',
+  },
+  cancelDeleteText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#374151',
+  },
+  confirmDeleteText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#FFFFFF',
   },
 });
 

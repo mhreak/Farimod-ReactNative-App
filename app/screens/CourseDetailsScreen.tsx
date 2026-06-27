@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import AppText from "../components/Text";
 import {
   ScrollView,
@@ -17,7 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import colors from "../config/colors";
 import MainBackground from "../components/MainBackground";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import Toast from "../components/Toast";
 import { formatPersianDate, formatPrice, toPersianDigits } from "../utils/converters";
 import MultiOptionRatingComponent, { StarDisplay } from "../components/RatingComponent";
@@ -25,8 +25,6 @@ import appConfig from "../config/config";
 import { useAuth } from '../contexts/AuthContext';
 
 const { width, height } = Dimensions.get('window');
-
-// const user?.MemberId = 1;
 
 const modernColors = {
   ...colors,
@@ -100,7 +98,6 @@ const transformContentReviewToRatingOptions = (contentReviewList) => {
     }));
 };
 
-// Skeleton Component for loading states
 const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
 
@@ -143,36 +140,30 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   );
 };
 
-// Course Details Skeleton
 const CourseDetailsSkeleton = () => {
   return (
     <View style={styles.container}>
       <MainBackground />
 
-      {/* Back Button */}
       <TouchableOpacity style={styles.backButton}>
         <View style={styles.backButtonContainer}>
           <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
         </View>
       </TouchableOpacity>
 
-      {/* Header Skeleton */}
       <View style={styles.headerContainer}>
         <SkeletonLoader width={200} height={26} borderRadius={13} />
       </View>
 
-      {/* Image Header Skeleton */}
       <View style={styles.imageHeaderContainer}>
         <SkeletonLoader width="100%" height="100%" borderRadius={30} />
       </View>
 
-      {/* Section Title Skeleton */}
       <View style={styles.sectionTitleContainer}>
         <SkeletonLoader width={50} height={50} borderRadius={25} style={{ marginLeft: 15 }} />
         <SkeletonLoader width={150} height={24} borderRadius={12} />
       </View>
 
-      {/* Detail Items Skeleton */}
       <View style={styles.cardsContainer}>
         {[1, 2, 3, 4, 5, 6].map((item) => (
           <View key={item} style={styles.detailItemSkeleton}>
@@ -188,7 +179,6 @@ const CourseDetailsSkeleton = () => {
         ))}
       </View>
 
-      {/* Buttons Skeleton */}
       <View style={styles.buttonsContainer}>
         <SkeletonLoader width="92%" height={56} borderRadius={30} style={{ marginBottom: 18 }} />
         <SkeletonLoader width="70%" height={48} borderRadius={25} />
@@ -197,7 +187,6 @@ const CourseDetailsSkeleton = () => {
   );
 };
 
-// Custom hook for course details API
 const useCourseDetails = () => {
   const { user } = useAuth();
   const [data, setData] = useState(null);
@@ -209,22 +198,16 @@ const useCourseDetails = () => {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching course details for ID:', courseId);
-
       const response = await fetch(
         `${appConfig.mobileApi}Course/Get?courseId=${courseId}`
       );
-
-      console.log('API Response Status:', response.status);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('API Response Data:', result);
 
-      // Transform the data to include necessary fields
       const transformedData = {
         ...result.Course,
         IsMemberLiked: result.IsMemberLiked || false,
@@ -237,10 +220,8 @@ const useCourseDetails = () => {
         DetailedRatingsAverages: {}
       };
 
-      console.log('Transformed Course Data:', transformedData);
       setData(transformedData);
     } catch (err) {
-      console.error('Course Details API Error:', err);
       setError(err.message);
       setData(null);
     } finally {
@@ -257,7 +238,6 @@ const useCourseDetails = () => {
   };
 };
 
-// Helper function to format course type
 const formatCourseType = (courseType) => {
   const types = {
     1: "حضوری",
@@ -267,7 +247,6 @@ const formatCourseType = (courseType) => {
   return types[courseType] || "نامشخص";
 };
 
-// Helper function to get course schedule
 const getCourseSchedule = (courseData) => {
   const days = ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const persianDays = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'];
@@ -287,40 +266,37 @@ const getCourseSchedule = (courseData) => {
   return schedule.length > 0 ? schedule.join('\n') : "برنامه زمانی مشخص نشده";
 };
 
-
-
 const CourseDetailsScreen = ({ route }) => {
   const navigation = useNavigation();
   const { user } = useAuth();
-  // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
+  const [imageError, setImageError] = useState(false);
+  const [fullScreenModalVisible, setFullScreenModalVisible] = useState(false);
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
-  // Toast states
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState('info');
+  const [registerState, setRegisterState] = useState(null);
+  const [isLoadingRegisterState, setIsLoadingRegisterState] = useState(false);
 
-  // Get course ID from navigation params FIRST
   const courseId = route?.params?.courseData?.CourseId || route?.params?.courseId;
 
-  // Use custom hook for API
   const { data: courseData, loading, error, fetchCourseDetails, setData } = useCourseDetails();
 
-  // Like states
   const [likeCount, setLikeCount] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const likeAnim = useRef(new Animated.Value(1)).current;
   const heartAnim = useRef(new Animated.Value(0)).current;
 
-  // Rating states
   const [userDetailedRatings, setUserDetailedRatings] = useState({});
   const [dynamicRatingOptions, setDynamicRatingOptions] = useState([]);
+  const [fullScreenImageUri, setFullScreenImageUri] = useState(null);
 
-  // Course action states
   const [showActionModal, setShowActionModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -330,8 +306,8 @@ const CourseDetailsScreen = ({ route }) => {
   const deleteModalSlideAnim = useRef(new Animated.Value(0)).current;
   const deleteModalBackdropAnim = useRef(new Animated.Value(0)).current;
 
-  const isOwnCourse = courseData?.MemberId === user?.MemberId; 
-  // ALL useEffect HOOKS
+  const isOwnCourse = courseData?.MemberId === user?.MemberId;
+
   useEffect(() => {
     if (courseId) {
       fetchCourseDetails(courseId);
@@ -340,7 +316,6 @@ const CourseDetailsScreen = ({ route }) => {
 
   useEffect(() => {
     if (courseData) {
-      console.log('Course Data received:', courseData);
       setLikeCount(courseData.LikeCount || 0);
       setIsLiked(courseData.IsMemberLiked || false);
 
@@ -387,20 +362,17 @@ const CourseDetailsScreen = ({ route }) => {
     ).start();
   }, []);
 
-  // Show error toast when API call fails
   useEffect(() => {
     if (error) {
       showToast('خطا در دریافت اطلاعات دوره. لطفاً دوباره تلاش کنید.', 'error');
     }
   }, [error]);
 
-  // ALL FUNCTION DEFINITIONS
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
 
-  // Toast helper function
   const showToast = (message, type = 'info') => {
     setToastMessage(message);
     setToastType(type);
@@ -409,16 +381,51 @@ const CourseDetailsScreen = ({ route }) => {
 
   const handleEditCourse = () => {
     navigation.navigate("AddNewCourse", {
-      isEdit: true,
-      courseData: courseData
+      courseId: courseData.CourseId
     });
   };
+  useFocusEffect(
+    useCallback(() => {
+      if (courseData && user?.MemberId) {
+        fetchRegisterState();
+      }
+    }, [courseData, user?.MemberId, fetchRegisterState])
+  );
+
+  const fetchRegisterState = useCallback(async () => {
+    if (!user?.MemberId || !courseId) return;
+
+    try {
+      setIsLoadingRegisterState(true);
+
+      const response = await fetch(
+        `${appConfig.mobileApi}CourseRegistration/GetRegisterState?memberId=${user.MemberId}&courseId=${courseId}`
+      );
+
+      if (response.status === 404) {
+        setRegisterState(null);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error('Error fetching register state');
+      }
+
+      const state = await response.json();
+      setRegisterState(state);
+    } catch (error) {
+      console.error('Error fetching register state:', error);
+      setRegisterState(null);
+    } finally {
+      setIsLoadingRegisterState(false);
+    }
+  }, [user?.MemberId, courseId]);
+
+
 
   const handleShowActions = () => {
-    console.log('handleShowActions called');
     setShowActionModal(true);
 
-    // Add proper animations like MagDetailesScreen
     Animated.parallel([
       Animated.timing(modalBackdropAnim, {
         toValue: 1,
@@ -447,6 +454,21 @@ const CourseDetailsScreen = ({ route }) => {
       }),
     ]).start(() => {
       setShowActionModal(false);
+    });
+  };
+
+  const handleRegister = () => {
+    navigation.navigate('CourseRegistration', {
+      courseId: courseData.CourseId,
+      courseName: courseData.Name,
+      coursePrice: courseData.Price || 0,
+    });
+  };
+
+  const handleShowStudents = () => {
+    navigation.navigate('CourseStudents', {
+      courseId: courseData.CourseId,
+      courseName: courseData.Name,
     });
   };
 
@@ -486,6 +508,11 @@ const CourseDetailsScreen = ({ route }) => {
     });
   };
 
+  const handleImagePress = (uri) => {
+    setFullScreenImageUri(uri);
+    setFullScreenModalVisible(true);
+  };
+
   const confirmDeleteCourse = async () => {
     handleCloseDeleteModal();
 
@@ -499,23 +526,29 @@ const CourseDetailsScreen = ({ route }) => {
       if (response.ok) {
         showToast('دوره با موفقیت حذف شد', 'success');
         setTimeout(() => {
-          navigation.goBack();
+          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
         }, 2000);
       } else {
         const errorData = await response.json();
         throw new Error(errorData.Message || 'خطا در حذف دوره');
       }
     } catch (error) {
-      console.error('Error deleting course:', error);
       showToast(error.message || 'خطا در حذف دوره', 'error');
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // Like functionality
+  useEffect(() => {
+    setImageError(false);
+  }, [courseData?.FeaturedImageURL]);
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
   const handleLike = async () => {
-    if (isLiking || !courseData) return;
+    if (isLiking || !courseData || !user?.MemberId) return;
 
     setIsLiking(true);
 
@@ -526,7 +559,6 @@ const CourseDetailsScreen = ({ route }) => {
     setIsLiked(newIsLiked);
     setLikeCount(newLikeCount);
 
-    // Like animation
     Animated.sequence([
       Animated.parallel([
         Animated.timing(likeAnim, {
@@ -587,7 +619,7 @@ const CourseDetailsScreen = ({ route }) => {
     try {
       const currentCourseId = courseId || courseData.CourseId;
       const response = await fetch(
-        `${appConfig.mobileApi}Course/Like?id=${currentCourseId}`,
+        `${appConfig.mobileApi}Course/Like?id=${currentCourseId}&memberId=${user.MemberId}`,
         {
           method: 'POST',
           headers: {
@@ -601,10 +633,7 @@ const CourseDetailsScreen = ({ route }) => {
       }
 
       const result = await response.json();
-      console.log('Like API Response:', result);
-
     } catch (error) {
-      console.error('Like API Error:', error);
       setIsLiked(isLiked);
       setLikeCount(likeCount);
     } finally {
@@ -612,13 +641,10 @@ const CourseDetailsScreen = ({ route }) => {
     }
   };
 
-  // NOW CONDITIONAL RENDERING CAN HAPPEN AFTER ALL HOOKS
-  // Show loading skeleton while data is being fetched
   if (loading) {
     return <CourseDetailsSkeleton />;
   }
 
-  // Show error state
   if (error && !courseData) {
     return (
       <View style={styles.container}>
@@ -626,7 +652,7 @@ const CourseDetailsScreen = ({ route }) => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
@@ -651,14 +677,13 @@ const CourseDetailsScreen = ({ route }) => {
     );
   }
 
-  // If no course data, show error
   if (!courseData) {
     return (
       <View style={styles.container}>
         <MainBackground />
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
@@ -690,7 +715,6 @@ const CourseDetailsScreen = ({ route }) => {
     return iconColors[iconType] || modernColors.primary;
   };
 
-  // Smart Detail Item Component
   const SmartDetailItem = ({ label, value, icon, maxLength = 30 }) => {
     if (!value || value === "نامشخص" || value === "تاریخ مشخص نشده") {
       return null;
@@ -748,9 +772,7 @@ const CourseDetailsScreen = ({ route }) => {
     }
   };
 
-  // Coaches processing - only show if actual coaches exist
   const processCoaches = () => {
-    // Check for Course_Member_List first (as per your JSON structure)
     if (courseData.Course_Member_List && courseData.Course_Member_List.length > 0) {
       return courseData.Course_Member_List.map(member => ({
         name: member.MemberName || member.Name || "مربی",
@@ -758,7 +780,6 @@ const CourseDetailsScreen = ({ route }) => {
       }));
     }
 
-    // Fallback to Course_Member_ViewModel_List if it exists
     if (courseData.Course_Member_ViewModel_List && courseData.Course_Member_ViewModel_List.length > 0) {
       return courseData.Course_Member_ViewModel_List.map(member => ({
         name: member.MemberName || "مربی",
@@ -766,7 +787,6 @@ const CourseDetailsScreen = ({ route }) => {
       }));
     }
 
-    // Return empty array if no coaches found
     return [];
   };
 
@@ -831,7 +851,6 @@ const CourseDetailsScreen = ({ route }) => {
       <View style={styles.container}>
         <MainBackground />
 
-        {/* Toast Component */}
         <Toast
           visible={toastVisible}
           message={toastMessage}
@@ -839,7 +858,6 @@ const CourseDetailsScreen = ({ route }) => {
           onHide={() => setToastVisible(false)}
         />
 
-        {/* Floating Heart Animation */}
         <Animated.View
           style={[
             styles.floatingHeart,
@@ -878,14 +896,13 @@ const CourseDetailsScreen = ({ route }) => {
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.goBack()}
+            onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
             </View>
           </TouchableOpacity>
 
-          {/* Menu Button - فقط برای صاحب دوره */}
           {isOwnCourse && !loading && (
             <TouchableOpacity
               style={styles.menuButton}
@@ -922,12 +939,28 @@ const CourseDetailsScreen = ({ route }) => {
               },
             ]}
           >
-            <Image
-              style={styles.headerImage}
-              source={require("../../assets/new_course.jpg")}
-            />
+            {(courseData?.FeaturedImageURL && !imageError) ? (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => handleImagePress(courseData.FeaturedImageURL)}
+              >
+                <Image
+                  style={styles.headerImage}
+                  source={{ uri: courseData.FeaturedImageURL }}
+                  onError={handleImageError}
+                  resizeMode="contain"
+                />
+              </TouchableOpacity>
+            ) : (
+              <Image
+                style={styles.headerImage}
+                source={require("../../assets/new_course.jpg")}
+                resizeMode="cover"
+              />
+            )}
+
             <LinearGradient
-              colors={['transparent', 'rgba(190, 126, 234, 0.9)', 'rgba(118, 75, 162, 0.95)']}
+              colors={['transparent', 'rgba(190, 126, 234, 0.5)', 'rgba(118, 75, 162, 0.85)']}
               style={styles.overlay}
             >
               <View style={styles.titleBackground}>
@@ -943,7 +976,6 @@ const CourseDetailsScreen = ({ route }) => {
               </View>
             </LinearGradient>
 
-            {/* Like Badge on Image */}
             <View
               style={[
                 styles.topLikeBadge,
@@ -977,6 +1009,7 @@ const CourseDetailsScreen = ({ route }) => {
             style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]}
           />
 
+        
           <Animated.View
             style={[
               styles.sectionTitleContainer,
@@ -999,6 +1032,42 @@ const CourseDetailsScreen = ({ route }) => {
             </View>
           </Animated.View>
 
+          {/* ✅ باکس مینیمال یک خطی */}
+          {!isOwnCourse && registerState === 2 && (
+            <Animated.View
+              style={[
+                styles.registeredMinimalBanner,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }],
+                },
+              ]}
+            >
+              <MaterialIcons name="check-circle" size={20} color="#10b981" />
+              <AppText style={styles.registeredMinimalText}>
+                شما در این دوره ثبت‌نام کرده‌اید
+              </AppText>
+            </Animated.View>
+          )}
+
+          <Animated.View
+            style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
+          />
+
+
+<Animated.View
+  style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
+/>
+
+<Animated.View
+  style={[
+    styles.cardsContainer,
+    {
+      opacity: fadeAnim,
+      transform: [{ translateY: slideAnim }],
+    },
+  ]}
+></Animated.View>
           <Animated.View
             style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
           />
@@ -1026,7 +1095,6 @@ const CourseDetailsScreen = ({ route }) => {
               maxLength={25}
             />
 
-            {/* فقط در صورت وجود مربی نمایش داده شود */}
             {hasCoaches && (
               <DetailItemWithCoaches
                 label="مربیان"
@@ -1041,7 +1109,6 @@ const CourseDetailsScreen = ({ route }) => {
               icon="attach-money"
             />
 
-            {/* اطلاعات تکمیلی */}
             <View style={styles.detailItem}>
               <View style={styles.labelContainer}>
                 <LinearGradient
@@ -1111,7 +1178,6 @@ const CourseDetailsScreen = ({ route }) => {
               <View style={[styles.featureAccent, { backgroundColor: getIconColor('info') + "60" }]} />
             </View>
 
-            {/* Rating Section با کامپوننت جدید */}
             <View style={styles.detailItem}>
               <View style={styles.labelContainer}>
                 <LinearGradient
@@ -1143,8 +1209,6 @@ const CourseDetailsScreen = ({ route }) => {
                   animated={true}
                   allowHalfStars={false}
                   onRatingSubmitted={(result) => {
-                    console.log('Rating submitted successfully:', result);
-
                     if (result.ratings) {
                       setUserDetailedRatings(result.ratings);
                       const averageRating = result.averageRating;
@@ -1166,7 +1230,6 @@ const CourseDetailsScreen = ({ route }) => {
                     }
                   }}
                   onRatingError={(errorMessage) => {
-                    console.error('Rating submission failed:', errorMessage);
                     showToast(errorMessage || 'خطا در ثبت امتیاز', 'error');
                   }}
                   onRatingChange={(rating, detailedRatings) => {
@@ -1177,7 +1240,6 @@ const CourseDetailsScreen = ({ route }) => {
                   style={styles.ratingComponent}
                 />
 
-                {/* نمایش امتیازات تفصیلی کاربر */}
                 {dynamicRatingOptions.length > 0 && Object.keys(userDetailedRatings).length > 0 && (
                   <View style={styles.userDetailedRatingsContainer}>
                     <AppText style={styles.userDetailedRatingsTitle}>امتیازات شما:</AppText>
@@ -1209,7 +1271,6 @@ const CourseDetailsScreen = ({ route }) => {
                   </View>
                 )}
 
-                {/* نمایش میانگین امتیاز در هر بخش */}
                 {dynamicRatingOptions.length > 0 &&
                   dynamicRatingOptions.some(option => option.averageRating != null && option.averageRating !== 0) && (
                     <View style={styles.detailedRatingsContainer}>
@@ -1247,35 +1308,39 @@ const CourseDetailsScreen = ({ route }) => {
             </View>
           </Animated.View>
 
-          <Animated.View
-            style={[
-              styles.buttonsContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }, { scale: pulseAnim }],
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={styles.primaryButton}
-              disabled={!courseData.RegisterActive}
+          {!isOwnCourse && (
+            <Animated.View
+              style={[
+                styles.buttonsContainer,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ translateY: slideAnim }, { scale: pulseAnim }],
+                },
+              ]}
             >
-              <LinearGradient
-                colors={courseData.RegisterActive ?
-                  ['#E91E63', '#AD1457', '#880E4F'] :
-                  ['#9e9e9e', '#757575', '#616161']
-                }
-                style={styles.buttonGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <MaterialIcons name="book" size={22} color="white" />
-                <AppText style={styles.primaryButtonText}>
-                  {courseData.RegisterActive ? "ثبت نام در دوره" : "ثبت نام غیرفعال"}
-                </AppText>
-              </LinearGradient>
-            </TouchableOpacity>
-          </Animated.View>
+              {courseData.RegisterActive && registerState !== 2 && (
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={handleRegister}
+                  activeOpacity={0.8}
+                >
+                  <LinearGradient
+                    colors={['#E91E63', '#AD1457', '#880E4F']}
+                    style={styles.buttonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <MaterialIcons name="book" size={22} color="white" />
+                    <AppText style={styles.primaryButtonText}>
+                      {registerState === 1 ? 'ثبت نام در دوره' : 'ثبت نام در دوره'}
+                    </AppText>
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+
+         
+            </Animated.View>
+          )}
 
           <View style={styles.decorativeElements}>
             <View style={styles.floatingElements}>
@@ -1360,16 +1425,20 @@ const CourseDetailsScreen = ({ route }) => {
 
                 <TouchableOpacity
                   style={styles.modalActionItem}
-                  onPress={handleDeleteCourse}
-                  disabled={isDeleting}
+                  onPress={() => {
+                    handleCloseModal();
+                    setTimeout(() => {
+                      handleShowStudents();
+                    }, 300);
+                  }}
                 >
                   <View style={styles.modalActionContent}>
-                    <View style={[styles.modalActionIcon, { backgroundColor: modernColors.error }]}>
-                      <MaterialIcons name="delete" size={22} color="#ffffff" />
+                    <View style={[styles.modalActionIcon, { backgroundColor: modernColors.accent }]}>
+                      <MaterialIcons name="people" size={22} color="#ffffff" />
                     </View>
                     <View style={styles.modalActionText}>
-                      <AppText style={styles.modalActionTitle}>حذف دوره</AppText>
-                      <AppText style={styles.modalActionSubtitle}>حذف کامل دوره از سیستم</AppText>
+                      <AppText style={styles.modalActionTitle}>دانشجویان دوره</AppText>
+                      <AppText style={styles.modalActionSubtitle}>مشاهده لیست ثبت‌نام‌شدگان</AppText>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -1472,6 +1541,36 @@ const CourseDetailsScreen = ({ route }) => {
           </View>
         </Modal>
       </View>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={fullScreenModalVisible}
+        onRequestClose={() => setFullScreenModalVisible(false)}
+      >
+        <View style={styles.fullScreenModalOverlay}>
+          <TouchableOpacity
+            style={styles.fullScreenCloseButton}
+            onPress={() => setFullScreenModalVisible(false)}
+          >
+            <MaterialIcons name="close" size={30} color="white" />
+          </TouchableOpacity>
+
+          {fullScreenImageUri ? (
+            <Image
+              source={{ uri: fullScreenImageUri }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          ) : (
+            <Image
+              source={require("../../assets/new_course.jpg")}
+              style={styles.fullScreenImage}
+              resizeMode="cover"
+            />
+          )}
+        </View>
+      </Modal>
     </>
   );
 };
@@ -1545,6 +1644,7 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     justifyContent: "center",
   },
+  
   headerTitle: {
     fontSize: 26,
     fontFamily: "Yekan_Bakh_ExtraBold",
@@ -1559,35 +1659,55 @@ const styles = StyleSheet.create({
     zIndex: 1000,
     pointerEvents: 'none',
   },
- imageHeaderContainer: {
-  position: 'relative',
-  height: 480, // تغییر از 320 به 480 برای شکل عمودی
-  marginVertical: 20,
-  marginHorizontal: 20, // حفظ حاشیه از دو طرف
-  borderRadius: 30,
-  overflow: 'hidden',
-  shadowColor: modernColors.primary,
-  shadowOffset: {
-    width: 0,
-    height: 15,
+  registeredMinimalBanner: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f0fdf4',
+    marginHorizontal: 20,
+    marginBottom: 20,
+    marginTop: 5,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#86efac',
+    gap: 8,
   },
-  shadowOpacity: 0.4,
-  shadowRadius: 20,
-  elevation: 20,
-},
+  registeredMinimalText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Regular",
+    color: '#15803d',
+  },
+  imageHeaderContainer: {
+    position: 'relative',
+    height: 480,
+    marginVertical: 20,
+    marginHorizontal: 20,
+    borderRadius: 30,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+    shadowColor: modernColors.primary,
+    shadowOffset: {
+      width: 0,
+      height: 15,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 20,
+  },
   headerImage: {
     width: '100%',
     height: '100%',
     borderRadius: 30,
-    resizeMode: 'cover', // اضافه کردن این خاصیت برای بهتر نمایش دادن تصویر
+    backgroundColor: '#fdf0fd',
   },
-
   overlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: '50%', // کاهش از 60% به 50% برای فضای بیشتر تصویر
+    height: '50%',
     padding: 15,
     justifyContent: 'flex-end',
   },
@@ -1722,7 +1842,6 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginHorizontal: 5,
   },
-  // Skeleton styles
   detailItemSkeleton: {
     marginBottom: 14,
     backgroundColor: "rgba(248, 250, 252, 0.3)",
@@ -1743,7 +1862,6 @@ const styles = StyleSheet.create({
   skeletonContentContainer: {
     paddingHorizontal: 15,
   },
-  // Row container for label and value in same line
   rowContainer: {
     flexDirection: 'row-reverse',
     alignItems: 'center',
@@ -1817,7 +1935,6 @@ const styles = StyleSheet.create({
   ratingComponent: {
     alignItems: 'flex-end',
   },
-  // امتیازات تفصیلی کاربر
   userDetailedRatingsContainer: {
     marginTop: 20,
     backgroundColor: '#e8f5e8',
@@ -1867,7 +1984,6 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: modernColors.success,
   },
-  // میانگین امتیازات سایر کاربران
   detailedRatingsContainer: {
     marginTop: 15,
     backgroundColor: 'rgba(255, 248, 225, 0.5)',
@@ -1975,7 +2091,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: "Yekan_Bakh_Regular",
   },
-  // Course Info Section Styles
   courseInfoSection: {
     paddingVertical: 15,
     paddingHorizontal: 15,
@@ -2040,24 +2155,33 @@ const styles = StyleSheet.create({
     color: "white",
     marginLeft: 12,
   },
-  secondaryButton: {
-    borderRadius: 25,
-    overflow: "hidden",
-    borderWidth: 2,
+  registeredBadge: {
+    marginBottom: 18,
+    borderRadius: 30,
+    overflow: 'hidden',
+    shadowColor: modernColors.success,
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  secondaryButtonGradient: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
+  registeredBadgeGradient: {
+    flexDirection: 'row-reverse',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingVertical: 14,
     paddingHorizontal: 35,
+    gap: 10,
   },
-  secondaryButtonText: {
+  registeredBadgeText: {
     fontSize: 17,
-    fontFamily: "Yekan_Bakh_Regular",
-    textAlign: "center",
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#fff',
+    textAlign: 'center',
   },
-  // Error state styles
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -2133,7 +2257,6 @@ const styles = StyleSheet.create({
   bottomSpacer: {
     height: 30,
   },
-  // Modal Styles
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -2234,8 +2357,6 @@ const styles = StyleSheet.create({
     fontFamily: "Yekan_Bakh_Bold",
     color: '#6c757d',
   },
-
-  // Delete Modal Styles - Updated to match MagDetailesScreen
   deleteModalContent: {
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 25,
@@ -2332,6 +2453,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Bold",
     color: '#6c757d',
+  },
+  fullScreenModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenImage: {
+    width: '100%',
+    height: '100%',
+  },
+  fullScreenCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 1,
+    padding: 10,
+    borderRadius: 25,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
 });
 

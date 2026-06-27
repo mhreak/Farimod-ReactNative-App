@@ -1,5 +1,5 @@
 const appConfig = {
-  mobileApi: "http://89.42.208.49/api/MobileApp/",
+  mobileApi: "http://my.farimod.ir/api/MobileApp/",
 };
 
 export default appConfig;

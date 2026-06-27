@@ -16,6 +16,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import appConfig from "../config/config";
 import ImageUpload from "../components/ImageUpload";
 import { useAuth } from '../contexts/AuthContext';
+import Tooltip from '../components/Tooltip';
 
 const AddNewPostScreen = () => {
   const { user } = useAuth();
@@ -27,7 +28,7 @@ const AddNewPostScreen = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
-  const [postImages, setPostImages] = useState([]); // state اصلی برای نگهداری تصاویر
+  const [postImages, setPostImages] = useState([]);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -39,14 +40,9 @@ const AddNewPostScreen = () => {
   const backButtonAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // دیباگ تصاویر
-  useEffect(() => {
-    console.log('📸 postImages state changed:', postImages);
-  }, [postImages]);
-
   useEffect(() => {
     fetchCategories();
-    // Animations...
+
     Animated.sequence([
       Animated.timing(backButtonAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
       Animated.parallel([
@@ -58,6 +54,7 @@ const AddNewPostScreen = () => {
         Animated.timing(formSlideAnim, { toValue: 0, duration: 700, useNativeDriver: true }),
       ]),
     ]).start();
+
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.05, duration: 2000, useNativeDriver: true }),
@@ -66,21 +63,14 @@ const AddNewPostScreen = () => {
     ).start();
   }, []);
 
-  useEffect(() => {
-    if (isEditMode && editPostData) {
-      console.log('Edit Post Data:', editPostData);
-      console.log('BlogPostCategoriesStr:', editPostData.BlogPostCategoriesStr);
-    }
-  }, [isEditMode, editPostData, categories]);
-
   const fetchCategories = async () => {
     try {
       setLoadingCategories(true);
-      const response = await fetch(`${appConfig.mobileApi}BlogPostCategory`);
+      const response = await fetch(`${appConfig.mobileApi}BlogPostCategory?filterActive=true&currentPage=1&pageSize=1000`);
 
       if (response.ok) {
         const result = await response.json();
-        const categoriesArray = Array.isArray(result) ? result : [];
+        const categoriesArray = result && Array.isArray(result.Data) ? result.Data : [];
 
         if (categoriesArray.length > 0) {
           const activeCategories = categoriesArray.filter(category =>
@@ -94,23 +84,14 @@ const AddNewPostScreen = () => {
 
           setCategories(categoryOptions);
         } else {
-          setCategories([
-            { value: 1, label: "معرفی کتاب" },
-            { value: 2, label: "معرفی کسب و کار" },
-          ]);
+          setCategories([]); // حذف مقادیر دیفالت قبلی
         }
       } else {
-        setCategories([
-          { value: 1, label: "معرفی کتاب" },
-          { value: 2, label: "معرفی کسب و کار" },
-        ]);
+        setCategories([]); // حذف مقادیر دیفالت قبلی
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
-      setCategories([
-        { value: 1, label: "معرفی کتاب" },
-        { value: 2, label: "معرفی کسب و کار" },
-      ]);
+      setCategories([]); // حذف مقادیر دیفالت قبلی
     } finally {
       setLoadingCategories(false);
     }
@@ -138,14 +119,11 @@ const AddNewPostScreen = () => {
         validationErrors.content = "محتوای پست الزامی است";
       }
 
-      if (!values.blogPostCategoryIds ||
-        !Array.isArray(values.blogPostCategoryIds) ||
-        values.blogPostCategoryIds.length === 0) {
+      if (!values.blogPostCategoryIds || !Array.isArray(values.blogPostCategoryIds) || values.blogPostCategoryIds.length === 0) {
         validationErrors.blogPostCategoryIds = "حداقل یک دسته‌بندی الزامی است";
       }
 
       if (Object.keys(validationErrors).length > 0) {
-        console.log('Validation errors:', validationErrors);
         showValidationErrors(validationErrors);
         setErrors(validationErrors);
         setIsSubmitting(false);
@@ -153,7 +131,6 @@ const AddNewPostScreen = () => {
       }
 
       const formData = new FormData();
-
       formData.append('BlogPostId', isEditMode ? editPostData.BlogPostId.toString() : '0');
       formData.append('MemberId', user?.MemberId.toString());
       formData.append('Title', values.title.trim());
@@ -176,28 +153,16 @@ const AddNewPostScreen = () => {
       formData.append('InsertDate', new Date().toISOString());
       formData.append('ShamsiInsertDate', '');
 
-      // **بررسی و آپلود تصویر - مشابه AddProductScreen**
-      console.log('📸 Checking images...');
-      console.log('📸 postImages state:', postImages);
-      console.log('📸 values.images from Formik:', values.images);
-
-      // استفاده از values.images که توسط Formik مدیریت می‌شود
       const imagesToUpload = values.images && values.images.length > 0 ? values.images : postImages;
 
       if (imagesToUpload && imagesToUpload.length > 0 && imagesToUpload[0]) {
         const image = imagesToUpload[0];
-        console.log('📸 Processing image:', image);
-
         if (image.uri) {
-          // فیکس URI برای iOS (مشابه AddProductScreen)
           let imageUri = image.uri;
           if (Platform.OS === 'ios' && !imageUri.startsWith('file://')) {
             imageUri = `file://${imageUri}`;
           }
 
-          console.log('📸 Final image URI:', imageUri);
-
-          // تعیین نوع فایل
           let fileType = image.type || 'image/jpeg';
           if (!fileType.startsWith('image/')) {
             const uriParts = imageUri.split('.');
@@ -210,38 +175,28 @@ const AddNewPostScreen = () => {
             }
           }
 
-          // نام فایل
           const fileName = image.name || `featured-image-${Date.now()}.jpg`;
 
-          // ساختار صحیح برای React Native FormData
           const imageFile = {
             uri: imageUri,
             type: fileType,
             name: fileName
           };
 
-          console.log('📸 Image file to upload:', imageFile);
-
           formData.append('featuredImageFile', imageFile as any);
           formData.append('FeaturedImageFileName', fileName);
           formData.append('FeaturedImageURL', '');
         } else {
-          console.warn('⚠️ Image URI is missing!');
           formData.append('FeaturedImageFileName', '');
           formData.append('FeaturedImageURL', '');
         }
       } else {
-        console.log('📸 No images to upload');
         formData.append('FeaturedImageFileName', '');
         formData.append('FeaturedImageURL', '');
       }
 
-      const url = isEditMode
-        ? `${appConfig.mobileApi}BlogPost/Edit`
-        : `${appConfig.mobileApi}BlogPost/Add`;
+      const url = isEditMode ? `${appConfig.mobileApi}BlogPost/Edit` : `${appConfig.mobileApi}BlogPost/Add`;
       const method = isEditMode ? 'PUT' : 'POST';
-
-      console.log('Submitting to:', url, 'with method:', method);
 
       const response = await fetch(url, {
         method: method,
@@ -251,18 +206,9 @@ const AddNewPostScreen = () => {
         }
       });
 
-      console.log('Response status:', response.status);
       const responseText = await response.text();
-      console.log('Response text:', responseText);
 
       if (response.ok) {
-        let responseData;
-        try {
-          responseData = JSON.parse(responseText);
-        } catch (e) {
-          responseData = { message: responseText };
-        }
-
         showToast(
           isEditMode ? 'پست با موفقیت ویرایش شد' : 'پست با موفقیت ثبت شد',
           'success'
@@ -274,7 +220,7 @@ const AddNewPostScreen = () => {
         }
 
         setTimeout(() => {
-          navigation.goBack();
+          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
         }, 2000);
       } else {
         let errorData;
@@ -283,16 +229,11 @@ const AddNewPostScreen = () => {
         } catch {
           errorData = { Message: responseText };
         }
-
-        console.error('Submit error response:', errorData);
         throw new Error(errorData.Message || `خطا در ${isEditMode ? 'ویرایش' : 'ثبت'} پست`);
       }
     } catch (error) {
       console.error('Submit error:', error);
-      showToast(
-        error.message || `خطا در ${isEditMode ? 'ویرایش' : 'ثبت'} پست`,
-        'error'
-      );
+      showToast(error.message || `خطا در ${isEditMode ? 'ویرایش' : 'ثبت'} پست`, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -306,14 +247,19 @@ const AddNewPostScreen = () => {
       <LinearGradient colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0.8)', 'rgba(255,255,255,1)']} style={styles.gradientOverlay}>
         <Screen style={styles.container}>
           <Toast visible={toastVisible} message={toastMessage} type={toastType} onHide={() => setToastVisible(false)} />
+          <View style={styles.headerButtons}>
+            <View style={styles.headerLeft}>
+              <Tooltip content="پست یا مقاله جدید بنویسید. عنوان، محتوای کامل مقاله، تصویر شاخص و دسته‌بندی را مشخص کنید." />
+            </View>
 
-          <Animated.View style={[styles.backButton, { opacity: backButtonAnim, transform: [{ scale: backButtonAnim }] }]}>
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-              <View style={styles.backButtonGlass}>
-                <MaterialIcons name="arrow-forward" size={24} color="white" />
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
+            <Animated.View style={[styles.backButton, { opacity: backButtonAnim, transform: [{ scale: backButtonAnim }] }]}>
+              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}>
+                <View style={styles.backButtonGlass}>
+                  <MaterialIcons name="arrow-forward" size={24} color="white" />
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
             <Animated.View style={[styles.iconContainer, { opacity: iconFadeAnim, transform: [{ translateY: iconSlideAnim }, { scale: pulseAnim }] }]}>
@@ -362,9 +308,7 @@ const AddNewPostScreen = () => {
                         onChangeText={handleChange("title")}
                         value={values.title}
                         error={errors.title}
-                        style={{
-                          borderColor: errors.title ? '#e74c3c' : undefined
-                        }}
+                        style={{ borderColor: errors.title ? '#e74c3c' : undefined }}
                       />
                       {errors.title && (
                         <Text style={styles.errorText}>{errors.title}</Text>
@@ -375,7 +319,6 @@ const AddNewPostScreen = () => {
                         onSelectItem={(item) => { }}
                         onMultiSelectChange={(selectedItems) => {
                           const selectedIds = selectedItems ? selectedItems.map(item => item.value) : [];
-                          console.log('Selected categories:', selectedIds);
                           setFieldValue("blogPostCategoryIds", selectedIds);
                         }}
                         selectedItems={
@@ -400,9 +343,7 @@ const AddNewPostScreen = () => {
                         disabled={loadingCategories}
                         multiSelect={true}
                         error={errors.blogPostCategoryIds}
-                        style={{
-                          borderColor: errors.blogPostCategoryIds ? '#e74c3c' : undefined
-                        }}
+                        style={{ borderColor: errors.blogPostCategoryIds ? '#e74c3c' : undefined }}
                       />
                       {errors.blogPostCategoryIds && (
                         <Text style={styles.errorText}>{errors.blogPostCategoryIds}</Text>
@@ -418,7 +359,9 @@ const AddNewPostScreen = () => {
                         value={values.content}
                         multiline={true}
                         numberOfLines={8}
-                        textAlignVertical="top"
+                        isLargeInput={true}
+                        maxLength={undefined}
+                        containerStyle={styles.contentInputContainer}
                         style={styles.contentInput}
                         error={errors.content}
                       />
@@ -434,15 +377,9 @@ const AddNewPostScreen = () => {
                         placeholder="وضعیت انتشار"
                         style={styles.halfWidthPicker}
                       />
-
-                      {/* **اصلاح ImageUpload - مشابه AddProductScreen** */}
                       <ImageUpload
                         onImageChange={(images) => {
-                          console.log('📸 ImageUpload onImageChange called:', images);
-
-                          // پردازش تصاویر مشابه AddProductScreen
                           let imageArray = [];
-
                           if (images) {
                             if (Array.isArray(images)) {
                               imageArray = images.filter(img => img && img.uri);
@@ -450,10 +387,6 @@ const AddNewPostScreen = () => {
                               imageArray = [images];
                             }
                           }
-
-                          console.log('📸 Final image array:', imageArray);
-
-                          // آپدیت هر دو state
                           setPostImages(imageArray);
                           setFieldValue("images", imageArray);
                         }}
@@ -464,21 +397,23 @@ const AddNewPostScreen = () => {
                         allowGallery={true}
                         error={errors.images}
                         maxImages={1}
-                        placeholder="انتخاب عکس شاخص"
+                        placeholder="انتخاب عکس شاخص(تصویر افقی)"
                         style={styles.imageUploadContainer}
-                        initialImage={isEditMode && editPostData?.FeaturedImageURL ?
-                          {
-                            id: 'existing',
-                            uri: editPostData.FeaturedImageURL,
-                            name: editPostData.FeaturedImageFileName || 'existing-image.jpg',
-                            type: 'image/jpeg'
-                          } : null
+                        // مقدار initialImage را به شکل زیر اصلاح کنید تا پیش‌نمایش به درستی کار کند:
+                        initialImage={
+                          postImages.length > 0
+                            ? postImages[0]
+                            : isEditMode && editPostData?.FeaturedImageURL
+                              ? {
+                                id: 'existing',
+                                uri: editPostData.FeaturedImageURL,
+                                name: editPostData.FeaturedImageFileName || 'existing-image.jpg',
+                                type: 'image/jpeg'
+                              }
+                              : null
                         }
                         onShowToast={showToast}
-                        aspectRatio={[16, 9]}
                       />
-
-               
 
                       <View style={styles.buttonContainer}>
                         <AppButton
@@ -503,12 +438,29 @@ const AddNewPostScreen = () => {
 
 const styles = StyleSheet.create({
   backgroundContainer: { flex: 1 },
+  headerButtons: {
+    position: 'absolute',
+    top: 15,
+    left: 15,
+    right: 15,
+    zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  headerLeft: { top: 5 },
+  backButton: { zIndex: 10 },
+  backButtonGlass: {
+    backgroundColor: '#9E22AD',
+    borderRadius: 25,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 206, 232, 0.5)',
+  },
   backgroundWrapper: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   backgroundImage: { width: '100%', height: '100%', resizeMode: 'repeat' },
   gradientOverlay: { flex: 1 },
   container: { padding: 10, backgroundColor: 'transparent' },
-  backButton: { position: "absolute", top: 15, right: 15, zIndex: 10 },
-  backButtonGlass: { backgroundColor: '#9E22AD', borderRadius: 25, padding: 10, borderWidth: 1, borderColor: 'rgba(255, 206, 232, 0.5)' },
   iconContainer: { justifyContent: "center", alignItems: "center", marginBottom: -110, marginTop: 50, zIndex: 1000 },
   iconCircle: { width: 100, height: 100, borderRadius: 50, justifyContent: "center", alignItems: "center", shadowColor: 'rgba(255, 206, 232, 0.2)', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 8 },
   iconInnerCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255, 206, 232, 0.15)', justifyContent: "center", alignItems: "center", borderWidth: 2, borderColor: 'rgba(255, 206, 232, 0.4)', zIndex: 99 },
@@ -516,8 +468,12 @@ const styles = StyleSheet.create({
   formBox: { borderRadius: 25, padding: 25, margin: 5, marginTop: 65, marginBottom: 80, position: 'relative', overflow: 'hidden' },
   glassOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(255, 206, 232, 0.7)', borderRadius: 25, borderWidth: 1.5, borderColor: 'rgba(255, 206, 232, 1)', shadowColor: 'rgba(255, 255, 255, 1)', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 6, zIndex: 1 },
   contentContainer: { position: 'relative', zIndex: 1 },
-  titleText: { fontSize: 30, marginTop: 35, textAlign: "center", marginBottom: 30, fontFamily: "Yekan_Bakh_Bold", color: colors.primary, textShadowColor: 'rgba(255, 206, 232, 0.1)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
-  contentInput: { minHeight: 120, textAlignVertical: 'top' },
+  titleText: { fontSize: 30, marginTop: 35, textAlign: "center", marginBottom: 30, fontFamily: "Yekan_Bakh_Bold", color: colors.primary },
+  contentInputContainer: {
+    marginTop: 26,
+    marginBottom: 16,
+  },
+  contentInput: { minHeight: 140, textAlignVertical: 'top' },
   imageUploadContainer: { backgroundColor: 'rgba(255, 255, 255, 0.3)', borderRadius: 15, padding: 15, borderWidth: 1, borderColor: 'rgba(255, 206, 232, 0.2)' },
   halfWidthPicker: { flex: 1 },
   buttonContainer: { marginTop: 20, gap: 15 },

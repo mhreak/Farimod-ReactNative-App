@@ -22,11 +22,11 @@ import Toast from "../components/Toast";
 import { toPersianDigits } from "../utils/converters";
 import MultiOptionRatingComponent, { StarDisplay } from "../components/RatingComponent";
 import appConfig from "../config/config";
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from "../contexts/AuthContext";
 
 const { width, height } = Dimensions.get('window');
 
-// const CURRENT_MEMBER_ID = 1;
+
 
 const modernColors = {
   ...colors,
@@ -305,6 +305,7 @@ const PortfolioDetailSkeleton = () => {
 };
 
 const PortfolioDetailScreen = ({ route }) => {
+  const { user } = useAuth();
   const navigation = useNavigation();
   const { title, portfolioId } = route?.params || {};
 
@@ -462,7 +463,7 @@ const PortfolioDetailScreen = ({ route }) => {
     }
   };
 
-  const isOwnPortfolio = portfolio && portfolio.MemberId === user?.MemberId;
+  const isOwnPortfolio =  portfolio && portfolio.MemberId === user?.MemberId;
 
   const handleEditPortfolio = () => {
     navigation.navigate("AddNewPortfolio", {
@@ -546,7 +547,7 @@ const PortfolioDetailScreen = ({ route }) => {
   };
 
   const handleLike = async () => {
-    if (isLiking || !portfolio) return;
+    if (isLiking || !portfolio || !user?.MemberId) return;
 
     setIsLiking(true);
 
@@ -618,7 +619,7 @@ const PortfolioDetailScreen = ({ route }) => {
       const currentPortfolioId = portfolioId || portfolio.PortfolioId || 1;
 
       const response = await fetch(
-        `${appConfig.mobileApi}Portfolio/Like?id=${currentPortfolioId}`,
+        `${appConfig.mobileApi}Portfolio/Like?id=${currentPortfolioId}&memberId=${user.MemberId}`,
         {
           method: 'POST',
           headers: {
@@ -651,7 +652,7 @@ const PortfolioDetailScreen = ({ route }) => {
 
       showToast('نمونه کار با موفقیت حذف شد', 'success');
       setTimeout(() => {
-        navigation.goBack();
+        navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
       }, 2000);
     } catch (error) {
       showToast(error.message || 'خطا در حذف نمونه کار', 'error');
@@ -1151,7 +1152,7 @@ const PortfolioDetailScreen = ({ route }) => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <LinearGradient
             colors={['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.9)']}

@@ -1,4 +1,3 @@
-// components/AppUpdateModal.js
 import React, { useState, useEffect } from 'react';
 import {
   Modal,
@@ -58,11 +57,10 @@ const AppUpdateModal = ({
     }
   }, [visible]);
 
-  // جلوگیری از بستن مدال در صورت اجباری بودن
   useEffect(() => {
     if (visible && updateInfo?.type === 'required') {
       const backAction = () => {
-        return true; // جلوگیری از بستن اپ
+        return true;
       };
 
       const backHandler = BackHandler.addEventListener(
@@ -79,8 +77,7 @@ const AppUpdateModal = ({
   const isRequired = updateInfo.type === 'required';
 
   const handleBackdropPress = () => {
-    // فقط در صورتی که اجباری نباشد، اجازه بستن با کلیک پس‌زمینه
-    if (!isRequired && onClose) {
+     if (!isRequired && onClose) {
       onClose();
     }
   };
@@ -103,8 +100,7 @@ const AppUpdateModal = ({
     }
   };
 
-  // تعیین اینکه آیا لینک مستقیم وجود دارد یا نه
-  const hasDirectLink = updateInfo.downloadLink && updateInfo.downloadLink.trim() !== '';
+   const hasDirectLink = updateInfo.downloadLink && updateInfo.downloadLink.trim() !== '';
 
   return (
     <Modal
@@ -130,8 +126,7 @@ const AppUpdateModal = ({
             }
           ]}
         >
-          {/* آیکون */}
-          <View style={[
+           <View style={[
             styles.iconContainer,
             { backgroundColor: isRequired ? '#FEE2E2' : '#E0F7FA' }
           ]}>
@@ -142,16 +137,14 @@ const AppUpdateModal = ({
             />
           </View>
 
-          {/* عنوان */}
-          <AppText style={[
+           <AppText style={[
             styles.title,
             isRequired && styles.requiredTitle
           ]}>
             {updateInfo.title}
           </AppText>
 
-          {/* پیام */}
-          <AppText style={[
+           <AppText style={[
             styles.message,
             isRequired && styles.requiredMessage
           ]}>
@@ -160,8 +153,7 @@ const AppUpdateModal = ({
 
    
 
-          {/* نشانگر اجباری */}
-          {isRequired && (
+           {isRequired && (
             <View style={styles.requiredIndicator}>
               <MaterialIcons name="error" size={16} color="#EF4444" />
               <AppText style={styles.requiredText}>
@@ -170,10 +162,8 @@ const AppUpdateModal = ({
             </View>
           )}
 
-          {/* دکمه‌ها عمودی */}
-          <View style={styles.buttonsContainer}>
-            {/* دکمه کافه بازار */}
-            <TouchableOpacity
+           <View style={styles.buttonsContainer}>
+             <TouchableOpacity
               style={[styles.button, styles.bazarButton]}
               onPress={handleCafeBazarDownload}
             >
@@ -181,8 +171,7 @@ const AppUpdateModal = ({
               <AppText style={styles.bazarButtonText}>دانلود از کافه بازار</AppText>
             </TouchableOpacity>
 
-            {/* دکمه دانلود مستقیم - همیشه نمایش داده می‌شود */}
-            <TouchableOpacity
+             <TouchableOpacity
               style={[styles.button, styles.downloadButton]}
               onPress={handleDirectDownload}
             >
@@ -190,8 +179,7 @@ const AppUpdateModal = ({
               <AppText style={styles.downloadButtonText}>دانلود با لینک مستقیم</AppText>
             </TouchableOpacity>
 
-            {/* دکمه بعداً - فقط اگر اجباری نباشد */}
-            {!isRequired && (
+             {!isRequired && (
               <TouchableOpacity
                 style={[styles.button, styles.laterButton]}
                 onPress={handleLater}
@@ -202,8 +190,7 @@ const AppUpdateModal = ({
             )}
           </View>
 
-          {/* هشدار اجباری */}
-          {isRequired && (
+           {isRequired && (
             <View style={styles.forceUpdateWarning}>
               <MaterialIcons name="block" size={18} color="#EF4444" />
               <AppText style={styles.forceUpdateWarningText}>

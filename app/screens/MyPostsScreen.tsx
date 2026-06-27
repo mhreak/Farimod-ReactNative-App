@@ -389,9 +389,9 @@ const MyPostsScreen = () => {
     return (
       <View style={styles.emptyContainer}>
         <MaterialIcons name="article" size={80} color="#9e9e9e" />
-        <AppText style={styles.emptyTitle}>هیچ پستی موجود نیست</AppText>
+        <AppText style={styles.emptyTitle}>هیچ پست وبلاگی موجود نیست</AppText>
         <AppText style={styles.emptySubtitle}>
-          شما هنوز هیچ پستی منتشر نکرده‌اید
+          شما هنوز هیچ پست وبلاگی منتشر نکرده‌اید
         </AppText>
         <TouchableOpacity
           style={styles.createPostButton}
@@ -436,7 +436,7 @@ const MyPostsScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons
@@ -471,7 +471,7 @@ const MyPostsScreen = () => {
           ]}
         >
           <View style={styles.titleWrapper}>
-            <AppText style={styles.headerTitle}>پست های من</AppText>
+            <AppText style={styles.headerTitle}>وبلاگ من</AppText>
           </View>
         </Animated.View>
 

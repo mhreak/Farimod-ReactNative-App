@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import AppText from "../components/Text";
 import { Formik } from "formik";
-import { ScrollView, StyleSheet, View, Image, TouchableOpacity, Animated, Text } from "react-native";
+import { ScrollView, StyleSheet, View, Image, TouchableOpacity, Animated, Text, Platform } from "react-native";
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Yup from "yup";
 import AppTextInput from "../components/TextInput";
@@ -16,6 +16,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import appConfig from "../config/config";
 import ImageUpload from "../components/ImageUpload";
 import AuthService from "../services/AuthService";
+import Tooltip from '../components/Tooltip';
 
 const AddProductScreen = () => {
   const navigation = useNavigation();
@@ -172,59 +173,83 @@ const AddProductScreen = () => {
       setLoadingCategories(false);
     }
   };
+  // ✅ جایگزین کن:
   const uploadImageWithXHR = async (productId, imageData, imageType) => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       const formData = new FormData();
 
+      // فیکس URI برای Android و iOS
+      let imageUri = imageData.uri;
+      if (Platform.OS === 'android' && !imageUri.startsWith('file://')) {
+        imageUri = `file://${imageUri}`;
+      } else if (Platform.OS === 'ios' && imageUri.startsWith('file://')) {
+        // برای iOS ممکنه نیاز به حذف file:// باشه
+        // اما معمولاً نیازی نیست
+      }
+
+      // تعیین نوع فایل
+      let fileType = imageData.type || 'image/jpeg';
+      if (!fileType.startsWith('image/')) {
+        const uriParts = imageUri.split('.');
+        const fileExtension = uriParts[uriParts.length - 1].toLowerCase();
+        fileType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
+      }
+
+      const fileName = imageData.fileName || imageData.name || `product_${imageType}_${Date.now()}.jpg`;
+
       // اضافه کردن فایل به FormData
       formData.append('ProductImageFile', {
-        uri: imageData.uri,
-        type: imageData.type || 'image/jpeg',
-        name: imageData.fileName || `product_image_${imageType}_${Date.now()}.jpg`,
-      } as any);
+        uri: imageUri,
+        type: fileType,
+        name: fileName,
+      });
 
       const uploadUrl = `${appConfig.mobileApi}Product/AddProductImage?productId=${productId}&type=${imageType}`;
 
-      xhr.open('POST', uploadUrl);
+      console.log('📤 XHR Upload starting:', {
+        url: uploadUrl,
+        imageType,
+        fileName,
+        fileType,
+        uriPreview: imageUri.substring(0, 50) + '...'
+      });
 
-      // تنظیم headers
+      xhr.open('POST', uploadUrl);
       xhr.setRequestHeader('Accept', 'application/json');
+      xhr.timeout = 60000; // 60 ثانیه
 
       xhr.onload = () => {
+        console.log('📥 XHR Response status:', xhr.status);
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
             const result = JSON.parse(xhr.responseText);
-            console.log(`XHR Upload successful (type ${imageType}):`, result);
+            console.log(`✅ XHR Upload successful (type ${imageType}):`, result);
             resolve({ success: true, data: result });
           } catch (parseError) {
-            console.log(`XHR Upload successful (type ${imageType}) - No JSON response`);
-            resolve({ success: true, data: { message: 'آپلود موفقیت‌آمیز' } });
+            console.log(`✅ XHR Upload successful (type ${imageType}) - Plain text response`);
+            resolve({ success: true, data: { message: 'آپلود موفق' } });
           }
         } else {
-          console.error(`XHR Upload failed:`, xhr.status, xhr.responseText);
-          reject(new Error(`آپلود ناموفق: ${xhr.status} - ${xhr.responseText}`));
+          console.error(`❌ XHR Upload failed:`, xhr.status, xhr.responseText);
+          reject(new Error(`آپلود ناموفق: ${xhr.status}`));
         }
       };
 
       xhr.onerror = (error) => {
-        console.error('XHR Upload error:', error);
+        console.error('❌ XHR Upload error:', error);
         reject(new Error('خطا در ارتباط با سرور'));
       };
 
       xhr.ontimeout = () => {
-        console.error('XHR Upload timeout');
-        reject(new Error('تایم‌اوت در آپلود'));
+        console.error('⏱️ XHR Upload timeout');
+        reject(new Error('زمان آپلود تمام شد'));
       };
 
-      // تنظیم timeout
-      xhr.timeout = 30000; // 30 ثانیه
-
-      console.log('Starting XHR upload for type:', imageType);
+      console.log('🚀 Sending XHR request...');
       xhr.send(formData);
     });
   };
-
   // تابع آپلود تک عکس با retry
   const uploadImageWithRetry = async (productId, imageData, imageType, maxRetries = 2) => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -414,7 +439,7 @@ const AddProductScreen = () => {
       console.log('✅ Starting product submission with validated data:', values);
 
       const userData = await AuthService.getUserData();
-      const memberId = userData?.MemberGroupList?.[0]?.MemberId || userData?.MemberId ;
+      const memberId = userData?.MemberGroupList?.[0]?.MemberId || userData?.MemberId;
 
       const categoryIdList = values.productCategoryIds || [];
 
@@ -443,7 +468,7 @@ const AddProductScreen = () => {
         LikeCount: 0,
         Rating: 0,
         Active: values.active !== undefined ? values.active : true,
-        ActiveStr: values.active !== undefined ? (values.active ? "موجود" : "ناموجود") : "موجود",
+        ActiveStr: values.active !== undefined ? (values.active ? "فعال" : "غیرفعال") : "فعال",
         InsertDate: new Date().toISOString()
       };
 
@@ -506,7 +531,7 @@ const AddProductScreen = () => {
 
         setTimeout(() => {
           if (navigation.isFocused()) {
-            navigation.goBack();
+            navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
           }
         }, 1500);
       } else {
@@ -543,21 +568,27 @@ const AddProductScreen = () => {
             onHide={() => setToastVisible(false)}
           />
 
-          <Animated.View
-            style={[
-              styles.backButton,
-              {
-                opacity: backButtonAnim,
-                transform: [{ scale: backButtonAnim }],
-              },
-            ]}
-          >
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-              <View style={styles.backButtonGlass}>
-                <MaterialIcons name="arrow-forward" size={24} color="white" />
-              </View>
-            </TouchableOpacity>
-          </Animated.View>
+          <View style={styles.headerButtons}>
+            <View style={styles.headerLeft}>
+              <Tooltip content="محصول جدید برای فروش اضافه کنید. اطلاعات کامل محصول شامل عنوان، توضیحات، قیمت، موجودی، دسته‌بندی و ویژگی‌ها را وارد کنید. می‌توانید چندین تصویر از محصول آپلود کنید تا خریداران بهتر آن را بشناسند." />
+            </View>
+
+            <Animated.View
+              style={[
+                styles.backButton,
+                {
+                  opacity: backButtonAnim,
+                  transform: [{ scale: backButtonAnim }]
+                }
+              ]}
+            >
+              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}>
+                <View style={styles.backButtonGlass}>
+                  <MaterialIcons name="arrow-forward" size={24} color="white" />
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
             <Animated.View
@@ -671,7 +702,7 @@ const AddProductScreen = () => {
                           autoCorrect={false}
                           icon="local-offer"
                           keyboardType="numeric"
-                          placeholder="قیمت ویژه"
+                          placeholder="قیمت ویژه (تومان)"
                           onChangeText={handleChange("specialPrice")}
                           value={values.specialPrice}
                           error={errors.specialPrice}
@@ -719,14 +750,14 @@ const AddProductScreen = () => {
 
                         <AppPicker
                           items={[
-                            { value: true, label: "موجود" },
-                            { value: false, label: "ناموجود" }
+                            { value: true, label: "فعال" },
+                            { value: false, label: "غیرفعال" }
                           ]}
                           onSelectItem={(item) => setFieldValue("active", item?.value)}
                           selectedItem={values.active !== null && values.active !== undefined ?
-                            { value: values.active, label: values.active ? "موجود" : "ناموجود" } : null}
+                            { value: values.active, label: values.active ? "فعال" : "غیرفعال" } : null}
                           icon="inventory"
-                          placeholder="وضعیت موجودی"
+                          placeholder="وضعیت محصول"
                           style={styles.halfWidthPicker}
                         />
                       </View>
@@ -821,14 +852,7 @@ const AddProductScreen = () => {
                               firstErrorMessage = "نام محصول الزامی است";
                             }
 
-                            // بررسی قیمت
-                            if (!values.price || parseFloat(values.price) <= 0 || isNaN(parseFloat(values.price))) {
-                              console.log('❌ Price validation failed');
-                              validationErrors.price = "قیمت الزامی است";
-                              if (!firstErrorMessage) {
-                                firstErrorMessage = "قیمت محصول الزامی است";
-                              }
-                            }
+
 
                             // بررسی قیمت ویژه
                             if (values.specialPrice && values.price) {
@@ -896,6 +920,33 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  headerButtons: {
+    position: 'absolute',
+    // top: 15,
+    left: 15,
+    right: 0,
+    zIndex: 10,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+
+  headerLeft: {
+    top: 15
+  },
+
+  backButton: {
+    zIndex: 10,
+  },
+
+  backButtonGlass: {
+    backgroundColor: '#9E22AD',
+    borderRadius: 25,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 206, 232, 0.5)',
+  },
+
   backgroundImage: {
     width: '100%',
     height: '100%',

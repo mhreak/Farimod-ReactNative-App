@@ -5,9 +5,10 @@ import AppText from "./Text";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { Course, CourseCardProps } from "../config/type";
 import { toPersianDigits, safeNumber, formatPrice, safeStringIncludes, safeString } from "../utils/converters";
-import appConfig from "../config/config";
 
 const CourseCard: React.FC<CourseCardProps> = ({ course, onPress }) => {
+  const [imageError, setImageError] = React.useState(false);
+
   if (!course) {
     return null;
   }
@@ -42,6 +43,14 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onPress }) => {
     }
   };
 
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  React.useEffect(() => {
+    setImageError(false);
+  }, [course.FeaturedImageURL]);
+
   return (
     <TouchableOpacity
       style={styles.container}
@@ -52,11 +61,12 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onPress }) => {
         <Image
           style={styles.courseImage}
           source={
-            course.CourseImageFileName
-              ? { uri: `${appConfig.mobileApi}Course/GetCourseImage/${course.CourseImageFileName}` }
+            course.FeaturedImageURL && !imageError
+              ? { uri: course.FeaturedImageURL }
               : require("../../assets/new_course.jpg")
           }
           resizeMode="cover"
+          onError={handleImageError}
         />
 
         {discountPercentage > 0 && (
@@ -79,10 +89,17 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onPress }) => {
           <AppText style={styles.typeText}>{courseType}</AppText>
         </View>
 
-        {!course.RegisterActive && (
-          <View style={styles.unavailableOverlay}>
-            <MaterialIcons name="block" size={24} color="#fff" />
-            <AppText style={styles.unavailableText}>ثبت‌نام غیرفعال</AppText>
+         {!course.Active && (
+          <View style={styles.inactiveCourseBadge}>
+            <MaterialIcons name="block" size={16} color="#ffffff" />
+            <AppText style={styles.inactiveCourseBadgeText}>دوره غیرفعال</AppText>
+          </View>
+        )}
+
+         {course.Active && !course.RegisterActive && (
+          <View style={styles.inactiveRegisterBadge}>
+            <MaterialIcons name="close" size={16} color="#ffffff" />
+            <AppText style={styles.inactiveRegisterBadgeText}>ثبت‌نام غیرفعال</AppText>
           </View>
         )}
       </View>
@@ -141,9 +158,10 @@ const CourseCard: React.FC<CourseCardProps> = ({ course, onPress }) => {
   );
 };
 
+ 
 const styles = StyleSheet.create({
   container: {
-    width: "100%", // تغییر از 48% به 65% برای عرض بیشتر
+    width: "100%", 
     minHeight: 410,
     display: "flex",
     flexDirection: "column",
@@ -201,22 +219,45 @@ const styles = StyleSheet.create({
     color: '#fff',
     marginRight: 3,
   },
-  unavailableOverlay: {
+  inactiveCourseBadge: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(231, 76, 60, 0.85)', 
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 4,
+  },
+
+  inactiveCourseBadgeText: {
+    fontSize: 14,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: '#ffffff',
+    marginTop: 8,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+
+  inactiveRegisterBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', 
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 3,
   },
-  unavailableText: {
-    fontSize: 12,
+
+  inactiveRegisterBadgeText: {
+    fontSize: 13,
     fontFamily: "Yekan_Bakh_Bold",
-    color: '#fff',
-    marginTop: 6,
+    color: '#ffffff',
+    marginTop: 8,
   },
   courseDetails: {
     paddingHorizontal: 12,

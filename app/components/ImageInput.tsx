@@ -111,8 +111,8 @@ const ImageInput: React.FC<IProps> = ({
   const handlePress = () => {
     if (!imageUri) {
       selectImage();
-    } else {
-      setModalVisible(true);
+    } else if (onImagePress) {
+      onImagePress(imageUri);
     }
   };
 
@@ -193,18 +193,15 @@ const ImageInput: React.FC<IProps> = ({
               {
                 transform: [{ translateY: slideAnim }],
                 opacity: opacityAnim,
-                paddingBottom: Math.max(insets.bottom, 20) + 20, // حداقل 20 + safe area
+                paddingBottom: Math.max(insets.bottom, 20) + 20, 
               }
             ]}
           >
-            {/* Header */}
             <View style={styles.modalHeader}>
               <View style={styles.modalHandle} />
             </View>
 
-            {/* Action Buttons */}
             <View style={styles.actionsContainer}>
-              {/* View Image */}
               <TouchableOpacity style={styles.actionItem} onPress={handleViewImage}>
                 <View style={[styles.actionIcon, { backgroundColor: '#3B82F6' }]}>
                   <MaterialIcons name="visibility" size={24} color="white" />
@@ -212,27 +209,10 @@ const ImageInput: React.FC<IProps> = ({
                 <AppText style={styles.actionText}>مشاهده</AppText>
               </TouchableOpacity>
 
-              {/* Edit Image */}
-              <TouchableOpacity style={styles.actionItem} onPress={handleEditImage}>
-                <View style={[styles.actionIcon, { backgroundColor: '#8B5CF6' }]}>
-                  <MaterialIcons name="edit" size={24} color="white" />
-                </View>
-                <AppText style={styles.actionText}>ویرایش</AppText>
-              </TouchableOpacity>
 
-              {/* Share Image */}
-      
-
-              {/* Delete Image */}
-              <TouchableOpacity style={styles.actionItem} onPress={handleDeleteImage}>
-                <View style={[styles.actionIcon, { backgroundColor: '#EF4444' }]}>
-                  <MaterialIcons name="delete" size={24} color="white" />
-                </View>
-                <AppText style={styles.actionText}>حذف</AppText>
-              </TouchableOpacity>
+        
             </View>
 
-            {/* Cancel Button */}
             <TouchableOpacity style={styles.cancelButton} onPress={closeModal}>
               <AppText style={styles.cancelText}>لغو</AppText>
             </TouchableOpacity>
@@ -240,7 +220,6 @@ const ImageInput: React.FC<IProps> = ({
         </Pressable>
       </Modal>
 
-      {/* Delete Confirmation Modal */}
       <Modal
         visible={deleteModalVisible}
         transparent={true}
@@ -254,24 +233,20 @@ const ImageInput: React.FC<IProps> = ({
               {
                 transform: [{ translateY: deleteSlideAnim }],
                 opacity: deleteOpacityAnim,
-                marginBottom: Math.max(insets.bottom, 20), // safe area از پایین
+                marginBottom: Math.max(insets.bottom, 20), 
               }
             ]}
           >
-            {/* Icon */}
             <View style={styles.deleteIconContainer}>
               <MaterialIcons name="warning" size={48} color="#EF4444" />
             </View>
 
-            {/* Title */}
             <AppText style={styles.deleteTitle}>حذف عکس</AppText>
 
-            {/* Message */}
             <AppText style={styles.deleteMessage}>
               آیا مطمئن هستید که می‌خواهید این عکس را حذف کنید؟
             </AppText>
 
-            {/* Buttons */}
             <View style={styles.deleteButtonsContainer}>
               <TouchableOpacity
                 style={[styles.deleteButton, styles.cancelDeleteButton]}
@@ -375,7 +350,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE2E2',
     borderRadius: 15,
     paddingVertical: 16,
-    marginTop: 15, // کمی بیشتر شده
+    marginTop: 15, 
     marginHorizontal: 5,
     borderWidth: 1,
     borderColor: '#FECACA',
@@ -387,7 +362,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Delete Modal Styles
   deleteModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',

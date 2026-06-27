@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -15,9 +15,11 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { VideoView } from 'expo-video';
+
 import AppText from './Text';
 import colors from '../config/colors';
+import { VideoView, useVideoPlayer } from 'expo-video';
+
 
 interface ImageUploadProps {
   onImagesChange?: (images: ImageItem[]) => void;
@@ -38,6 +40,9 @@ interface ImageUploadProps {
   allowVideos?: boolean;
   onShowToast?: (message: string, type: 'success' | 'error' | 'warning') => void;
   loading?: boolean;
+  imageResizeMode?: 'cover' | 'contain';
+  allowFreeAspectRatio?: boolean;
+  onPress?: () => void;
 }
 
 interface ImageItem {
@@ -67,6 +72,9 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   allowVideos = false,
   onShowToast,
   loading = false,
+  imageResizeMode = 'contain',
+  allowFreeAspectRatio = false,
+  onPress,
 }) => {
   const [images, setImages] = useState<ImageItem[]>(isMultiple ? initialImages : []);
   const [singleImage, setSingleImage] = useState<ImageItem | null>(isMultiple ? null : initialImage);
@@ -76,6 +84,18 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const [imageToDelete, setImageToDelete] = useState<string | null>(null);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [selectedImageForView, setSelectedImageForView] = useState<ImageItem | null>(null);
+
+  const normalizeImageItem = (image: any, fallbackId?: string): ImageItem | null => {
+    if (!image || !image.uri) return null;
+
+    return {
+      id: image.id || fallbackId || `image_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      uri: image.uri,
+      name: image.name || image.fileName || image.label || (image.uri?.toLowerCase().includes('.mp4') ? 'ویدئو' : 'تصویر'),
+      type: image.type || image.mimeType || (image.uri?.toLowerCase().includes('.mp4') ? 'video/mp4' : 'image/jpeg'),
+      size: image.size,
+    };
+  };
 
   // Animation refs
   const loadingRotation = useRef(new Animated.Value(0)).current;
@@ -121,7 +141,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     }
   }, [isUploading, loading]);
 
-  // Modal animations
   React.useEffect(() => {
     if (modalVisible) {
       Animated.parallel([
@@ -181,6 +200,17 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       ]).start();
     }
   }, [deleteModalVisible]);
+
+  useEffect(() => {
+    if (isMultiple) {
+      const normalizedInitialImages = (initialImages || [])
+        .map((image, index) => normalizeImageItem(image, `initial-image-${index}`))
+        .filter((image): image is ImageItem => Boolean(image));
+      setImages(normalizedInitialImages);
+    } else {
+      setSingleImage(normalizeImageItem(initialImage, 'initial-single-image'));
+    }
+  }, [initialImage, initialImages, isMultiple]);
 
   React.useEffect(() => {
     if (imageViewerVisible) {
@@ -286,164 +316,187 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     return validAssets;
   };
 
-// تغییرات در ImageUpload.tsx
-
-// در تابع pickImageFromGallery، بعد از دریافت asset:
-const pickImageFromGallery = async () => {
-  const hasPermission = await requestPermissions();
-  if (!hasPermission) return;
-
-  setIsUploading(true);
-  try {
-    let mediaTypes;
-    if (allowVideos && allowImages) {
-      mediaTypes = 'All';
-    } else if (allowVideos && !allowImages) {
-      mediaTypes = 'Videos';
-    } else {
-      mediaTypes = 'Images';
-    }
-
-    const shouldEnableEditing = !isMultiple && allowEditing && !allowVideos;
-    const enableMultipleSelection = isMultiple && maxImages > 1 && !shouldEnableEditing;
-    const selectionCount = isMultiple ? Math.max(1, Math.min(maxImages - currentImages.length, maxImages)) : 1;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: mediaTypes,
-      allowsEditing: shouldEnableEditing,
-      aspect: shouldEnableEditing ? aspectRatio : undefined,
-      quality: imageQuality,
-      allowsMultipleSelection: enableMultipleSelection,
-      selectionLimit: selectionCount,
+  const VideoThumbnail = ({ uri, style }: { uri: string; style?: any }) => {
+    const player = useVideoPlayer(uri, (p) => {
+      p.loop = false;
+      p.pause();
     });
+    return (
+      <VideoView
+        player={player}
+        style={style}
+        contentFit="cover"
+        nativeControls={false}
+      />
+    );
+  };
 
-    if (!result.canceled && result.assets) {
-      const validAssets = validateFileSize(result.assets);
-      if (validAssets.length === 0) {
-        setIsUploading(false);
-        return;
+  const VideoPlayerView = ({ uri, style }: { uri: string; style?: any }) => {
+    const player = useVideoPlayer(uri, (p) => {
+      p.loop = false;
+      p.play(); 
+    });
+    return (
+      <VideoView
+        player={player}
+        style={style}
+        contentFit="contain"
+        nativeControls={true}   
+        allowsFullscreen
+      />
+    );
+  };
+  const pickImageFromGallery = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    setIsUploading(true);
+    try {
+      let mediaTypes;
+      if (allowVideos && allowImages) {
+        mediaTypes = 'All';
+      } else if (allowVideos && !allowImages) {
+        mediaTypes = 'Videos';
+      } else {
+        mediaTypes = 'Images';
       }
 
-      const newImages = validAssets.map((asset, index) => {
-        if (!asset || !asset.uri) return null;
+      const shouldEnableEditing = !isMultiple && (allowEditing || allowFreeAspectRatio) && !allowVideos;
+      const enableMultipleSelection = isMultiple && maxImages > 1 && !shouldEnableEditing;
+      const selectionCount = isMultiple ? Math.max(1, Math.min(maxImages - currentImages.length, maxImages)) : 1;
 
-        // فیکس URI برای iOS
-        let processedUri = asset.uri;
-        if (Platform.OS === 'ios' && !asset.uri.startsWith('file://')) {
-          processedUri = `file://${asset.uri}`;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: mediaTypes,
+        allowsEditing: shouldEnableEditing,
+        aspect: (shouldEnableEditing && !allowFreeAspectRatio) ? aspectRatio : undefined,
+        quality: imageQuality,
+        allowsMultipleSelection: enableMultipleSelection,
+        selectionLimit: selectionCount,
+      });
+
+      if (!result.canceled && result.assets) {
+        const validAssets = validateFileSize(result.assets);
+        if (validAssets.length === 0) {
+          setIsUploading(false);
+          return;
         }
 
-        const imageItem: ImageItem = {
-          id: Date.now().toString() + index,
-          uri: processedUri, // استفاده از URI پردازش شده
-          name: asset.fileName || `${asset.type?.includes('video') ? 'video' : 'image'}_${Date.now()}.${asset.type?.includes('video') ? 'mp4' : 'jpg'}`,
-          type: asset.type || (allowVideos && !allowImages ? 'video/mp4' : 'image/jpeg'),
-          size: asset.fileSize,
+        const newImages = validAssets.map((asset, index) => {
+          if (!asset || !asset.uri) return null;
+
+          let processedUri = asset.uri;
+          if (Platform.OS === 'ios' && !asset.uri.startsWith('file://')) {
+            processedUri = `file://${asset.uri}`;
+          }
+
+          const imageItem: ImageItem = {
+            id: Date.now().toString() + index,
+            uri: processedUri, 
+            name: asset.fileName || `${asset.type?.includes('video') ? 'video' : 'image'}_${Date.now()}.${asset.type?.includes('video') ? 'mp4' : 'jpg'}`,
+            type: asset.type || (allowVideos && !allowImages ? 'video/mp4' : 'image/jpeg'),
+            size: asset.fileSize,
+          };
+          return imageItem;
+        }).filter(item => item !== null);
+
+        if (isMultiple && enableMultipleSelection) {
+          const updatedImages = [...currentImages, ...newImages].slice(0, maxImages);
+          updateImages(updatedImages);
+        } else {
+          updateImages(newImages);
+        }
+        setModalVisible(false);
+
+        if (validAssets.length < result.assets.length) {
+          showToastMessage('برخی فایل‌ها به دلیل حجم زیاد نادیده گرفته شدند', 'warning');
+        }
+      }
+    } catch (error) {
+      console.error('Gallery picker error:', error);
+      showToastMessage('مشکلی در انتخاب فایل پیش آمد');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const takePhoto = async () => {
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    setIsUploading(true);
+    try {
+      let mediaTypes;
+      if (allowVideos && allowImages) {
+        mediaTypes = 'All';
+      } else if (allowVideos && !allowImages) {
+        mediaTypes = 'Videos';
+      } else {
+        mediaTypes = 'Images';
+      }
+
+      const shouldEnableEditing = !isMultiple && (allowEditing || allowFreeAspectRatio) && !allowVideos;
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: mediaTypes,
+        allowsEditing: shouldEnableEditing,
+        aspect: (shouldEnableEditing && !allowFreeAspectRatio) ? aspectRatio : undefined,
+        quality: allowVideos && !allowImages ? 1.0 : imageQuality,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        if (!asset.uri) {
+          showToastMessage('خطا در دریافت فایل از دوربین');
+          setIsUploading(false);
+          return;
+        }
+
+        const validAssets = validateFileSize(result.assets);
+        if (validAssets.length === 0) {
+          setIsUploading(false);
+          return;
+        }
+
+        const validAsset = validAssets[0];
+
+        let processedUri = validAsset.uri;
+        if (Platform.OS === 'ios' && !validAsset.uri.startsWith('file://')) {
+          processedUri = `file://${validAsset.uri}`;
+        }
+
+        const newImage: ImageItem = {
+          id: Date.now().toString(),
+          uri: processedUri, 
+          name: validAsset.fileName || `${validAsset.type?.includes('video') ? 'captured_video' : 'captured_photo'}_${Date.now()}.${validAsset.type?.includes('video') ? 'mp4' : 'jpg'}`,
+          type: validAsset.type || (allowVideos && !allowImages ? 'video/mp4' : 'image/jpeg'),
+          size: validAsset.fileSize,
         };
-        return imageItem;
-      }).filter(item => item !== null);
 
-      if (isMultiple && enableMultipleSelection) {
-        const updatedImages = [...currentImages, ...newImages].slice(0, maxImages);
-        updateImages(updatedImages);
+        if (isMultiple) {
+          const updatedImages = [...currentImages, newImage].slice(0, maxImages);
+          updateImages(updatedImages);
+        } else {
+          updateImages([newImage]);
+        }
+        setModalVisible(false);
+        showToastMessage(`${validAsset.type?.includes('video') ? 'ویدئو' : 'عکس'} با موفقیت ضبط شد`, 'success');
+      }
+    } catch (error) {
+      console.error('Camera capture error:', error);
+      if (error.message && (error.message.includes('User cancelled') || error.message.includes('cancelled'))) {
+      } else if (error.message && error.message.includes('Camera permission')) {
+        showToastMessage('مجوز دسترسی به دوربین لازم است');
+      } else if (error.message && error.message.includes('not available')) {
+        showToastMessage('دوربین در دسترس نیست');
       } else {
-        updateImages(newImages);
+        showToastMessage('مشکلی در ضبط ویدئو پیش آمد: ' + (error.message || 'خطای نامشخص'));
       }
-      setModalVisible(false);
-
-      if (validAssets.length < result.assets.length) {
-        showToastMessage('برخی فایل‌ها به دلیل حجم زیاد نادیده گرفته شدند', 'warning');
-      }
+    } finally {
+      setIsUploading(false);
     }
-  } catch (error) {
-    console.error('Gallery picker error:', error);
-    showToastMessage('مشکلی در انتخاب فایل پیش آمد');
-  } finally {
-    setIsUploading(false);
-  }
-};
+  };
 
-// فیکس تابع takePhoto:
-const takePhoto = async () => {
-  const hasPermission = await requestPermissions();
-  if (!hasPermission) return;
 
-  setIsUploading(true);
-  try {
-    let mediaTypes;
-    if (allowVideos && allowImages) {
-      mediaTypes = 'All';
-    } else if (allowVideos && !allowImages) {
-      mediaTypes = 'Videos';
-    } else {
-      mediaTypes = 'Images';
-    }
-
-    const shouldEnableEditing = !isMultiple && allowEditing && !allowVideos;
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: mediaTypes,
-      allowsEditing: shouldEnableEditing,
-      aspect: shouldEnableEditing ? aspectRatio : undefined,
-      quality: allowVideos && !allowImages ? 1.0 : imageQuality,
-    });
-
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const asset = result.assets[0];
-      if (!asset.uri) {
-        showToastMessage('خطا در دریافت فایل از دوربین');
-        setIsUploading(false);
-        return;
-      }
-
-      const validAssets = validateFileSize(result.assets);
-      if (validAssets.length === 0) {
-        setIsUploading(false);
-        return;
-      }
-
-      const validAsset = validAssets[0];
-      
-      // فیکس URI برای iOS
-      let processedUri = validAsset.uri;
-      if (Platform.OS === 'ios' && !validAsset.uri.startsWith('file://')) {
-        processedUri = `file://${validAsset.uri}`;
-      }
-      
-      const newImage: ImageItem = {
-        id: Date.now().toString(),
-        uri: processedUri, // استفاده از URI پردازش شده
-        name: validAsset.fileName || `${validAsset.type?.includes('video') ? 'captured_video' : 'captured_photo'}_${Date.now()}.${validAsset.type?.includes('video') ? 'mp4' : 'jpg'}`,
-        type: validAsset.type || (allowVideos && !allowImages ? 'video/mp4' : 'image/jpeg'),
-        size: validAsset.fileSize,
-      };
-
-      if (isMultiple) {
-        const updatedImages = [...currentImages, newImage].slice(0, maxImages);
-        updateImages(updatedImages);
-      } else {
-        updateImages([newImage]);
-      }
-      setModalVisible(false);
-      showToastMessage(`${validAsset.type?.includes('video') ? 'ویدئو' : 'عکس'} با موفقیت ضبط شد`, 'success');
-    }
-  } catch (error) {
-    console.error('Camera capture error:', error);
-    if (error.message && (error.message.includes('User cancelled') || error.message.includes('cancelled'))) {
-      // User cancelled, no need to show error
-    } else if (error.message && error.message.includes('Camera permission')) {
-      showToastMessage('مجوز دسترسی به دوربین لازم است');
-    } else if (error.message && error.message.includes('not available')) {
-      showToastMessage('دوربین در دسترس نیست');
-    } else {
-      showToastMessage('مشکلی در ضبط ویدئو پیش آمد: ' + (error.message || 'خطای نامشخص'));
-    }
-  } finally {
-    setIsUploading(false);
-  }
-};
-
- 
   const isValidVideoFormat = (uri) => {
     const supportedFormats = ['.mp4', '.mov', '.m4v'];
     return supportedFormats.some(format =>
@@ -550,6 +603,7 @@ const takePhoto = async () => {
   };
 
   const getAspectRatioText = () => {
+    if (allowFreeAspectRatio) return 'آزاد';
     const [width, height] = aspectRatio;
     return `${width}:${height}`;
   };
@@ -575,7 +629,7 @@ const takePhoto = async () => {
             color={colors.primary}
           />
           <AppText style={styles.headerTitle}>{getDefaultPlaceholder()}</AppText>
-          {!isMultiple && allowEditing && !allowVideos && (
+          {!isMultiple && (allowEditing || allowFreeAspectRatio) && !allowVideos && (
             <View style={styles.aspectRatioBadge}>
               <AppText style={styles.aspectRatioText}>{getAspectRatioText()}</AppText>
             </View>
@@ -661,35 +715,22 @@ const takePhoto = async () => {
                 item ? (
                   <View key={item.id} style={styles.imageItem}>
                     <TouchableOpacity
-                      onPress={() => handleImagePress(item)}
+                      onPress={() => {
+                        if (item.uri && isVideo(item.uri) && onPress) {
+                          onPress();        
+                        } else {
+                          handleImagePress(item);
+                        }
+                      }}
                       activeOpacity={0.8}
                     >
                       <View style={styles.imageWrapper}>
-                        {item.uri && isVideo(item.uri) && isValidVideoFormat(item.uri) ? (                          <View style={styles.videoContainer}>
-                            <TouchableOpacity
+                        {item.uri && isVideo(item.uri) && isValidVideoFormat(item.uri) ? (
+                          <View style={styles.videoContainer}>
+                            <VideoThumbnail
+                              uri={item.uri}        
                               style={styles.image}
-                              onPress={() => {
-                                // کد پخش ویدئو
-                              }}
-                              activeOpacity={1}
-                            >
-                            <VideoView
-                              style={styles.image}
-                              player={{
-                                source: { uri: item.uri },
-                              }}
-                              onLoad={(data) => {
-                                console.log('Video loaded:', data);
-                              }}
-                              onError={(error) => {
-                                console.log('Video error:', error);
-                              }}
-                              onPlaybackStatusUpdate={(status) => {
-                                console.log('Playback status:', status);
-                              }}
-                            // باقی props
                             />
-                            </TouchableOpacity>
                             <View style={styles.videoPlayIcon}>
                               <MaterialIcons name="play-arrow" size={24} color="white" />
                             </View>
@@ -698,7 +739,7 @@ const takePhoto = async () => {
                               <AppText style={styles.videoBadgeText}>فیلم</AppText>
                             </View>
                           </View>
-                        ) :  item.uri ? (
+                        ) : item.uri ? (
                           <Image source={{ uri: item.uri }} style={styles.image} />
                         ) : (
                           <View style={styles.errorImageContainer}>
@@ -706,7 +747,6 @@ const takePhoto = async () => {
                             <AppText style={styles.errorImageText}>خطا در بارگذاری</AppText>
                           </View>
                         )}
-
                         <TouchableOpacity
                           style={styles.removeButton}
                           onPress={() => removeImage(item.id)}
@@ -747,31 +787,22 @@ const takePhoto = async () => {
           ) : (
             <View style={styles.singleImageItem}>
               <TouchableOpacity
-                onPress={() => singleImage && handleImagePress(singleImage)}
+                onPress={() => {
+                  if (singleImage && isVideo(singleImage.uri) && onPress) {
+                    onPress();  
+                  } else if (singleImage) {
+                    handleImagePress(singleImage);
+                  }
+                }}
                 activeOpacity={0.8}
               >
                 <View style={getImageItemStyle()}>
                   {singleImage && singleImage.uri && isVideo(singleImage.uri) ? (
                     <View style={styles.videoContainer}>
-                        <VideoView
-                          ref={setVideoRef}
-                          style={styles.image}
-                          player={{
-                            source: { uri: item.uri },
-                            shouldPlay: false,  // اضافه کنید
-                          }}
-                          showsTimecodes={true}
-                          allowsFullscreen={true}
-                          allowsPictureInPicture={true}
-                          contentFit="cover"
-                          nativeControls={true}
-                          onLoad={() => {
-                            // ویدئو لود شد
-                          }}
-                          onError={(error) => {
-                            console.log('Video error:', error);
-                          }}
-                        />
+                      <VideoThumbnail
+                        uri={singleImage.uri}    
+                        style={styles.image}
+                      />
                       <View style={styles.videoPlayIcon}>
                         <MaterialIcons name="play-arrow" size={24} color="white" />
                       </View>
@@ -788,7 +819,6 @@ const takePhoto = async () => {
                       <AppText style={styles.errorImageText}>خطا در بارگذاری</AppText>
                     </View>
                   )}
-
                   <TouchableOpacity
                     style={styles.removeButton}
                     onPress={() => singleImage && removeImage(singleImage.id)}
@@ -1082,16 +1112,9 @@ const takePhoto = async () => {
 
                 <View style={styles.imageContainer}>
                   {selectedImageForView.uri && isVideo(selectedImageForView.uri) ? (
-                    <VideoView
+                    <VideoPlayerView                        // ✅ تغییر اینجا
+                      uri={selectedImageForView.uri}
                       style={styles.fullScreenImage}
-                      player={{
-                        source: { uri: selectedImageForView.uri },
-                      }}
-                      allowsFullscreen={true}
-                      allowsPictureInPicture={true}
-                      contentFit="contain"
-                      nativeControls={true}  // اضافه کنید
-                      startsPaused={false}   // اضافه کنید
                     />
                   ) : selectedImageForView.uri ? (
                     <Image
@@ -1099,12 +1122,7 @@ const takePhoto = async () => {
                       style={styles.fullScreenImage}
                       resizeMode="contain"
                     />
-                  ) : (
-                    <View style={styles.errorImageContainer}>
-                      <MaterialIcons name="broken-image" size={60} color={colors.medium} />
-                      <AppText style={styles.errorImageText}>خطا در بارگذاری</AppText>
-                    </View>
-                  )}
+                  ) : null}
                 </View>
 
                 <View style={styles.imageViewerFooter}>
@@ -1222,6 +1240,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(158, 34, 173, 0.2)',
     borderStyle: 'dashed',
+    backgroundColor: 'transparent',
   },
   uploadingArea: {
     opacity: 0.7,
@@ -1327,7 +1346,7 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 15,
     overflow: 'hidden',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'transparent',
     shadowColor: 'rgba(0, 0, 0, 0.1)',
     shadowOffset: {
       width: 0,
@@ -1343,14 +1362,14 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
   errorImageContainer: {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
+    backgroundColor: 'transparent',
   },
   errorImageText: {
     fontSize: 10,

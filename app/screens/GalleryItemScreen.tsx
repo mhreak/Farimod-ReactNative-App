@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import AppText from "../components/Text";
 import ImageInput from "../components/ImageInput";
-import { Image, View, StyleSheet, TouchableOpacity, StatusBar, Animated, Modal, Pressable, ScrollView, RefreshControl } from "react-native";
+import { Image, View, StyleSheet, TouchableOpacity, StatusBar, Animated, Modal, Pressable, ScrollView, RefreshControl, Dimensions } from "react-native";
 import ImageInputList from "../components/ImageInputList";
 import FormImagePicker from "../components/forms/FormImagePicker";
 import MainBackground from "../components/MainBackground";
@@ -14,8 +14,8 @@ import MultiOptionRatingComponent, { StarDisplay } from "../components/RatingCom
 import Toast from "../components/Toast";
 import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
-
-const CURRENT_MEMBER_ID = 2;
+import { useAuth } from "../contexts/AuthContext";
+const { width } = Dimensions.get('window');
 
 const modernColors = {
   primary: "#667eea",
@@ -123,12 +123,31 @@ const useGalleryDetail = () => {
     setData,
   };
 };
+const DotIndicator = ({ totalImages, currentIndex }) => {
+  return (
+    <View style={styles.dotIndicatorContainer}>
+      {Array.from({ length: totalImages }).map((_, index) => (
+        <View
+          key={index}
+          style={[
+            styles.dot,
+            currentIndex === index && styles.activeDot
+          ]}
+        />
+      ))}
+    </View>
+  );
+};
 
 const GalleryItemScreen = () => {
+  const { user } = useAuth();
+
   const [imageUri, setImageUri] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [fullScreenImageUri, setFullScreenImageUri] = useState(null);
   const [fullScreenModalVisible, setFullScreenModalVisible] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0); // ✅ اضافه کنید
+
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showActionModal, setShowActionModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
@@ -136,7 +155,6 @@ const GalleryItemScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const insets = useSafeAreaInsets();
-
   const { galleryId, title } = route.params || {};
   const galleryTitle = title || "گالری";
 
@@ -151,6 +169,7 @@ const GalleryItemScreen = () => {
   const actionModalBackdropAnim = useRef(new Animated.Value(0)).current;
   const deleteModalSlideAnim = useRef(new Animated.Value(0)).current;
   const deleteModalBackdropAnim = useRef(new Animated.Value(0)).current;
+  const fullScreenScrollViewRef = useRef(null);
 
   const { data: galleryData, loading, error, fetchGallery, setData } = useGalleryDetail();
 
@@ -166,7 +185,7 @@ const GalleryItemScreen = () => {
   const [isLiking, setIsLiking] = useState(false);
   const likeAnim = useRef(new Animated.Value(1)).current;
 
-  const isOwnGallery = galleryData && galleryData.MemberId === CURRENT_MEMBER_ID;
+  const isOwnGallery = galleryData && user && galleryData.MemberId === user.MemberId;
 
   useFocusEffect(
     useCallback(() => {
@@ -315,8 +334,17 @@ const GalleryItemScreen = () => {
   };
 
   const handleImagePress = (uri) => {
+    const index = imageUri.findIndex(img => img === uri);
+    const targetIndex = index >= 0 ? index : 0;
+
+    // ابتدا index را set کنید
+    setCurrentImageIndex(targetIndex);
     setFullScreenImageUri(uri);
-    setFullScreenModalVisible(true);
+
+    // بعد modal را باز کنید
+    setTimeout(() => {
+      setFullScreenModalVisible(true);
+    }, 50);
   };
 
   const handleShowReviewModal = () => {
@@ -434,7 +462,7 @@ const GalleryItemScreen = () => {
       if (response.ok) {
         showToast('گالری با موفقیت حذف شد', 'success');
         setTimeout(() => {
-          navigation.goBack();
+          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
         }, 2000);
       } else {
         const errorData = await response.json();
@@ -456,7 +484,7 @@ const GalleryItemScreen = () => {
   };
 
   const handleLike = async () => {
-    if (isLiking || !galleryData) return;
+    if (isLiking || !galleryData || !user?.MemberId) return;
 
     setIsLiking(true);
 
@@ -489,7 +517,7 @@ const GalleryItemScreen = () => {
 
     try {
       const response = await fetch(
-        `${appConfig.mobileApi}ImageGallery/AddToLike?id=${galleryData.ImageGalleryId}`,
+        `${appConfig.mobileApi}ImageGallery/Like?id=${galleryData.ImageGalleryId}&memberId=${user.MemberId}`,
         {
           method: 'POST',
           headers: {
@@ -561,7 +589,20 @@ const GalleryItemScreen = () => {
       showToast('خطا در ثبت امتیاز', 'error');
     }
   };
-
+useEffect(() => {
+  if (fullScreenModalVisible && fullScreenScrollViewRef.current) {
+    // با تاخیر بیشتر و استفاده از requestAnimationFrame
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        fullScreenScrollViewRef.current?.scrollTo({
+          x: currentImageIndex * width,
+          y: 0,
+          animated: false
+        });
+      }, 150);
+    });
+  }
+}, [fullScreenModalVisible]);
   return (
     <>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -577,7 +618,7 @@ const GalleryItemScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons
@@ -588,17 +629,7 @@ const GalleryItemScreen = () => {
           </View>
         </TouchableOpacity>
 
-        {isOwnGallery && !loading && (
-          <TouchableOpacity
-            style={styles.menuButton}
-            onPress={handleShowActions}
-            disabled={isDeleting}
-          >
-            <View style={styles.menuButtonContainer}>
-              <MaterialIcons name="more-vert" size={24} color="#6366f1" />
-            </View>
-          </TouchableOpacity>
-        )}
+      
 
         <Animated.View
           style={[
@@ -610,18 +641,7 @@ const GalleryItemScreen = () => {
           ]}
         >
           <View style={styles.headerRow}>
-            {isOwnGallery ? (
-              <TouchableOpacity style={styles.addIconHeader} onPress={selectImageSource}>
-                <LinearGradient
-                  colors={['#4CAF50', '#45A049']}
-                  style={styles.addIconGradient}
-                >
-                  <MaterialIcons name="add-a-photo" size={26} color="white" />
-                </LinearGradient>
-              </TouchableOpacity>
-            ) : (
-              <View></View>
-            )}
+         
 
             <View style={styles.titleWrapper}>
               <AppText style={styles.headerTitle}>{galleryTitle}</AppText>
@@ -675,7 +695,7 @@ const GalleryItemScreen = () => {
                 setImageUri(imageUri.filter((image) => image !== uri))
               }
               onImagePress={handleImagePress}
-              isReadOnly={!isOwnGallery}
+              isReadOnly={true} // ✅ فقط در این صفحه true
             />
 
             {!isOwnGallery && galleryData && (
@@ -973,41 +993,7 @@ const GalleryItemScreen = () => {
                   </View>
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.actionModalActionItem}
-                  onPress={() => {
-                    handleCloseActionModal();
-                    setTimeout(() => {
-                      handleEditGallery();
-                    }, 300);
-                  }}
-                >
-                  <View style={styles.actionModalActionContent}>
-                    <View style={[styles.actionModalActionIcon, { backgroundColor: modernColors.info }]}>
-                      <MaterialIcons name="edit" size={22} color="#ffffff" />
-                    </View>
-                    <View style={styles.actionModalActionText}>
-                      <AppText style={styles.actionModalActionTitle}>ویرایش گالری</AppText>
-                      <AppText style={styles.actionModalActionSubtitle}>ویرایش عنوان و تنظیمات گالری</AppText>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.actionModalActionItem}
-                  onPress={handleDeleteGallery}
-                  disabled={isDeleting}
-                >
-                  <View style={styles.actionModalActionContent}>
-                    <View style={[styles.actionModalActionIcon, { backgroundColor: modernColors.error }]}>
-                      <MaterialIcons name="delete" size={22} color="#ffffff" />
-                    </View>
-                    <View style={styles.actionModalActionText}>
-                      <AppText style={styles.actionModalActionTitle}>حذف گالری</AppText>
-                      <AppText style={styles.actionModalActionSubtitle}>حذف کامل گالری از سیستم</AppText>
-                    </View>
-                  </View>
-                </TouchableOpacity>
+            
               </View>
 
               <TouchableOpacity
@@ -1106,7 +1092,6 @@ const GalleryItemScreen = () => {
             </Animated.View>
           </View>
         </Modal>
-
         <Modal
           animationType="fade"
           transparent={true}
@@ -1121,13 +1106,47 @@ const GalleryItemScreen = () => {
               <MaterialIcons name="close" size={30} color="white" />
             </TouchableOpacity>
 
-            {fullScreenImageUri && (
-              <Image
-                source={{ uri: fullScreenImageUri }}
-                style={styles.fullScreenImage}
-                resizeMode="contain"
-              />
-            )}
+            <ScrollView
+              ref={fullScreenScrollViewRef}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              scrollEventThrottle={16}
+              snapToInterval={width}
+              snapToAlignment="center"
+              contentContainerStyle={{ alignItems: 'center' }}
+              onScrollEndDrag={(event) => {
+                const newIndex = Math.round(
+                  event.nativeEvent.contentOffset.x / width
+                );
+                if (newIndex !== currentImageIndex) {
+                  setCurrentImageIndex(newIndex);
+                }
+              }}
+              onMomentumScrollEnd={(event) => {
+                const newIndex = Math.round(
+                  event.nativeEvent.contentOffset.x / width
+                );
+                if (newIndex !== currentImageIndex) {
+                  setCurrentImageIndex(newIndex);
+                }
+              }}
+              style={styles.fullScreenScrollView}
+            >
+              {imageUri.map((uri, index) => (
+                <View key={index} style={styles.fullScreenImageContainer}>
+                  <Image
+                    source={{ uri }}
+                    style={styles.fullScreenImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              ))}
+            </ScrollView>
+           
+         
+
           </View>
         </Modal>
       </View>
@@ -1671,10 +1690,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  fullScreenImage: {
-    width: '100%',
-    height: '100%',
-  },
+
   fullScreenCloseButton: {
     position: 'absolute',
     top: 50,
@@ -1737,6 +1753,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Bold",
     color: "#666",
+  },
+  imageCounterContainer: {
+    position: 'absolute',
+    top: 60,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    zIndex: 2,
+  },
+  imageCounterText: {
+    fontSize: 16,
+    fontFamily: "Yekan_Bakh_Bold",
+    color: 'white',
+  },
+  fullScreenScrollView: {
+    flex: 1,
+  },
+  fullScreenImageContainer: {
+    width: width,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  // fullScreenImage را تغییر دهید:
+  fullScreenImage: {
+    width: width,
+    height: '100%',
+  },
+  // در styles، این استایل‌ها را اضافه کنید:
+  dotIndicatorContainer: {
+    position: 'absolute',
+    bottom: 40,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    zIndex: 2,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    width: 24,
+    backgroundColor: '#ffffff',
+    borderRadius: 4,
   },
 });
 
