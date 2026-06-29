@@ -2,6 +2,7 @@
 import { number } from "yup";
 
 export interface Member {
+  AvatarImageURL?:string;
   MemberId: number;
   IsIndividual: boolean;
   IsIndividualStr: string;

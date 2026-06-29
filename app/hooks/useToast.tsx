@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect ,useCallback} from "react";
 
 const useToast = () => {
   const [toastVisible, setToastVisible] = useState<boolean>(false);
@@ -7,7 +7,7 @@ const useToast = () => {
     "success" | "error" | "warning" | "info"
   >("error");
 
-  const showToast = (
+  const showToast =useCallback( (
     message: string,
     type: "success" | "error" | "warning" | "info" = "error"
   ) => {
@@ -19,7 +19,7 @@ const useToast = () => {
     setToastVisible(true);
 
     console.log('🔥 State should be updated to:', { visible: true, message, type });
-  };
+  },[]);
 
   // Log state changes
   useEffect(() => {
