@@ -15,7 +15,7 @@ import Toast from "../components/Toast";
 import useToast from "../hooks/useToast";
 import Screen from "../components/Screen";
 import { MaterialIcons } from "@expo/vector-icons";
-import { AppNavigationProp } from "../Navigators";
+import { AppNavigationProp } from "../navigation/types";
 import CustomTimePicker from "../components/CustomTimePicker";
 import ImageUpload from "../components/ImageUpload";
 import appConfig from "../config/config";

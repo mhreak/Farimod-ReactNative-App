@@ -734,9 +734,15 @@ const MyResumeScreen = () => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContainer}
         >
-          <TouchableOpacity
+         
+
+          <View style={styles.profileHeaderContainer}>
+          </View>
+
+          <View style={styles.sectionTitleContainer}>
+             <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+            onPress={() => (navigation as any).navigate("App", { screen: "MainTabs", params: { screen: "پروفایل" } })}
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons
@@ -746,13 +752,8 @@ const MyResumeScreen = () => {
               />
             </View>
           </TouchableOpacity>
-
-          <View style={styles.profileHeaderContainer}>
-          </View>
-
-          <View style={styles.sectionTitleContainer}>
             <AppText style={styles.sectionTitle}>فایل ها و مدارک</AppText>
-            <View style={styles.sparkleContainer}>
+            {/* <View style={styles.sparkleContainer}>
               <MaterialIcons
                 name="star"
                 size={16}
@@ -765,7 +766,7 @@ const MyResumeScreen = () => {
                 color="#FF69B4"
                 style={styles.sparkle2}
               />
-            </View>
+            </View> */}
           </View>
 
           <View style={styles.cardsContainer}>
@@ -849,7 +850,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: StatusBar.currentHeight + 48,
+    top: StatusBar.currentHeight + 30,
     right: 20,
     zIndex: 1000,
   },
@@ -881,7 +882,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 30,
-    marginTop: -90,
+    marginTop: -40,
     position: "relative",
     paddingHorizontal: 20,
   },

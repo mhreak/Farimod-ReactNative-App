@@ -8,7 +8,7 @@ import Screen from "../components/Screen";
 import colors from "../config/colors";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { AppNavigationProp } from "../Navigators";
+import { AppNavigationProp } from "../navigation/types";
 import { useAuth } from "../contexts/AuthContext";
 import ProfileService from "../services/ProfileService";
 
@@ -41,7 +41,7 @@ const EditProfileScreen = () => {
   // بارگذاری اطلاعات کاربر از API
   useEffect(() => {
     loadProfileData();
-  }, [user]);
+  }, []);
 
   const loadProfileData = async () => {
     if (!user || !user.MemberId) {

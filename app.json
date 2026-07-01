@@ -2,15 +2,15 @@
   "expo": {
     "name": "farimod",
     "slug": "farimod-2",
-    "owner": "yeganeh1",
-    "jsEngine":"hermes",
-    "version": "1.0.0",
+    "jsEngine": "hermes",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/main-icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
     "updates": {
-      "enabled": false
+      "enabled": false,
+      "url": "https://u.expo.dev/a213af95-269d-4b1e-beb1-91dda1de2d7c"
     },
     "splash": {
       "image": "./assets/main-icon.png",
@@ -29,6 +29,10 @@
         "android.permission.CAMERA",
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.CAMERA",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.ACCESS_WIFI_STATE"
       ],
       "softwareKeyboardLayoutMode": "pan",
@@ -40,12 +44,6 @@
     },
     "web": {
       "favicon": "./assets/main-icon.png"
-    },
-    "extra": {
-      "apiUrl": "http://my.farimod.ir",
-      "eas": {
-        "projectId": "3ee5b6c6-5afd-4598-bec5-e42be3262d50"
-      }
     },
     "plugins": [
       [
@@ -60,6 +58,15 @@
       "expo-font",
       "expo-video",
       "@react-native-community/datetimepicker"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "a213af95-269d-4b1e-beb1-91dda1de2d7c"
+      }
+    },
+    "owner": "sajad007",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    }
   }
 }

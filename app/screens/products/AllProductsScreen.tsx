@@ -23,7 +23,6 @@ import { PaginationComponent } from "./component/PaginationComponent";
 
 const ITEMS_PER_PAGE = 20;
 
-// این کامپوننت ثابت است، خارج از رندر تعریف می‌شود تا حافظه مصرف نکند
 const ItemSeparator = () => <View style={{ height: 4 }} />;
 
 const AllProductsScreen = () => {
@@ -170,16 +169,16 @@ const AllProductsScreen = () => {
     fetchProducts(currentPage, ITEMS_PER_PAGE, appliedFilters);
   }, [currentPage, appliedFilters, fetchProducts]);
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
-    ]).start();
+  // useEffect(() => {
+  //   Animated.parallel([
+  //     Animated.timing(fadeAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+  //     Animated.timing(slideAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
+  //   ]).start();
 
-    Animated.loop(
-      Animated.timing(rotateAnim, { toValue: 1, duration: 8000, useNativeDriver: true })
-    ).start();
-  }, [fadeAnim, slideAnim, rotateAnim]);
+  //   Animated.loop(
+  //     Animated.timing(rotateAnim, { toValue: 1, duration: 8000, useNativeDriver: true })
+  //   ).start();
+  // }, [fadeAnim, slideAnim, rotateAnim]);
 
   useEffect(() => {
     if (productsError) {
@@ -212,14 +211,14 @@ const AllProductsScreen = () => {
         />
 
         {/* Back Button */}
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}>
+        <TouchableOpacity style={styles.backButton} onPress={() =>navigation.goBack()}>
           <View style={styles.backButtonContainer}>
             <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
           </View>
         </TouchableOpacity>
 
         {/* Header */}
-        <Animated.View style={[styles.headerContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        <View style={[styles.headerContainer]}>
           <View style={styles.headerRow}>
             <TouchableOpacity style={styles.filterButton} onPress={() => setFilterModalVisible(true)}>
               <View style={[styles.filterIconContainer, hasActiveFilters && styles.activeFilterIcon]}>
@@ -240,21 +239,21 @@ const AllProductsScreen = () => {
               </TouchableOpacity>
             )}
           </View>
-        </Animated.View>
+        </View>
 
         {/* Sparkle decoration */}
-        <Animated.View style={[styles.sectionTitleContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-          <View style={styles.sparkleContainer}>
+        <View style={[styles.sectionTitleContainer]}>
+          {/* <View style={styles.sparkleContainer}>
             <MaterialIcons name="star-half" size={16} color="#FFD700" style={styles.sparkle1} />
             <MaterialIcons name="star-half" size={12} color="#FF6B6B" style={styles.sparkle2} />
-          </View>
-        </Animated.View>
-
+          </View> */}
+        </View>
+{/* 
         <Animated.View style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]} />
-        <Animated.View style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]} />
+        <Animated.View style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]} /> */}
 
         {/* Content */}
-        <Animated.View style={[styles.contentContainer, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+        <View style={[styles.contentContainer]}>
           {productsError ? (
             renderErrorComponent()
           ) : (
@@ -296,22 +295,7 @@ const AllProductsScreen = () => {
               )}
             </>
           )}
-        </Animated.View>
-
-        {/* Decorative floating elements */}
-        {/* <View style={styles.decorativeElements}>
-          <View style={styles.floatingElements}>
-            <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons name="star" size={22} color="rgba(255, 215, 0, 0.4)" />
-            </Animated.View>
-            <Animated.View style={[styles.star2, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons name="auto-awesome" size={18} color="rgba(255, 107, 107, 0.4)" />
-            </Animated.View>
-            <Animated.View style={[styles.star3, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons name="diamond" size={20} color="rgba(78, 205, 196, 0.4)" />
-            </Animated.View>
-          </View>
-        </View> */}
+        </View>
       </View>
     </>
   );

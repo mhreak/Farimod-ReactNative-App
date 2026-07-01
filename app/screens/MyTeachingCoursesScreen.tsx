@@ -260,7 +260,7 @@ const MyTeachingCoursesScreen = () => {
   }, [coursesError]);
 
   const handleCoursePress = (courseData) => {
-    navigation.navigate("CourseDetails", {
+  (navigation as any) .navigate("CourseDetails", {
       courseId: courseData.CourseId
     });
   };
@@ -365,7 +365,7 @@ const MyTeachingCoursesScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+          onPress={() => (navigation as any).navigate("App", { screen: "MainTabs", params: { screen: "پروفایل" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons

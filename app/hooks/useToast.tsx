@@ -1,30 +1,23 @@
-import React, { useState, useEffect ,useCallback} from "react";
+import { useState, useCallback } from "react";
 
 const useToast = () => {
-  const [toastVisible, setToastVisible] = useState<boolean>(false);
-  const [toastMessage, setToastMessage] = useState<string>("");
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
   const [toastType, setToastType] = useState<
     "success" | "error" | "warning" | "info"
   >("error");
 
-  const showToast =useCallback( (
-    message: string,
-    type: "success" | "error" | "warning" | "info" = "error"
-  ) => {
-    console.log('🔥 showToast called with:', { message, type });
-    console.log('🔥 Current state before:', { toastVisible, toastMessage, toastType });
-
-    setToastMessage(message);
-    setToastType(type);
-    setToastVisible(true);
-
-    console.log('🔥 State should be updated to:', { visible: true, message, type });
-  },[]);
-
-  // Log state changes
-  useEffect(() => {
-    console.log('🔥 Toast state changed:', { toastVisible, toastMessage, toastType });
-  }, [toastVisible, toastMessage, toastType]);
+  const showToast = useCallback(
+    (
+      message: string,
+      type: "success" | "error" | "warning" | "info" = "error"
+    ) => {
+      setToastMessage(message);
+      setToastType(type);
+      setToastVisible(true);
+    },
+    []
+  );
 
   return { toastVisible, setToastVisible, toastMessage, toastType, showToast };
 };

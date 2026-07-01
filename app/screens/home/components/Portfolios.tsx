@@ -17,7 +17,7 @@ import { AppNavigationProp } from "../../../navigation/types";
 import { PortfolioCardSkeleton } from "../ui/skeleton/PortfolioCardSkeleton";
 import { PortfolioCard } from "../ui/PortfolioCard";
 
-export const Portfolios = () => {
+const Portfolios = () => {
   const navigation = useNavigation<AppNavigationProp>();
   const {
     data: portfolios = [],
@@ -39,9 +39,9 @@ export const Portfolios = () => {
     setCurrentPortfolioPage
   );
 
-  useEffect(() => {
-    refetchPortfolios();
-  }, []);
+  // useEffect(() => {
+  //   refetchPortfolios();
+  // }, []);
 
   useEffect(() => {
     if (portfoliosError) {
@@ -166,3 +166,5 @@ export const Portfolios = () => {
     </>
   );
 };
+
+export default React.memo(Portfolios);

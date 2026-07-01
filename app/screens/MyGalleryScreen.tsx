@@ -270,7 +270,7 @@ const MyGalleryScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+          onPress={() => (navigation as any).navigate("App", { screen: "MainTabs", params: { screen: "پروفایل" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons name="arrow-forward" size={26} color="#6366f1" />
@@ -290,7 +290,7 @@ const MyGalleryScreen = () => {
             <TouchableOpacity
               style={styles.addIconHeader}
               onPress={() =>
-                navigation.navigate("AddGallery" as never, {
+              (navigation as any).navigate("AddGallery" as never, {
                   memberId: user?.MemberId,
                   memberName: user?.FullName || user?.MemberName,
                 } as never)
@@ -306,7 +306,7 @@ const MyGalleryScreen = () => {
 
             <View style={styles.titleWrapper}>
               <AppText style={styles.headerTitle}>گالری های من</AppText>
-              <View style={styles.sparkleContainer}>
+              {/* <View style={styles.sparkleContainer}>
                 <Animated.View style={[{ transform: [{ rotate: spin }] }]}>
                   <MaterialIcons
                     name="star-half"
@@ -323,7 +323,7 @@ const MyGalleryScreen = () => {
                     style={styles.sparkle2}
                   />
                 </Animated.View>
-              </View>
+              </View> */}
             </View>
           </View>
         </Animated.View>
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: "absolute",
-    top: StatusBar.currentHeight + 45,
+    top: StatusBar.currentHeight + 80,
     right: 20,
     zIndex: 1000,
   },
@@ -428,6 +428,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
+    marginTop:40,
   },
   headerTitle: {
     fontSize: 26,

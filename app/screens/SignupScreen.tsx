@@ -23,7 +23,7 @@ import AppText from "../components/Text";
 import * as Yup from "yup";
 import { MaterialIcons } from "@expo/vector-icons";
 import { toPersianDigits } from "../utils/converters";
-import { AppNavigationProp } from "../Navigators";
+import { AppNavigationProp } from "../navigation/types";
 import { useMemberGroups } from "../config/useApi";
 import { MemberGroup } from "../config/type";
 import Toast from "../components/Toast";

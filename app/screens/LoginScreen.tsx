@@ -16,7 +16,7 @@ import colors from "../config/colors";
 import { useNavigation } from "@react-navigation/native";
 import * as Yup from "yup";
 import AppText from "../components/Text";
-import { AppNavigationProp } from "../Navigators";
+import { AppNavigationProp } from "../navigation/types";
 import { MaterialIcons } from "@expo/vector-icons";
 import Toast from "../components/Toast";
 import AuthService from "../services/AuthService";

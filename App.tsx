@@ -101,7 +101,7 @@ function AppContent() {
 
   return (
     <View style={styles.root} onLayout={onLayoutRootView}>
-      <NavigationContainer>
+      <NavigationContainer >
         <StackNavigator />
         <StatusBar style="light" />
       </NavigationContainer>

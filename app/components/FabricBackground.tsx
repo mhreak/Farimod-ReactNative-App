@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react";
-import { View, StyleSheet, Animated, Dimensions } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { View, StyleSheet, Animated, Dimensions, AppState } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import colors from "../config/colors";
@@ -25,9 +25,41 @@ const FabricBackground: React.FC<IProps> = ({
 }) => {
   const sparkleAnim = useRef(new Animated.Value(0)).current;
   const floatAnim = useRef(new Animated.Value(0)).current;
+  const sparkleAnimationRef = useRef<any>(null);
+  const floatAnimationRef = useRef<any>(null);
+  const [appState, setAppState] = useState(AppState.currentState);
 
+  // Listen to app state changes (foreground/background)
   useEffect(() => {
-     Animated.loop(
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  const handleAppStateChange = (nextAppState: string) => {
+    setAppState(nextAppState);
+    
+    if (nextAppState !== "active") {
+      // Pause animations when app goes to background
+      if (sparkleAnimationRef.current) {
+        sparkleAnimationRef.current.stop();
+      }
+      if (floatAnimationRef.current) {
+        floatAnimationRef.current.stop();
+      }
+    } else {
+      // Resume animations when app comes to foreground
+      if (showFabricIcons && sparkleAnimationRef.current === null) {
+        startAnimations();
+      }
+    }
+  };
+
+  const startAnimations = () => {
+    if (!showFabricIcons) return;
+
+    sparkleAnimationRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(sparkleAnim, {
           toValue: 1,
@@ -42,7 +74,7 @@ const FabricBackground: React.FC<IProps> = ({
       ])
     ).start();
 
-     Animated.loop(
+    floatAnimationRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(floatAnim, {
           toValue: 1,
@@ -56,7 +88,24 @@ const FabricBackground: React.FC<IProps> = ({
         }),
       ])
     ).start();
-  }, [animationDuration, floatDuration]);
+  };
+
+  // useEffect(() => {
+  //   if (!showFabricIcons || appState !== "active") return;
+
+  //   startAnimations();
+
+  //   return () => {
+  //     if (sparkleAnimationRef.current) {
+  //       sparkleAnimationRef.current.stop();
+  //     }
+  //     if (floatAnimationRef.current) {
+  //       floatAnimationRef.current.stop();
+  //     }
+  //     sparkleAnim.setValue(0);
+  //     floatAnim.setValue(0);
+  //   };
+  // }, [animationDuration, floatDuration, showFabricIcons, appState, sparkleAnim, floatAnim]);
 
   const fabricElements = [
     {

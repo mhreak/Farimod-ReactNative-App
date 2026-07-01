@@ -18,7 +18,7 @@ import { AppNavigationProp } from "../../../navigation/types";
 import {Avatar} from "../ui/Avatar";
 import { AvatarSkeleton } from "../ui/skeleton/AvatarSkeleton";
 
-export const Members = () => {
+const Members = () => {
   const navigation = useNavigation<AppNavigationProp>();
 
   const {
@@ -41,9 +41,9 @@ export const Members = () => {
     setCurrentMemberPage,
   );
 
-  useEffect(() => {
-    refetchMembers();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // useEffect(() => {
+  //   refetchMembers();
+  // }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (membersError)
@@ -130,3 +130,5 @@ export const Members = () => {
     </>
   );
 };
+
+export default React.memo(Members);

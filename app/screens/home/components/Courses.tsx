@@ -17,7 +17,7 @@ import useToast from "../../../hooks/useToast";
 import { AppNavigationProp } from "../../../navigation/types";
 import { CourseCardSkeleton } from "../ui/skeleton/CourseCardSkeleton";
 
-export const Courses = () => {
+const Courses = () => {
   const {
     data: courses = [],
     loading: coursesLoading,
@@ -107,9 +107,9 @@ export const Courses = () => {
     return pages;
   }, [courses, coursesLoading, handleCoursePress]);
 
-  useEffect(() => {
-    refetchCourses();
-  }, []);
+  // useEffect(() => {
+  //   refetchCourses();
+  // }, []);
 
   useEffect(() => {
     if (coursesError) {
@@ -153,3 +153,4 @@ export const Courses = () => {
     </>
   );
 };
+export default React.memo(Courses)

@@ -53,6 +53,52 @@ interface ImageItem {
   size?: number;
 }
 
+// Memoized video components to prevent memory leaks from multiple player instances
+const VideoThumbnail = React.memo(({ uri, style }: { uri: string; style?: any }) => {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = false;
+    p.pause();
+  });
+
+  React.useEffect(() => {
+    return () => {
+      player.release();
+    };
+  }, [player]);
+
+  return (
+    <VideoView
+      player={player}
+      style={style}
+      contentFit="cover"
+      nativeControls={false}
+    />
+  );
+});
+
+const VideoPlayerView = React.memo(({ uri, style }: { uri: string; style?: any }) => {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = false;
+    p.play();
+  });
+
+  React.useEffect(() => {
+    return () => {
+      player.release();
+    };
+  }, [player]);
+
+  return (
+    <VideoView
+      player={player}
+      style={style}
+      contentFit="contain"
+      nativeControls={true}
+      allowsFullscreen
+    />
+  );
+});
+
 const ImageUpload: React.FC<ImageUploadProps> = ({
   onImagesChange,
   onImageChange,
@@ -105,6 +151,12 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const deleteModalBackdropAnim = useRef(new Animated.Value(0)).current;
   const imageViewerScaleAnim = useRef(new Animated.Value(0)).current;
   const imageViewerOpacityAnim = useRef(new Animated.Value(0)).current;
+  
+  // Store animation controllers for cleanup
+  const loadingAnimationRef = useRef<any>(null);
+  const modalAnimationRef = useRef<any>(null);
+  const deleteModalAnimationRef = useRef<any>(null);
+  const imageViewerAnimationRef = useRef<any>(null);
 
   const insets = useSafeAreaInsets();
 
@@ -129,7 +181,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   // Loading animation
   React.useEffect(() => {
     if (isUploading || loading) {
-      Animated.loop(
+      loadingAnimationRef.current = Animated.loop(
         Animated.timing(loadingRotation, {
           toValue: 1,
           duration: 1000,
@@ -137,13 +189,22 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ).start();
     } else {
+      if (loadingAnimationRef.current) {
+        loadingAnimationRef.current.stop();
+      }
       loadingRotation.setValue(0);
     }
-  }, [isUploading, loading]);
+    
+    return () => {
+      if (loadingAnimationRef.current) {
+        loadingAnimationRef.current.stop();
+      }
+    };
+  }, [isUploading, loading, loadingRotation]);
 
   React.useEffect(() => {
     if (modalVisible) {
-      Animated.parallel([
+      modalAnimationRef.current = Animated.parallel([
         Animated.timing(modalSlideAnim, {
           toValue: 0,
           duration: 300,
@@ -156,7 +217,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ]).start();
     } else {
-      Animated.parallel([
+      modalAnimationRef.current = Animated.parallel([
         Animated.timing(modalSlideAnim, {
           toValue: 300,
           duration: 250,
@@ -169,11 +230,17 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ]).start();
     }
-  }, [modalVisible]);
+    
+    return () => {
+      if (modalAnimationRef.current) {
+        modalAnimationRef.current.stop();
+      }
+    };
+  }, [modalVisible, modalSlideAnim, modalOpacityAnim]);
 
   React.useEffect(() => {
     if (deleteModalVisible) {
-      Animated.parallel([
+      deleteModalAnimationRef.current = Animated.parallel([
         Animated.timing(deleteModalSlideAnim, {
           toValue: 1,
           duration: 300,
@@ -186,7 +253,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ]).start();
     } else {
-      Animated.parallel([
+      deleteModalAnimationRef.current = Animated.parallel([
         Animated.timing(deleteModalSlideAnim, {
           toValue: 0,
           duration: 250,
@@ -199,7 +266,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ]).start();
     }
-  }, [deleteModalVisible]);
+    
+    return () => {
+      if (deleteModalAnimationRef.current) {
+        deleteModalAnimationRef.current.stop();
+      }
+    };
+  }, [deleteModalVisible, deleteModalSlideAnim, deleteModalBackdropAnim]);
 
   useEffect(() => {
     if (isMultiple) {
@@ -210,11 +283,11 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     } else {
       setSingleImage(normalizeImageItem(initialImage, 'initial-single-image'));
     }
-  }, [initialImage, initialImages, isMultiple]);
+  }, []);
 
   React.useEffect(() => {
     if (imageViewerVisible) {
-      Animated.parallel([
+      imageViewerAnimationRef.current = Animated.parallel([
         Animated.spring(imageViewerScaleAnim, {
           toValue: 1,
           tension: 100,
@@ -228,7 +301,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ]).start();
     } else {
-      Animated.parallel([
+      imageViewerAnimationRef.current = Animated.parallel([
         Animated.timing(imageViewerScaleAnim, {
           toValue: 0.7,
           duration: 200,
@@ -241,7 +314,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ]).start();
     }
-  }, [imageViewerVisible]);
+    
+    return () => {
+      if (imageViewerAnimationRef.current) {
+        imageViewerAnimationRef.current.stop();
+      }
+    };
+  }, [imageViewerVisible, imageViewerScaleAnim, imageViewerOpacityAnim]);
 
   const requestPermissions = async () => {
     try {
@@ -316,36 +395,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     return validAssets;
   };
 
-  const VideoThumbnail = ({ uri, style }: { uri: string; style?: any }) => {
-    const player = useVideoPlayer(uri, (p) => {
-      p.loop = false;
-      p.pause();
-    });
-    return (
-      <VideoView
-        player={player}
-        style={style}
-        contentFit="cover"
-        nativeControls={false}
-      />
-    );
-  };
-
-  const VideoPlayerView = ({ uri, style }: { uri: string; style?: any }) => {
-    const player = useVideoPlayer(uri, (p) => {
-      p.loop = false;
-      p.play(); 
-    });
-    return (
-      <VideoView
-        player={player}
-        style={style}
-        contentFit="contain"
-        nativeControls={true}   
-        allowsFullscreen
-      />
-    );
-  };
   const pickImageFromGallery = async () => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;

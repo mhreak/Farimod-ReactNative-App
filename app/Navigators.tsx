@@ -16,7 +16,7 @@ export function StackNavigator() {
   }
 
   return (
-    <Stack.Navigator screenOptions={{ ...screenOptions, headerShown: false }}>
+    <Stack.Navigator screenOptions={{ ...screenOptions, headerShown: false}}>
       {isAuthenticated ? (
         <Stack.Screen name="App" component={AppNavigator} />
       ) : (

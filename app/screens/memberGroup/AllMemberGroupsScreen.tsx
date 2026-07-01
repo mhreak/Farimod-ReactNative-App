@@ -151,7 +151,7 @@ const AllMemberGroupsScreen = () => {
   }, [navigation, showToast]);
 
   const handleBackPress = useCallback(() => {
-    (navigation as any).navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
+    navigation.goBack();
   }, [navigation]);
 
   const handleLoadMore = useCallback(() => {
@@ -277,11 +277,11 @@ const AllMemberGroupsScreen = () => {
         </View>
 
         <View style={styles.sectionTitleContainer}>
-          <View style={styles.sparkleContainer}>
+          {/* <View style={styles.sparkleContainer}>
             <MaterialIcons name="star-half" size={16} color="#FFD700" style={styles.sparkle1} />
             <MaterialIcons name="star-half" size={12} color="#FF69B4" style={styles.sparkle2} />
-          </View>
-        </View>
+          </View> */}
+        </View> 
 
         <View style={styles.contentContainer}>
           {groupsError ? (

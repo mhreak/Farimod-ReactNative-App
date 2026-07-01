@@ -21,8 +21,8 @@ import { useNavigation } from "@react-navigation/native";
 import Toast from "../components/Toast";
 import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
-import { AppNavigationProp, RootStackParamList } from "../Navigators";
 import { useAuth } from "../contexts/AuthContext";
+import { AppNavigationProp,RootStackParamList } from "../navigation/types";
 
 const { width, height } = Dimensions.get('window');
 
@@ -490,7 +490,7 @@ const PortfolioListScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "پروفایل" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons

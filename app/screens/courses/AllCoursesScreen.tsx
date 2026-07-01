@@ -139,28 +139,28 @@ const AllCoursesScreen = () => {
   }, [currentPage, activeFilters, isInitialized, fetchCourses]);
 
   // اجرای انیمیشن‌های ورود و چرخش المنت‌های دکوری
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
+  // useEffect(() => {
+  //   Animated.parallel([
+  //     Animated.timing(fadeAnim, {
+  //       toValue: 1,
+  //       duration: 1000,
+  //       useNativeDriver: true,
+  //     }),
+  //     Animated.timing(slideAnim, {
+  //       toValue: 0,
+  //       duration: 800,
+  //       useNativeDriver: true,
+  //     }),
+  //   ]).start();
 
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 8000,
-        useNativeDriver: true,
-      })
-    ).start();
-  }, []);
+  //   Animated.loop(
+  //     Animated.timing(rotateAnim, {
+  //       toValue: 1,
+  //       duration: 8000,
+  //       useNativeDriver: true,
+  //     })
+  //   ).start();
+  // }, []);
 
   const spin = rotateAnim.interpolate({
     inputRange: [0, 1],
@@ -233,9 +233,10 @@ const AllCoursesScreen = () => {
     </View>
   ), [handleRetry]);
 
-  const handleBackPress = useCallback(() => {
-    (navigation as any).navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
-  }, [navigation]);
+
+    const handleBackPress = useCallback(() => {
+      navigation.goBack();
+    }, [navigation]);
 
   const getItemLayout = useCallback((_: any, index: number) => ({
     length: ROW_HEIGHT,
@@ -271,45 +272,35 @@ const AllCoursesScreen = () => {
           </View>
         </TouchableOpacity>
 
-        <Animated.View
+        <View
           style={[
             styles.headerContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
+      
           ]}
         >
           <View style={styles.titleWrapper}>
             <AppText style={styles.headerTitle}>{getHeaderTitle()}</AppText>
           </View>
-        </Animated.View>
+        </View>
 
-        <Animated.View
+        <View
           style={[
             styles.sectionTitleContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
           ]}
         >
-          <View style={styles.sparkleContainer}>
+          {/* <View style={styles.sparkleContainer}>
             <MaterialIcons name="star-half" size={16} color="#FFD700" style={styles.sparkle1} />
             <MaterialIcons name="star-half" size={12} color="#FF6B6B" style={styles.sparkle2} />
-          </View>
-        </Animated.View>
+          </View> */}
+        </View>
 
-        <Animated.View style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]} />
-        <Animated.View style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]} />
+        {/* <Animated.View style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]} />
+        <Animated.View style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]} /> */}
 
         <Animated.View
           style={[
             styles.contentContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
+    
           ]}
         >
           {coursesError ? (
@@ -351,19 +342,7 @@ const AllCoursesScreen = () => {
           )}
         </Animated.View>
 
-        <View style={styles.decorativeElements}>
-          <View style={styles.floatingElements}>
-            <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons name="star" size={22} color="rgba(255, 215, 0, 0.4)" />
-            </Animated.View>
-            <Animated.View style={[styles.star2, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons name="auto-awesome" size={18} color="rgba(255, 107, 107, 0.4)" />
-            </Animated.View>
-            <Animated.View style={[styles.star3, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons name="diamond" size={20} color="rgba(78, 205, 196, 0.4)" />
-            </Animated.View>
-          </View>
-        </View>
+
       </View>
     </>
   );

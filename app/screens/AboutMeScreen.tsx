@@ -730,7 +730,7 @@ const AboutMeScreen = () => {
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+            onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "پروفایل" } })}
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons

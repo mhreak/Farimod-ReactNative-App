@@ -13,7 +13,7 @@ import { UseAutoScroll } from "../../../hooks/useAutoScroll";
 import { AUTO_SCROLL_INTERVALS } from "../contants/AUTO_SCROLL_INTERVALS";
 import useToast from "../../../hooks/useToast";
 
-export const HomeSlides = () => {
+const HomeSlides = () => {
   const pagerRef2 = useRef<PagerView | null>(null);
   const [currentPage2, setCurrentPage2] = useState(0);
   
@@ -36,9 +36,9 @@ export const HomeSlides = () => {
     }
   }, [slidesError]);
 
-  useEffect(() => {
-    refetchSlides();
-  }, []);
+  // useEffect(() => {
+  //   refetchSlides();
+  // }, []);
 
   const slidePages = useMemo(() => {
     if (!slides || slides.length === 0) return [];
@@ -115,3 +115,5 @@ export const HomeSlides = () => {
     </>
   );
 };
+
+export default React.memo(HomeSlides);

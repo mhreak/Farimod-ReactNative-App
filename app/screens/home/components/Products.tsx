@@ -18,7 +18,7 @@ import { ProductCard } from "../ui/ProductCard";
 import { ProductCardSkeleton } from "../ui/skeleton/ProductCardSkeleton";
 import { Product } from "../../../types/home/home.types";
 
-export const Products = () => {
+const Products = () => {
   const navigation = useNavigation<AppNavigationProp>();
 
   const {
@@ -39,9 +39,9 @@ export const Products = () => {
     setCurrentProductPage,
   );
 
-  useEffect(() => {
-    refetchProducts();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // useEffect(() => {
+  //   refetchProducts();
+  // }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (productsError)
@@ -139,3 +139,4 @@ export const Products = () => {
     </>
   );
 };
+export default React.memo(Products)

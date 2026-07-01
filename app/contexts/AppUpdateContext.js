@@ -29,57 +29,59 @@ export const AppUpdateProvider = ({ children }) => {
 
   const { user, isAuthenticated } = useAuth();
 
-  // چک کردن بروزرسانی در startup اپ
-  useEffect(() => {
-    if (isAuthenticated && user?.MemberId && isHomeScreen) {
-      checkForUpdateOnStartup();
-    }
-  }, [isAuthenticated, user, isHomeScreen]);
-
-  // چک کردن بروزرسانی فقط در HomeScreen
+  // Consolidated effect for update checking and AppState listener
   useEffect(() => {
     if (!isAuthenticated || !user?.MemberId || !isHomeScreen) {
       return;
     }
 
-    // چک کردن فوری در startup
-    checkForUpdateOnStartup();
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    let appStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
 
-    // تنظیم interval برای چک کردن هر 15 دقیقه
-    const intervalId = setInterval(() => {
-      console.log("Auto checking for update (15 min interval)...");
+    // Initial check for update on startup
+    const performInitialCheck = async () => {
+      try {
+        const shouldCheck = await shouldCheckForUpdate();
+        if (shouldCheck) {
+          await checkForUpdate();
+        }
+      } catch (error) {
+        console.error("Error in startup update check:", error);
+      }
+    };
+
+    // Perform initial check
+    performInitialCheck();
+
+    // Set up periodic check interval (every 30 minutes)
+    intervalId = setInterval(() => {
+      console.log("Auto checking for update (30 min interval)...");
       checkForUpdate();
     }, CHECK_INTERVAL);
 
-    // پاک کردن interval هنگام unmount
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, [isAuthenticated, user, isHomeScreen]);
-
-  // مدیریت تغییر وضعیت اپ (foreground/background)
-  useEffect(() => {
-    const handleAppStateChange = (nextAppState) => {
-      if (
-        nextAppState === "active" &&
-        isAuthenticated &&
-        user?.MemberId &&
-        isHomeScreen
-      ) {
+    // Handle app state changes (when app comes to foreground)
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === "active") {
         console.log("App became active, checking for update...");
         checkForUpdateOnAppActivation();
       }
     };
 
-    const subscription = AppState.addEventListener(
+    appStateSubscription = AppState.addEventListener(
       "change",
       handleAppStateChange
     );
 
+    // Cleanup function
     return () => {
-      subscription?.remove();
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+      if (appStateSubscription) {
+        appStateSubscription.remove();
+      }
     };
-  }, [isAuthenticated, user, isHomeScreen]);
+  }, [isAuthenticated, user?.MemberId, isHomeScreen]);
 
   const checkForUpdateOnStartup = async () => {
     try {

@@ -25,7 +25,7 @@ import { AppNavigationProp } from "../../../navigation/types";
 import { BlogPostCard } from "../ui/BlogPostCard";
 import { BlogPostCardSkeleton } from "../ui/skeleton/BlogPostCardSkeleton";
 
-export const Blog = () => {
+const Blog = () => {
   const navigation = useNavigation<AppNavigationProp>();
 
   const {
@@ -46,9 +46,9 @@ export const Blog = () => {
     setCurrentBlogPostPage,
   );
 
-  useEffect(() => {
-    refetchBlogPosts();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // useEffect(() => {
+  //   refetchBlogPosts();
+  // }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (blogPostsError)
@@ -142,3 +142,5 @@ export const Blog = () => {
     </>
   );
 };
+
+ export default React.memo(Blog);

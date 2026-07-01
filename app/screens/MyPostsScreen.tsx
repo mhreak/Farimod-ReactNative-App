@@ -436,7 +436,7 @@ const MyPostsScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+          onPress={() => (navigation as any).navigate("App", { screen: "MainTabs", params: { screen: "پروفایل" } })}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons
@@ -461,20 +461,17 @@ const MyPostsScreen = () => {
           </LinearGradient>
         </TouchableOpacity>
 
-        <Animated.View
+        <View
           style={[
             styles.headerContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
+        
           ]}
         >
           <View style={styles.titleWrapper}>
             <AppText style={styles.headerTitle}>وبلاگ من</AppText>
           </View>
-        </Animated.View>
-
+        </View>
+{/* 
         <Animated.View
           style={[
             styles.sectionTitleContainer,
@@ -498,7 +495,7 @@ const MyPostsScreen = () => {
               style={styles.sparkle2}
             />
           </View>
-        </Animated.View>
+        </Animated.View> */}
 
         <Animated.View
           style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}

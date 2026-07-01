@@ -14,8 +14,8 @@ import styles from "../config/styles";
 
 
 import HomeScreen from "../screens/home/HomeScreen";
-import ProfileScreeen from "../screens/ProfileScreeen";
-import MagScreen from "../screens/MagScreen";
+import ProfileScreeen from "../screens/profile/ProfileScreeen";
+import MagScreen from "../screens/mag/MagScreen";
 import EditProfileScreen from "../screens/EditProfileScreen";
 import AboutMeScreen from "../screens/AboutMeScreen";
 import MyResumeScreen from "../screens/MyResumeScreen";
@@ -28,17 +28,17 @@ import SubscriptionScreen from "../screens/SubscriptionScreen";
 import AddNewPostScreen from "../screens/AddNewPostScreen";
 import PortfolioListScreen from "../screens/PortfolioListScreen";
 import MyProductScreen from "../screens/MyProductScreen";
-import AllPortfolioScreen from "../screens/AllPortfolioScreen";
+import AllPortfolioScreen from "../screens/portfolio/AllPortfolioScreen";
 import MagDetailesScreen from "../screens/MagDetailesScreen";
 import AddNewCourseScreen from "../screens/AddNewCourseScreen";
 import MyGalleryScreen from "../screens/MyGalleryScreen";
 import GalleryItemScreen from "../screens/GalleryItemScreen";
 import AllCoursesScreen from "../screens/courses/AllCoursesScreen";
 import AllProductsScreen from "../screens/products/AllProductsScreen";
-import AllMembersScreen from "../screens/AllMemberScreen";
+import AllMembersScreen from "../screens/member/AllMemberScreen";
 import ProductDetailsScreen from "../screens/ProductDetailsScreen";
 import PortfolioDetailScreen from "../screens/PortfolioDetailScreen";
-import AllGalleriesScreen from "../screens/AllGalleriesScreen";
+import AllGalleriesScreen from "../screens/gallery/AllGalleriesScreen";
 import AddPortfolioScreen from "../screens/AddPortfolioScreen";
 import AddProductScreen from "../screens/AddNewProduct";
 import AddGalleryScreen from "../screens/AddGalleryScreen";
@@ -52,6 +52,26 @@ import AllMemberGroupsScreen from "../screens/memberGroup/AllMemberGroupsScreen"
 
 const Tab = createBottomTabNavigator();
 const AppStack = createNativeStackNavigator();
+const HomeStack = createNativeStackNavigator();
+
+
+function HomeStackNavigator() {
+  return (
+    <HomeStack.Navigator screenOptions={{ headerShown: false }}>
+      <HomeStack.Screen name="HomeScreen" component={HomeScreen} />
+
+      <HomeStack.Screen name="AllMembers" component={AllMembersScreen} />
+      <HomeStack.Screen name="AllProducts" component={AllProductsScreen} />
+      <HomeStack.Screen name="AllCourses" component={AllCoursesScreen} />
+      <HomeStack.Screen name="AllMemberGroups" component={AllMemberGroupsScreen} />
+
+      <HomeStack.Screen name="ProductDetails" component={ProductDetailsScreen} />
+      <HomeStack.Screen name="CourseDetails" component={CourseDetailsScreen} />
+      <HomeStack.Screen name="UserProfile" component={UserProfileScreen} />
+    </HomeStack.Navigator>
+  );
+}
+
 
 function TabNavigator() {
   const insets = useSafeAreaInsets();
@@ -78,7 +98,12 @@ function TabNavigator() {
       })}
     >
       <Tab.Screen name="پروفایل" component={ProfileScreeen} options={{ headerShown: false }} />
-      <Tab.Screen name="خانه" component={HomeScreen} options={{ headerShown: false }} />
+      <Tab.Screen
+        name="خانه"
+        component={HomeStackNavigator}
+        options={{ headerShown: false }}
+      />
+
       <Tab.Screen name="وبلاگ" component={MagScreen} options={{ headerShown: false }} />
     </Tab.Navigator>
   );

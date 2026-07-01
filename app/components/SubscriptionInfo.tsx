@@ -149,9 +149,10 @@ const useCourseStudents = (courseId) => {
 
 const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
+  const animationRef = useRef<any>(null);
 
   useEffect(() => {
-    const startAnimation = () => {
+    animationRef.current = Animated.loop(
       Animated.sequence([
         Animated.timing(animatedValue, {
           toValue: 1,
@@ -163,10 +164,15 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
           duration: 1000,
           useNativeDriver: false,
         }),
-      ]).start(() => startAnimation());
-    };
+      ])
+    ).start();
 
-    startAnimation();
+    return () => {
+      if (animationRef.current) {
+        animationRef.current.stop();
+      }
+      animatedValue.setValue(0);
+    };
   }, [animatedValue]);
 
   const backgroundColor = animatedValue.interpolate({
@@ -682,7 +688,7 @@ const CourseStudentsScreen = ({ route }) => {
 
       <TouchableOpacity
         style={styles.backButton}
-        onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+        onPress={() => (navigation as any).navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
         activeOpacity={0.8}
       >
         <View style={styles.backButtonContainer}>
@@ -732,6 +738,9 @@ const CourseStudentsScreen = ({ route }) => {
           keyExtractor={(item) => item.toString()}
           contentContainerStyle={styles.listContent}
           columnWrapperStyle={styles.columnWrapper}
+          maxToRenderPerBatch={6}
+          updateCellsBatchingPeriod={40}
+          removeClippedSubviews={true}
         />
       ) : (
         <FlatList
@@ -754,6 +763,9 @@ const CourseStudentsScreen = ({ route }) => {
           onEndReachedThreshold={0.5}
           ListFooterComponent={renderFooter}
           ListEmptyComponent={renderEmpty}
+          maxToRenderPerBatch={6}
+          updateCellsBatchingPeriod={40}
+          removeClippedSubviews={true}
         />
       )}
 

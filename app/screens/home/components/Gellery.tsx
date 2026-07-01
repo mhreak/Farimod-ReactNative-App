@@ -23,7 +23,7 @@ import { AppNavigationProp } from "../../../navigation/types";
 import { GalleryCard } from "../ui/GalleryCard";
 import { GalleryCardSkeleton } from "../ui/skeleton/GalleryCardSkeleton";
 
-export const Gallery = () => {
+const Gallery = () => {
   const navigation = useNavigation<AppNavigationProp>();
 
   const {
@@ -47,9 +47,9 @@ export const Gallery = () => {
     setCurrentGalleryPage,
   );
 
-  useEffect(() => {
-    refetchGalleries();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // useEffect(() => {
+  //   refetchGalleries();
+  // }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (galleriesError)
@@ -158,3 +158,5 @@ export const Gallery = () => {
     </>
   );
 };
+
+export default React.memo(Gallery);

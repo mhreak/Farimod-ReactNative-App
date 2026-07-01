@@ -17,7 +17,7 @@ import { MemberGroupCardSkeleton } from "../ui/skeleton/MemberGroupCardSkeleton"
 import { MemberGroupCard } from "../ui/MemberGroupCard";
 import { AppNavigationProp } from "../../../navigation/types";
 
-export const MemberGroup = () => {
+const MemberGroup = () => {
   const {
     data: memberGroups = [],
     loading: memberGroupsLoading,
@@ -115,18 +115,18 @@ export const MemberGroup = () => {
     return pages;
   }, [memberGroups, memberGroupsLoading, handleMemberGroupPress]);
 
-  useEffect(() => {
-    refetchMemberGroups();
-  }, []);
+  // useEffect(() => {
+  //   refetchMemberGroups();
+  // }, []);
 
-  useEffect(() => {
-    if (memberGroupsError) {
-      showToast(
-        "خطا در دریافت اطلاعات گروه‌های اصلی. لطفاً دوباره تلاش کنید.",
-        "error"
-      );
-    }
-  }, [memberGroupsError]);
+  // useEffect(() => {
+  //   if (memberGroupsError) {
+  //     showToast(
+  //       "خطا در دریافت اطلاعات گروه‌های اصلی. لطفاً دوباره تلاش کنید.",
+  //       "error"
+  //     );
+  //   }
+  // }, [memberGroupsError]);
 
   return (
     <>
@@ -162,3 +162,4 @@ export const MemberGroup = () => {
     </>
   );
 };
+export default React.memo(MemberGroup)

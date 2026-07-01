@@ -95,7 +95,6 @@ class SubscriptionService {
         };
       }
     } catch (error) {
-      console.error("Error fetching subscription:", error);
       return {
         success: false,
         data: null,

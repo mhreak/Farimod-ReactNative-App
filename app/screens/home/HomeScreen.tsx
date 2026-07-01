@@ -2,6 +2,7 @@ import React, {
   useEffect,
   useState,
   useCallback,
+  useMemo,
 } from "react";
 import { View, ScrollView, Image, TouchableOpacity } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -15,17 +16,20 @@ import { useAuth } from "../../contexts/AuthContext";
 import { CommonActions } from "@react-navigation/native";
 import { useAppUpdate } from "../../contexts/AppUpdateContext";
 import { styles } from "./styles/styles";
-import { HomeSlides } from "./components/Slide";
+import  HomeSlides  from "./components/Slide";
 import useToast from "../../hooks/useToast";
-import { MemberGroup } from "./components/MemberGroup";
-import { Courses } from "./components/Courses";
-import { Products } from "./components/Products";
-import { Blog } from "./components/Blog";
-import { Portfolios } from "./components/Portfolios";
-import { Gallery } from "./components/Gellery";
-import { Members } from "./components/Member";
+import  MemberGroup  from "./components/MemberGroup";
+import Courses  from "./components/Courses";
+import  Products from "./components/Products";
+import Blog  from "./components/Blog";
+import  Portfolios from "./components/Portfolios";
+import Gallery  from "./components/Gellery";
+import Members from "./components/Member";
+import { useRef } from "react";
 
 const HomeScreen = () => {
+    const isLoaded = useRef(false);
+
   const navigation = useNavigation<AppNavigationProp>();
   const { logout } = useAuth();
   const { setHomeScreenStatus } = useAppUpdate();
@@ -33,11 +37,40 @@ const HomeScreen = () => {
     useToast();
 
   const [showMenuModal, setShowMenuModal] = useState(false);
+  const [visibleSections, setVisibleSections] = useState({
+    slides: true,
+    memberGroup: false,
+    courses: false,
+    products: false,
+    blog: false,
+    portfolios: false,
+    gallery: false,
+    members: false,
+  });
+
 
   useEffect(() => {
     setHomeScreenStatus(true);
     return () => setHomeScreenStatus(false);
   }, [setHomeScreenStatus]);
+
+  // Lazy load sections with delays to avoid simultaneous API calls
+  useEffect(() => {
+        if (isLoaded.current) return;
+
+    const timers = [
+      setTimeout(() => setVisibleSections(prev => ({ ...prev, memberGroup: true })), 300),
+      setTimeout(() => setVisibleSections(prev => ({ ...prev, courses: true })), 600),
+      setTimeout(() => setVisibleSections(prev => ({ ...prev, products: true })), 900),
+      setTimeout(() => setVisibleSections(prev => ({ ...prev, blog: true })), 1200),
+      setTimeout(() => setVisibleSections(prev => ({ ...prev, portfolios: true })), 1500),
+      setTimeout(() => setVisibleSections(prev => ({ ...prev, gallery: true })), 1800),
+      setTimeout(() => setVisibleSections(prev => ({ ...prev, members: true })), 2100),
+    ];
+    isLoaded.current = true;
+
+    return () => timers.forEach(timer => clearTimeout(timer));
+  }, []);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -100,13 +133,13 @@ const HomeScreen = () => {
 
       <ScrollView showsVerticalScrollIndicator={false}>
         <HomeSlides />
-        <MemberGroup />
-        <Courses />
-        <Products />
-        <Blog />
-        <Portfolios />
-        <Gallery/>
-        <Members/>
+        {visibleSections.memberGroup && <MemberGroup />}
+        {visibleSections.courses && <Courses />}
+        {visibleSections.products && <Products />}
+        {visibleSections.blog && <Blog />}
+        {visibleSections.portfolios && <Portfolios />}
+        {visibleSections.gallery && <Gallery/>}
+        {visibleSections.members && <Members/>}
       </ScrollView>
       <MenuModal
         visible={showMenuModal}

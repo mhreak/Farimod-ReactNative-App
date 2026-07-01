@@ -81,7 +81,7 @@ const { height: screenHeight } = Dimensions.get('window');
         ref={flatListRef}
         data={data}
         renderItem={renderItem}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(item) => `time-${item}`}
         showsVerticalScrollIndicator={false}
         snapToInterval={itemHeight}
         snapToAlignment="center"
@@ -89,6 +89,9 @@ const { height: screenHeight } = Dimensions.get('window');
         onScroll={onScroll}
         onMomentumScrollEnd={onMomentumScrollEnd}
         getItemLayout={getItemLayout}
+        maxToRenderPerBatch={6}
+        updateCellsBatchingPeriod={40}
+        removeClippedSubviews={false}
         contentContainerStyle={{
           paddingTop: itemHeight * 2,
           paddingBottom: itemHeight * 2,

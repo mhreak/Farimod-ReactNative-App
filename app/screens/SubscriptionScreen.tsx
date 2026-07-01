@@ -21,7 +21,7 @@ import { useNavigation } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import MainBackground from "../components/MainBackground";
 import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
-import { AppNavigationProp } from "../Navigators";
+import { AppNavigationProp } from "../navigation/types";
 import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Toast from "../components/Toast";
@@ -862,8 +862,7 @@ const SubscriptionScreen = () => {
   const { subscriptionPlans, loading, error, fetchSubscriptionPlans } = useSubscriptionPlans();
   const { activeSubscription, loading: activeLoading, error: activeError, fetchActiveSubscription } = useActiveSubscription();
 
-  const fadeAnim = useRef(new Animated.Value(1)).current; // ✅ شروع از 1
-  const slideAnim = useRef(new Animated.Value(0)).current; // ✅ شروع از 0
+
   const cardsAnim = useRef(new Animated.Value(1)).current; // ✅ شروع از 1
   const floatingAnim = useRef(new Animated.Value(0)).current;
 
@@ -879,7 +878,6 @@ const SubscriptionScreen = () => {
   }, []);
 
   const loadData = async () => {
-    console.log('⏳ loadData called');
     await Promise.all([
       fetchSubscriptionPlans(),
       fetchActiveSubscription()
@@ -888,9 +886,7 @@ const SubscriptionScreen = () => {
   };
 
   const plansWithActiveStatus = useMemo(() => {
-    console.log('🔄 Computing plansWithActiveStatus...');
-    console.log('📦 subscriptionPlans length:', subscriptionPlans.length);
-    console.log('🎯 activeSubscription:', activeSubscription?.SubscriptionPlanId);
+
 
     if (subscriptionPlans.length === 0) {
       console.log('⚠️ No subscription plans available');
@@ -915,12 +911,7 @@ const SubscriptionScreen = () => {
     return updatedPlans;
   }, [subscriptionPlans, activeSubscription]);
 
-  useEffect(() => {
-    console.log('📊 State update:');
-    console.log('  - loading:', loading);
-    console.log('  - subscriptionPlans.length:', subscriptionPlans.length);
-    console.log('  - plansWithActiveStatus.length:', plansWithActiveStatus.length);
-  }, [loading, subscriptionPlans, plansWithActiveStatus]);
+
 
   // ✅ غیرفعال کردن موقت animation ها
   // useEffect(() => {
@@ -987,7 +978,7 @@ const SubscriptionScreen = () => {
 
     setTimeout(() => {
       if (modalType === "confirm") {
-        navigation.navigate('SubscriptionPurchase', {
+        (navigation as any).navigate('SubscriptionPurchase', {
           plan: selectedPlan,
           selectedOption: selectedPlan.selectedOption
         });
@@ -1071,7 +1062,7 @@ const SubscriptionScreen = () => {
           <View style={styles.headerContainer}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+              onPress={() => (navigation as any).navigate("App", { screen: "MainTabs", params: { screen: "پروفایل" } })}
             >
               <View style={styles.backButtonContainer}>
                 <MaterialIcons
@@ -1107,7 +1098,6 @@ const SubscriptionScreen = () => {
             </View>
           )}
 
-          {/* ✅ تست مستقیم بدون Animated.View */}
           <View style={styles.plansContainer}>
        
 

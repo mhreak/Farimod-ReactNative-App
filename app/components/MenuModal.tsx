@@ -13,10 +13,12 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons, MaterialCommunityIcons, Fontisto } from '@expo/vector-icons';
 import AppText from './Text';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { InteractionManager } from "react-native";
+
 
 const { height, width } = Dimensions.get('window');
 
-const MenuModal = ({ visible, onClose, onNavigate, showToast }) => {
+const MenuModal = ({ visible, onClose, onNavigate, showToast }:any) => {
   const logoutSlideAnim = useRef(new Animated.Value(300)).current;
   const logoutOpacityAnim = useRef(new Animated.Value(0)).current;
   const modalSlideAnim = useRef(new Animated.Value(height)).current;
@@ -108,74 +110,62 @@ const MenuModal = ({ visible, onClose, onNavigate, showToast }) => {
     }
   ];
 
-  useEffect(() => {
-    if (visible) {
+useEffect(() => {
+  if (visible) {
+    InteractionManager.runAfterInteractions(() => {
       setIsRendered(true);
-      requestAnimationFrame(() => {
-        Animated.parallel([
-          Animated.timing(modalBackdropAnim, {
-            toValue: 1,
-            duration: 220,
-            useNativeDriver: true,
-          }),
-          Animated.spring(modalSlideAnim, {
-            toValue: 0,
-            tension: 100,
-            friction: 8,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      });
-    } else {
-      Animated.parallel([
-        Animated.timing(modalBackdropAnim, {
-          toValue: 0,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(modalSlideAnim, {
-          toValue: height,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setIsRendered(false);
-        setShowLogoutModal(false);
-        setShowSupportTooltip(false);
-      });
-    }
-  }, [visible]);
 
-  useEffect(() => {
-    if (showLogoutModal) {
       Animated.parallel([
-        Animated.spring(logoutSlideAnim, {
+        Animated.spring(modalSlideAnim, {
           toValue: 0,
-          tension: 100,
-          friction: 8,
+          stiffness: 180,
+          damping: 20,
+          mass: 0.8,
           useNativeDriver: true,
         }),
-        Animated.timing(logoutOpacityAnim, {
+        Animated.timing(modalBackdropAnim, {
           toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        })
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(logoutSlideAnim, {
-          toValue: 300,
-          duration: 200,
+          duration: 150,
           useNativeDriver: true,
         }),
-        Animated.timing(logoutOpacityAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        })
       ]).start();
-    }
-  }, [showLogoutModal]);
+    });
+  } else {
+    Animated.parallel([
+      Animated.timing(modalSlideAnim, {
+        toValue: height,
+        duration: 220,
+        useNativeDriver: true,
+      }),
+      Animated.timing(modalBackdropAnim, {
+        toValue: 0,
+        duration: 160,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setIsRendered(false);
+      setShowLogoutModal(false);
+      setShowSupportTooltip(false);
+    });
+  }
+}, [visible]);
+
+useEffect(() => {
+  Animated.parallel([
+    Animated.spring(logoutSlideAnim, {
+      toValue: showLogoutModal ? 0 : 300,
+      stiffness: 200,
+      damping: 22,
+      mass: 0.8,
+      useNativeDriver: true,
+    }),
+    Animated.timing(logoutOpacityAnim, {
+      toValue: showLogoutModal ? 1 : 0,
+      duration: 140,
+      useNativeDriver: true,
+    }),
+  ]).start();
+}, [showLogoutModal]);
 
   const handleClose = () => {
     onClose();
