@@ -39,8 +39,7 @@ const AddGalleryScreen = () => {
   const [galleryImages, setGalleryImages] = useState([]);
 
   // Animation refs
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+
   const iconFadeAnim = useRef(new Animated.Value(0)).current;
   const iconSlideAnim = useRef(new Animated.Value(-30)).current;
   const formFadeAnim = useRef(new Animated.Value(0)).current;
@@ -48,17 +47,11 @@ const AddGalleryScreen = () => {
   const backButtonAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    console.log('📸 galleryImages state changed:', galleryImages);
-  }, [galleryImages]);
+
 
   useEffect(() => {
     Animated.sequence([
-      Animated.timing(backButtonAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true
-      }),
+
       Animated.parallel([
         Animated.timing(iconFadeAnim, {
           toValue: 1,
@@ -71,34 +64,8 @@ const AddGalleryScreen = () => {
           useNativeDriver: true
         }),
       ]),
-      Animated.parallel([
-        Animated.timing(formFadeAnim, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true
-        }),
-        Animated.timing(formSlideAnim, {
-          toValue: 0,
-          duration: 700,
-          useNativeDriver: true
-        }),
-      ]),
     ]).start();
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 2000,
-          useNativeDriver: true
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true
-        }),
-      ])
-    ).start();
   }, []);
 
   const showValidationErrors = (errors) => {
@@ -392,18 +359,17 @@ const AddGalleryScreen = () => {
         resetForm();
         setGalleryImages([]);
 
-        setTimeout(() => {
-          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
-        }, 2000);
+                (navigation as any).navigate("App", { screen: "MyGallery" });
+
       } else if (successCount > 0) {
         showToast(
           `گالری ایجاد شد اما ${failedCount} تصویر آپلود نشد`,
           'warning'
         );
 
-        setTimeout(() => {
-          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
-        }, 2000);
+
+          (navigation as any).navigate("App", { screen: "MyGallery" });
+
       } else {
         throw new Error('هیچ تصویری آپلود نشد');
       }
@@ -427,13 +393,8 @@ const AddGalleryScreen = () => {
         />
       </View>
 
-      <LinearGradient
-        colors={[
-          'rgba(255,255,255,0.1)',
-          'rgba(255,255,255,0.6)',
-          'rgba(255,255,255,0.8)',
-          'rgba(255,255,255,1)'
-        ]}
+      <View
+
         style={styles.gradientOverlay}
       >
         <Screen style={styles.container}>
@@ -448,21 +409,17 @@ const AddGalleryScreen = () => {
               <Tooltip content="گالری تصویری جدید ایجاد کنید. عنوان، توضیحات و دسته‌بندی گالری را مشخص کنید تا تصاویر خود را به صورت دسته‌بندی شده نمایش دهید." />
             </View>
 
-            <Animated.View
+            <View
               style={[
                 styles.backButton,
-                {
-                  opacity: backButtonAnim,
-                  transform: [{ scale: backButtonAnim }]
-                }
               ]}
             >
-              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}>
+              <TouchableOpacity onPress={() => (navigation as any).navigate("App", { screen: "MyGallery" })}>
                 <View style={styles.backButtonGlass}>
                   <MaterialIcons name="arrow-forward" size={24} color="white" />
                 </View>
               </TouchableOpacity>
-            </Animated.View>
+            </View>
           </View>
 
 
@@ -494,13 +451,9 @@ const AddGalleryScreen = () => {
               </LinearGradient>
             </Animated.View>
 
-            <Animated.View
+            <View
               style={[
                 styles.formBox,
-                {
-                  opacity: formFadeAnim,
-                  transform: [{ translateY: formSlideAnim }]
-                }
               ]}
             >
               <View style={styles.glassOverlay} />
@@ -562,8 +515,6 @@ const AddGalleryScreen = () => {
                             }
                           }
 
-                          console.log('📸 Final array:', imageArray);
-
                           setGalleryImages(imageArray);
                           setFieldValue("images", imageArray);
                         }}
@@ -607,10 +558,10 @@ const AddGalleryScreen = () => {
                   )}
                 </Formik>
               </View>
-            </Animated.View>
+            </View>
           </ScrollView>
         </Screen>
-      </LinearGradient>
+      </View>
     </View>
   );
 };

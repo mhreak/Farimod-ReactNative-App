@@ -12,9 +12,9 @@ export type ColorKeys =
   | "info"
   | "background"
   | "primaryButton"
-  |"primaryDarkButton"
+  | "primaryDarkButton";
 
-export default {
+const colors = {
   primary: "#A106B9",
   primaryLight: "#efd6f3",
   primaryDark: "#61046f",
@@ -32,6 +32,7 @@ export default {
   success: "#11D277",
   warning: "#ffb300",
   info: "#2578da",
-  // tertiary: "#efd6f3",
   tertiary: "#F0E6FF",
-};
+} as const;
+
+export default colors;

@@ -44,65 +44,8 @@ const AddPortfolioScreen = () => {
   const [hasMore, setHasMore] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const iconFadeAnim = useRef(new Animated.Value(0)).current;
-  const iconSlideAnim = useRef(new Animated.Value(-30)).current;
-  const formFadeAnim = useRef(new Animated.Value(0)).current;
-  const formSlideAnim = useRef(new Animated.Value(30)).current;
-  const backButtonAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    fetchPortfolios();
 
-    Animated.sequence([
-      Animated.timing(backButtonAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.parallel([
-        Animated.timing(iconFadeAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-        Animated.timing(iconSlideAnim, {
-          toValue: 0,
-          duration: 600,
-          useNativeDriver: true,
-        }),
-      ]),
-      Animated.parallel([
-        Animated.timing(formFadeAnim, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(formSlideAnim, {
-          toValue: 0,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-      ]),
-    ]).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 2000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
 
   const fetchPortfolios = async (page = 1, refresh = false) => {
     if (loading && !refresh) return;
@@ -154,10 +97,7 @@ const AddPortfolioScreen = () => {
     fetchPortfolios(1, true);
   };
 
-  const validationSchema = Yup.object().shape({
-    title: Yup.string().required("عنوان نمونه کار الزامی است"),
-    description: Yup.string().required("توضیحات نمونه کار الزامی است"),
-  });
+
 
   const showValidationErrors = (errors) => {
     const errorKeys = Object.keys(errors);
@@ -170,7 +110,6 @@ const AddPortfolioScreen = () => {
   const uploadImageWithRetry = async (uploadUrl, imageData, maxRetries = 2) => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`Upload attempt ${attempt}/${maxRetries} for ${uploadUrl}`);
 
         const formData = new FormData();
         formData.append('ImageFile', {
@@ -194,21 +133,16 @@ const AddPortfolioScreen = () => {
         });
 
         const responseText = await response.text();
-        console.log(`Attempt ${attempt} - Response status:`, response.status);
-        console.log(`Attempt ${attempt} - Response:`, responseText);
 
         if (response.ok) {
-          console.log(`✅ Upload successful on attempt ${attempt}`);
           return { success: true, status: response.status, response: responseText };
         } else {
-          console.log(`❌ Attempt ${attempt} failed with status ${response.status}`);
           if (attempt === maxRetries) {
             return { success: false, status: response.status, response: responseText };
           }
         }
 
       } catch (error) {
-        console.error(`❌ Attempt ${attempt} error:`, error.message);
         if (attempt === maxRetries) {
           return { success: false, error: error.message };
         }
@@ -216,22 +150,17 @@ const AddPortfolioScreen = () => {
 
       if (attempt < maxRetries) {
         const waitTime = 5000 * attempt;
-        console.log(`⏳ Waiting ${waitTime}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
     }
   };
   const uploadImages = async (portfolioId, featuredImages, portfolioImages) => {
-    console.log('=== Starting image upload ===');
-    console.log('Portfolio ID:', portfolioId);
-    console.log('Featured Images:', featuredImages?.length || 0);
-    console.log('Portfolio Images:', portfolioImages?.length || 0);
+
 
     const results = [];
 
     if (featuredImages && Array.isArray(featuredImages) && featuredImages.length > 0) {
       const featuredImage = featuredImages[0];
-      console.log('Processing featured image:', featuredImage);
 
       if (featuredImage && featuredImage.uri) {
         try {
@@ -244,23 +173,18 @@ const AddPortfolioScreen = () => {
             type: mimeType
           };
 
-          console.log('Featured image data:', imageData);
 
           const uploadUrl = `${appConfig.mobileApi}Portfolio/UploadImage?portfolioId=${portfolioId}&type=0`;
-          console.log('Featured image upload URL:', uploadUrl);
 
           const result = await uploadImageWithRetry(uploadUrl, imageData);
           results.push({ type: 'featured', ...result });
 
-          console.log('Featured image upload completed, waiting before next upload...');
           await new Promise(resolve => setTimeout(resolve, 3000));
 
         } catch (error) {
-          console.error('Error preparing featured image:', error);
           results.push({ type: 'featured', success: false, error: error.message });
         }
       } else {
-        console.log('Featured image has no valid URI');
       }
     }
 
@@ -538,34 +462,23 @@ const AddPortfolioScreen = () => {
               <Tooltip content="نمونه‌کار جدید اضافه کنید. اطلاعات پروژه شامل عنوان، توضیحات کامل، برچسب‌ها، مهارت‌های استفاده شده و دسته‌بندی را وارد کنید. تصاویر با کیفیت از پروژه خود آپلود کنید تا کارفرمایان و مشتریان بالقوه آن را مشاهده کنند." />
             </View>
 
-            <Animated.View
+            <View
               style={[
                 styles.backButton,
-                {
-                  opacity: backButtonAnim,
-                  transform: [{ scale: backButtonAnim }]
-                }
               ]}
             >
-              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}>
+              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "PortfolioList"})}>
                 <View style={styles.backButtonGlass}>
                   <MaterialIcons name="arrow-forward" size={24} color="white" />
                 </View>
               </TouchableOpacity>
-            </Animated.View>
+            </View>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            <Animated.View
+            <View
               style={[
                 styles.iconContainer,
-                {
-                  opacity: iconFadeAnim,
-                  transform: [
-                    { translateY: iconSlideAnim },
-                    { scale: pulseAnim },
-                  ],
-                },
               ]}
             >
               <LinearGradient
@@ -577,15 +490,12 @@ const AddPortfolioScreen = () => {
                 </View>
                 <View style={styles.iconRing} />
               </LinearGradient>
-            </Animated.View>
+            </View>
 
-            <Animated.View
+            <View
               style={[
                 styles.formBox,
-                {
-                  opacity: formFadeAnim,
-                  transform: [{ translateY: formSlideAnim }],
-                },
+      
               ]}
             >
               <View style={styles.glassOverlay} />
@@ -739,7 +649,7 @@ const AddPortfolioScreen = () => {
                   )}
                 </Formik>
               </View>
-            </Animated.View>
+            </View>
           </ScrollView>
         </Screen>
       </LinearGradient>

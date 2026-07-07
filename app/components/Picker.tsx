@@ -388,7 +388,7 @@ const AppPicker: React.FC<IProps> = ({
                 style={styles.applyButton}
                 onPress={handleConfirm}
                 activeOpacity={0.8}
-                disabled={multiSelect ? tempSelectedItems.length === 0 : !tempSelectedItem}
+                disabled={multiSelect ? tempSelectedItems.length < 0 : !tempSelectedItem}
               >
                 <LinearGradient
                   colors={

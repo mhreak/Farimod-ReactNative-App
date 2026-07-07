@@ -219,9 +219,7 @@ const AddNewPostScreen = () => {
           setPostImages([]);
         }
 
-        setTimeout(() => {
-          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
-        }, 2000);
+        (navigation as any).navigate("App", { screen: "MyPosts" });
       } else {
         let errorData;
         try {
@@ -252,26 +250,26 @@ const AddNewPostScreen = () => {
               <Tooltip content="پست یا مقاله جدید بنویسید. عنوان، محتوای کامل مقاله، تصویر شاخص و دسته‌بندی را مشخص کنید." />
             </View>
 
-            <Animated.View style={[styles.backButton, { opacity: backButtonAnim, transform: [{ scale: backButtonAnim }] }]}>
-              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}>
+            <View style={[styles.backButton]}>
+              <TouchableOpacity onPress={() => (navigation as any).navigate("App", { screen: "MyPosts"})}>
                 <View style={styles.backButtonGlass}>
                   <MaterialIcons name="arrow-forward" size={24} color="white" />
                 </View>
               </TouchableOpacity>
-            </Animated.View>
+            </View>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            <Animated.View style={[styles.iconContainer, { opacity: iconFadeAnim, transform: [{ translateY: iconSlideAnim }, { scale: pulseAnim }] }]}>
+            <View style={[styles.iconContainer]}>
               <LinearGradient colors={[colors.primary, colors.primaryDark || colors.primary]} style={styles.iconCircle}>
                 <View style={styles.iconInnerCircle}>
                   <MaterialIcons name={isEditMode ? "edit" : "article"} color={colors.white} size={50} />
                 </View>
                 <View style={styles.iconRing} />
               </LinearGradient>
-            </Animated.View>
+            </View>
 
-            <Animated.View style={[styles.formBox, { opacity: formFadeAnim, transform: [{ translateY: formSlideAnim }] }]}>
+            <View style={[styles.formBox]}>
               <View style={styles.glassOverlay} />
               <View style={styles.contentContainer}>
                 <AppText style={styles.titleText}>{isEditMode ? 'ویرایش پست' : 'افزودن پست جدید'}</AppText>
@@ -428,7 +426,7 @@ const AddNewPostScreen = () => {
                   )}
                 </Formik>
               </View>
-            </Animated.View>
+            </View>
           </ScrollView>
         </Screen>
       </LinearGradient>

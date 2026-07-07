@@ -17,13 +17,13 @@ import HomeScreen from "../screens/home/HomeScreen";
 import ProfileScreeen from "../screens/profile/ProfileScreeen";
 import MagScreen from "../screens/mag/MagScreen";
 import EditProfileScreen from "../screens/EditProfileScreen";
-import AboutMeScreen from "../screens/AboutMeScreen";
-import MyResumeScreen from "../screens/MyResumeScreen";
+import AboutMeScreen from "../screens/about-me/AboutMeScreen";
+import MyResumeScreen from "../screens/my-resume/MyResumeScreen";
 import MyPostsScreen from "../screens/MyPostsScreen";
 import MyCoursesScreen from "../screens/MyCoursesScreen";
 import MyTeachingCoursesScreen from "../screens/MyTeachingCoursesScreen";
 import CourseDetailsScreen from "../screens/CourseDetailsScreen";
-import UserProfileScreen from "../screens/UserProfileScreen";
+import UserProfileScreen from "../screens/user-profile/UserProfileScreen";
 import SubscriptionScreen from "../screens/SubscriptionScreen";
 import AddNewPostScreen from "../screens/AddNewPostScreen";
 import PortfolioListScreen from "../screens/PortfolioListScreen";
@@ -31,12 +31,12 @@ import MyProductScreen from "../screens/MyProductScreen";
 import AllPortfolioScreen from "../screens/portfolio/AllPortfolioScreen";
 import MagDetailesScreen from "../screens/MagDetailesScreen";
 import AddNewCourseScreen from "../screens/AddNewCourseScreen";
-import MyGalleryScreen from "../screens/MyGalleryScreen";
+import MyGalleryScreen from "../screens/my-gallery/MyGalleryScreen";
 import GalleryItemScreen from "../screens/GalleryItemScreen";
 import AllCoursesScreen from "../screens/courses/AllCoursesScreen";
 import AllProductsScreen from "../screens/products/AllProductsScreen";
 import AllMembersScreen from "../screens/member/AllMemberScreen";
-import ProductDetailsScreen from "../screens/ProductDetailsScreen";
+import ProductDetailsScreen from "../screens/product-detail/ProductDetailsScreen";
 import PortfolioDetailScreen from "../screens/PortfolioDetailScreen";
 import AllGalleriesScreen from "../screens/gallery/AllGalleriesScreen";
 import AddPortfolioScreen from "../screens/AddPortfolioScreen";
@@ -68,6 +68,7 @@ function HomeStackNavigator() {
       <HomeStack.Screen name="ProductDetails" component={ProductDetailsScreen} />
       <HomeStack.Screen name="CourseDetails" component={CourseDetailsScreen} />
       <HomeStack.Screen name="UserProfile" component={UserProfileScreen} />
+      <HomeStack.Screen name="MagDetailes" component={MagDetailesScreen}/>
     </HomeStack.Navigator>
   );
 }

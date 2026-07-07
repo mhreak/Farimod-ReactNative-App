@@ -21,8 +21,8 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import Toast from "../components/Toast";
 import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
-import { SafeAreaView } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
+import useToast from "../hooks/useToast";
 const { width, height } = Dimensions.get('window');
 
 const modernColors = {
@@ -112,7 +112,7 @@ const useUserPostsWithPagination = () => {
   };
 };
 
-const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
+const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }:any) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -121,12 +121,12 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
         Animated.timing(animatedValue, {
           toValue: 1,
           duration: 1000,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(animatedValue, {
           toValue: 0,
           duration: 1000,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ]).start(() => startAnimation());
     };
@@ -240,9 +240,7 @@ const MyPostsScreen = () => {
     hasMore
   } = useUserPostsWithPagination();
 
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('info');
+  const {showToast,toastMessage,toastVisible,toastType,setToastVisible}=useToast()
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -277,16 +275,9 @@ const MyPostsScreen = () => {
     ]);
   }, []);
 
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
-  const showToast = (message, type = 'info') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastVisible(true);
-  };
+
+
 
   useEffect(() => {
     if (postsError) {
@@ -295,14 +286,14 @@ const MyPostsScreen = () => {
   }, [postsError]);
 
   const handlePostPress = (postData) => {
-    navigation.navigate("MagDetailes", {
+  (navigation as any).navigate("MagDetailes", {
       title: postData.Title,
       blogId: postData.BlogPostId
     });
   };
 
   const handleAddPost = () => {
-    navigation.navigate("AddNewPost");
+    (navigation as any).navigate("AddNewPost");
   };
 
   const onRefresh = async () => {
@@ -497,22 +488,12 @@ const MyPostsScreen = () => {
           </View>
         </Animated.View> */}
 
-        <Animated.View
-          style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
-        >
-        </Animated.View>
-        <Animated.View
-          style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]}
-        >
-        </Animated.View>
 
-        <Animated.View
+ 
+
+        <View
           style={[
             styles.contentContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
           ]}
         >
           {postsError ? (
@@ -542,33 +523,8 @@ const MyPostsScreen = () => {
               />
             </>
           )}
-        </Animated.View>
-
-        <View style={styles.decorativeElements}>
-          <View style={styles.floatingElements}>
-            <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="star"
-                size={22}
-                color="rgba(255, 215, 0, 0.4)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star2, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="auto-awesome"
-                size={18}
-                color="rgba(255, 107, 107, 0.4)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star3, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="diamond"
-                size={20}
-                color="rgba(78, 205, 196, 0.4)"
-              />
-            </Animated.View>
-          </View>
         </View>
+
       </View>
     </>
   );

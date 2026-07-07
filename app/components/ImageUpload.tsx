@@ -53,52 +53,6 @@ interface ImageItem {
   size?: number;
 }
 
-// Memoized video components to prevent memory leaks from multiple player instances
-const VideoThumbnail = React.memo(({ uri, style }: { uri: string; style?: any }) => {
-  const player = useVideoPlayer(uri, (p) => {
-    p.loop = false;
-    p.pause();
-  });
-
-  React.useEffect(() => {
-    return () => {
-      player.release();
-    };
-  }, [player]);
-
-  return (
-    <VideoView
-      player={player}
-      style={style}
-      contentFit="cover"
-      nativeControls={false}
-    />
-  );
-});
-
-const VideoPlayerView = React.memo(({ uri, style }: { uri: string; style?: any }) => {
-  const player = useVideoPlayer(uri, (p) => {
-    p.loop = false;
-    p.play();
-  });
-
-  React.useEffect(() => {
-    return () => {
-      player.release();
-    };
-  }, [player]);
-
-  return (
-    <VideoView
-      player={player}
-      style={style}
-      contentFit="contain"
-      nativeControls={true}
-      allowsFullscreen
-    />
-  );
-});
-
 const ImageUpload: React.FC<ImageUploadProps> = ({
   onImagesChange,
   onImageChange,
@@ -131,17 +85,17 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
   const [selectedImageForView, setSelectedImageForView] = useState<ImageItem | null>(null);
 
-  const normalizeImageItem = (image: any, fallbackId?: string): ImageItem | null => {
-    if (!image || !image.uri) return null;
+  // const normalizeImageItem = (image: any, fallbackId?: string): ImageItem | null => {
+  //   if (!image || !image.uri) return null;
 
-    return {
-      id: image.id || fallbackId || `image_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      uri: image.uri,
-      name: image.name || image.fileName || image.label || (image.uri?.toLowerCase().includes('.mp4') ? 'ویدئو' : 'تصویر'),
-      type: image.type || image.mimeType || (image.uri?.toLowerCase().includes('.mp4') ? 'video/mp4' : 'image/jpeg'),
-      size: image.size,
-    };
-  };
+  //   return {
+  //     id: image.id || fallbackId || `image_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+  //     uri: image.uri,
+  //     name: image.name || image.fileName || image.label || (image.uri?.toLowerCase().includes('.mp4') ? 'ویدئو' : 'تصویر'),
+  //     type: image.type || image.mimeType || (image.uri?.toLowerCase().includes('.mp4') ? 'video/mp4' : 'image/jpeg'),
+  //     size: image.size,
+  //   };
+  // };
 
   // Animation refs
   const loadingRotation = useRef(new Animated.Value(0)).current;
@@ -151,12 +105,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   const deleteModalBackdropAnim = useRef(new Animated.Value(0)).current;
   const imageViewerScaleAnim = useRef(new Animated.Value(0)).current;
   const imageViewerOpacityAnim = useRef(new Animated.Value(0)).current;
-  
-  // Store animation controllers for cleanup
-  const loadingAnimationRef = useRef<any>(null);
-  const modalAnimationRef = useRef<any>(null);
-  const deleteModalAnimationRef = useRef<any>(null);
-  const imageViewerAnimationRef = useRef<any>(null);
 
   const insets = useSafeAreaInsets();
 
@@ -181,7 +129,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   // Loading animation
   React.useEffect(() => {
     if (isUploading || loading) {
-      loadingAnimationRef.current = Animated.loop(
+      Animated.loop(
         Animated.timing(loadingRotation, {
           toValue: 1,
           duration: 1000,
@@ -189,22 +137,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ).start();
     } else {
-      if (loadingAnimationRef.current) {
-        loadingAnimationRef.current.stop();
-      }
       loadingRotation.setValue(0);
     }
-    
-    return () => {
-      if (loadingAnimationRef.current) {
-        loadingAnimationRef.current.stop();
-      }
-    };
-  }, [isUploading, loading, loadingRotation]);
+  }, [isUploading, loading]);
 
   React.useEffect(() => {
     if (modalVisible) {
-      modalAnimationRef.current = Animated.parallel([
+      Animated.parallel([
         Animated.timing(modalSlideAnim, {
           toValue: 0,
           duration: 300,
@@ -217,7 +156,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ]).start();
     } else {
-      modalAnimationRef.current = Animated.parallel([
+      Animated.parallel([
         Animated.timing(modalSlideAnim, {
           toValue: 300,
           duration: 250,
@@ -230,17 +169,11 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ]).start();
     }
-    
-    return () => {
-      if (modalAnimationRef.current) {
-        modalAnimationRef.current.stop();
-      }
-    };
-  }, [modalVisible, modalSlideAnim, modalOpacityAnim]);
+  }, [modalVisible]);
 
   React.useEffect(() => {
     if (deleteModalVisible) {
-      deleteModalAnimationRef.current = Animated.parallel([
+      Animated.parallel([
         Animated.timing(deleteModalSlideAnim, {
           toValue: 1,
           duration: 300,
@@ -253,7 +186,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ]).start();
     } else {
-      deleteModalAnimationRef.current = Animated.parallel([
+      Animated.parallel([
         Animated.timing(deleteModalSlideAnim, {
           toValue: 0,
           duration: 250,
@@ -266,28 +199,93 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ]).start();
     }
-    
-    return () => {
-      if (deleteModalAnimationRef.current) {
-        deleteModalAnimationRef.current.stop();
-      }
-    };
-  }, [deleteModalVisible, deleteModalSlideAnim, deleteModalBackdropAnim]);
+  }, [deleteModalVisible]);
+
+  const normalizeImageItem = (image: any, fallbackId?: string): ImageItem | null => {
+  const uri = getImageUri(image);
+
+  if (!uri) return null;
+
+  return {
+    id: image.id || fallbackId || `image_${uri}`,
+    uri,
+    name:
+      image.name ||
+      image.fileName ||
+      image.label ||
+      (uri.toLowerCase().includes(".mp4") ? "ویدئو" : "تصویر"),
+    type:
+      image.type ||
+      image.mimeType ||
+      (uri.toLowerCase().includes(".mp4") ? "video/mp4" : "image/jpeg"),
+    size: image.size,
+  };
+};
+
+const areImagesSame = (a: ImageItem | null, b: ImageItem | null): boolean => {
+  return getImageUri(a) === getImageUri(b);
+};
+const getImagesSignature = (items: ImageItem[]): string => {
+  return items
+    .map((item) => item.uri)
+    .filter(Boolean)
+    .join("|");
+};
+
+  const getImageUri = (image: any): string | null => {
+  if (!image) return null;
+  return image.uri || image.url || image.path || null;
+};
+
+  // useEffect(() => {
+  //   if (isMultiple) {
+  //     const normalizedInitialImages = (initialImages || [])
+  //       .map((image, index) => normalizeImageItem(image, `initial-image-${index}`))
+  //       .filter((image): image is ImageItem => Boolean(image));
+  //     setImages(normalizedInitialImages);
+  //   } else {
+  //     setSingleImage(normalizeImageItem(initialImage, 'initial-single-image'));
+  //   }
+  // }, [initialImage, initialImages, isMultiple]);
 
   useEffect(() => {
-    if (isMultiple) {
-      const normalizedInitialImages = (initialImages || [])
-        .map((image, index) => normalizeImageItem(image, `initial-image-${index}`))
-        .filter((image): image is ImageItem => Boolean(image));
-      setImages(normalizedInitialImages);
-    } else {
-      setSingleImage(normalizeImageItem(initialImage, 'initial-single-image'));
+  if (isMultiple) {
+    const normalizedInitialImages = (initialImages || [])
+      .map((image, index) => normalizeImageItem(image, `initial-image-${index}`))
+      .filter((image): image is ImageItem => Boolean(image));
+
+    setImages((prevImages) => {
+      const prevSignature = getImagesSignature(prevImages);
+      const nextSignature = getImagesSignature(normalizedInitialImages);
+
+      if (prevSignature === nextSignature) {
+        return prevImages;
+      }
+
+      return normalizedInitialImages;
+    });
+
+    return;
+  }
+
+  const normalizedInitialImage = normalizeImageItem(
+    initialImage,
+    "initial-single-image"
+  );
+
+  setSingleImage((prevImage) => {
+    if (areImagesSame(prevImage, normalizedInitialImage)) {
+      return prevImage;
     }
-  }, []);
+
+    return normalizedInitialImage;
+  });
+}, [initialImage, initialImages, isMultiple]);
+
 
   React.useEffect(() => {
     if (imageViewerVisible) {
-      imageViewerAnimationRef.current = Animated.parallel([
+      Animated.parallel([
         Animated.spring(imageViewerScaleAnim, {
           toValue: 1,
           tension: 100,
@@ -301,7 +299,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ]).start();
     } else {
-      imageViewerAnimationRef.current = Animated.parallel([
+      Animated.parallel([
         Animated.timing(imageViewerScaleAnim, {
           toValue: 0.7,
           duration: 200,
@@ -314,13 +312,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         })
       ]).start();
     }
-    
-    return () => {
-      if (imageViewerAnimationRef.current) {
-        imageViewerAnimationRef.current.stop();
-      }
-    };
-  }, [imageViewerVisible, imageViewerScaleAnim, imageViewerOpacityAnim]);
+  }, [imageViewerVisible]);
 
   const requestPermissions = async () => {
     try {
@@ -395,6 +387,36 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     return validAssets;
   };
 
+  const VideoThumbnail = ({ uri, style }: { uri: string; style?: any }) => {
+    const player = useVideoPlayer(uri, (p) => {
+      p.loop = false;
+      p.pause();
+    });
+    return (
+      <VideoView
+        player={player}
+        style={style}
+        contentFit="cover"
+        nativeControls={false}
+      />
+    );
+  };
+
+  const VideoPlayerView = ({ uri, style }: { uri: string; style?: any }) => {
+    const player = useVideoPlayer(uri, (p) => {
+      p.loop = false;
+      p.play(); 
+    });
+    return (
+      <VideoView
+        player={player}
+        style={style}
+        contentFit="contain"
+        nativeControls={true}   
+        allowsFullscreen
+      />
+    );
+  };
   const pickImageFromGallery = async () => {
     const hasPermission = await requestPermissions();
     if (!hasPermission) return;

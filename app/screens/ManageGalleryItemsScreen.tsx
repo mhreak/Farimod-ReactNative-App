@@ -441,15 +441,12 @@ const ManageGalleryItemsScreen = () => {
 
       if (response.ok) {
         showToast('گالری با موفقیت حذف شد', 'success');
-        setTimeout(() => {
-          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
-        }, 2000);
+                (navigation as any).navigate("App", { screen: "MyGallery" });
       } else {
         const errorData = await response.json();
         throw new Error(errorData.Message || 'خطا در حذف گالری');
       }
     } catch (error) {
-      console.error('❌ Delete gallery error:', error);
       showToast(error.message || 'خطا در حذف گالری', 'error');
     } finally {
       setIsDeleting(false);
@@ -475,18 +472,14 @@ const ManageGalleryItemsScreen = () => {
         />
 
         {/* Header */}
-        <Animated.View
+        <View
           style={[
             styles.headerContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
           ]}
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+            onPress={() =>           navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons name="arrow-forward" size={26} color="#6366f1" />
@@ -505,8 +498,7 @@ const ManageGalleryItemsScreen = () => {
             onPress={selectImageSource}
             disabled={uploadingImage}
           >
-            <LinearGradient
-              colors={['#4CAF50', '#45A049']}
+            <View
               style={styles.addButtonGradient}
             >
               {uploadingImage ? (
@@ -514,9 +506,9 @@ const ManageGalleryItemsScreen = () => {
               ) : (
                 <MaterialIcons name="add-a-photo" size={26} color="white" />
               )}
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
-        </Animated.View>
+        </View>
 
         {/* Content */}
         <ScrollView
@@ -531,13 +523,9 @@ const ManageGalleryItemsScreen = () => {
             />
           }
         >
-          <Animated.View
+          <View
             style={[
               styles.content,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
             ]}
           >
             {loading ? (
@@ -615,7 +603,7 @@ const ManageGalleryItemsScreen = () => {
                
               </View>
             )}
-          </Animated.View>
+          </View>
         </ScrollView>
 
         {/* Add Image Modal */}
@@ -869,7 +857,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row-reverse',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: StatusBar.currentHeight + 15,
+    paddingTop: StatusBar.currentHeight + 30,
     paddingHorizontal: 20,
     paddingBottom: 15,
   },
@@ -924,6 +912,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor:'#4CAF50',
   },
   scrollView: {
     flex: 1,
@@ -1235,6 +1224,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     gap: 10,
+    backgroundColor:'#c0392b'
   },
   confirmDeleteText: {
     fontSize: 16,

@@ -23,6 +23,7 @@ import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
 import MultiOptionRatingComponent, { StarDisplay } from "../components/RatingComponent";
 import { useAuth } from '../contexts/AuthContext';
+import useToast from "../hooks/useToast";
 
 const { width, height } = Dimensions.get('window');
 
@@ -191,31 +192,27 @@ const useBlogPostDetail = () => {
 };
 
 const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const startAnimation = () => {
+    const animation = Animated.loop(
       Animated.sequence([
-        Animated.timing(animatedValue, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: false,
+        Animated.timing(opacityAnim, {
+          toValue: 0.4,
+          duration: 800,
+          useNativeDriver: true, 
         }),
-        Animated.timing(animatedValue, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: false,
+        Animated.timing(opacityAnim, {
+          toValue: 1, 
+          duration: 800,
+          useNativeDriver: true, 
         }),
-      ]).start(() => startAnimation());
-    };
+      ])
+    );
 
-    startAnimation();
-  }, [animatedValue]);
-
-  const backgroundColor = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#e0e0e0', '#f0f0f0'],
-  });
+    animation.start();
+    return () => animation.stop();
+  }, [opacityAnim]);
 
   return (
     <Animated.View
@@ -223,8 +220,9 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
         {
           width,
           height,
-          backgroundColor,
           borderRadius,
+          backgroundColor: '#e0e0e0', // رنگ ثابت و استاندارد اسکلتون
+          opacity: opacityAnim,      // اعمال انیمیشن روی شفافیت
         },
         style,
       ]}
@@ -264,15 +262,7 @@ const MagDetailesScreen = ({ route }) => {
   const navigation = useNavigation();
   const { title, blogId } = route.params;
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
-
   const { data: blogPost, loading, error, fetchBlogPost, setData } = useBlogPostDetail();
-
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState('info');
 
   const [refreshing, setRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -290,12 +280,11 @@ const MagDetailesScreen = ({ route }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const likeAnim = useRef(new Animated.Value(1)).current;
-  const heartAnim = useRef(new Animated.Value(0)).current;
   const [imageError, setImageError] = useState(false);
   const [imageViewerVisible, setImageViewerVisible] = useState(false);
+  const {showToast,toastMessage,toastType,toastVisible,setToastVisible}=useToast()
 
-  const imageViewerScaleAnim = useRef(new Animated.Value(0)).current;
-  const imageViewerOpacityAnim = useRef(new Animated.Value(0)).current;
+
 
   useFocusEffect(
     useCallback(() => {
@@ -315,28 +304,7 @@ const MagDetailesScreen = ({ route }) => {
     }
   }, [blogPost]);
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
 
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 8000,
-        useNativeDriver: true,
-      })
-    ).start();
-  }, []);
 
   useEffect(() => {
     if (error) {
@@ -344,50 +312,7 @@ const MagDetailesScreen = ({ route }) => {
     }
   }, [error]);
 
-  useEffect(() => {
-    if (imageViewerVisible) {
-      imageViewerScaleAnim.setValue(0.8);
-      imageViewerOpacityAnim.setValue(0);
 
-      Animated.parallel([
-        Animated.spring(imageViewerScaleAnim, {
-          toValue: 1,
-          tension: 150,
-          friction: 8,
-          useNativeDriver: true,
-        }),
-        Animated.timing(imageViewerOpacityAnim, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        })
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(imageViewerScaleAnim, {
-          toValue: 0.8,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(imageViewerOpacityAnim, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        })
-      ]).start();
-    }
-  }, [imageViewerVisible]);
-
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
-  const showToast = (message, type = 'info') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastVisible(true);
-  };
 
   const hasValidImage = () => {
     if (!blogPost) return false;
@@ -415,7 +340,7 @@ const MagDetailesScreen = ({ route }) => {
   const isOwnPost = blogPost && blogPost.MemberId === user?.MemberId;
 
   const handleEditPost = () => {
-    navigation.navigate("AddNewPost", {
+    (navigation as any).navigate("AddNewPost", {
       isEdit: true,
       blogData: blogPost
     });
@@ -490,9 +415,7 @@ const MagDetailesScreen = ({ route }) => {
     });
   };
 
-  const handleCloseImageViewer = () => {
-    setImageViewerVisible(false);
-  };
+
 
   const handleLike = async () => {
     if (isLiking || !blogPost || !user?.MemberId) return;
@@ -513,11 +436,7 @@ const MagDetailesScreen = ({ route }) => {
           duration: 100,
           useNativeDriver: true,
         }),
-        Animated.timing(heartAnim, {
-          toValue: 0.3,
-          duration: 100,
-          useNativeDriver: true,
-        }),
+
       ]),
       Animated.parallel([
         Animated.spring(likeAnim, {
@@ -526,11 +445,7 @@ const MagDetailesScreen = ({ route }) => {
           friction: 4,
           useNativeDriver: true,
         }),
-        Animated.timing(heartAnim, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
+
       ]),
       Animated.spring(likeAnim, {
         toValue: 1,
@@ -540,28 +455,6 @@ const MagDetailesScreen = ({ route }) => {
       }),
     ]).start();
 
-    if (newIsLiked) {
-      setTimeout(() => {
-        Animated.sequence([
-          Animated.timing(heartAnim, {
-            toValue: 0.8,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(heartAnim, {
-            toValue: 0,
-            duration: 600,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }, 200);
-    } else {
-      Animated.timing(heartAnim, {
-        toValue: 0,
-        duration: 100,
-        useNativeDriver: true,
-      }).start();
-    }
 
     try {
       const response = await fetch(
@@ -605,9 +498,7 @@ const MagDetailesScreen = ({ route }) => {
 
       if (response.ok) {
         showToast('پست با موفقیت حذف شد', 'success');
-        setTimeout(() => {
-          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
-        }, 2000);
+          navigation.navigate("App", { screen: "MyPosts" });
       } else {
         const errorData = await response.json();
         throw new Error(errorData.Message || 'خطا در حذف پست');
@@ -933,40 +824,10 @@ const MagDetailesScreen = ({ route }) => {
           onHide={() => setToastVisible(false)}
         />
 
-        <Animated.View
-          style={[
-            styles.floatingHeart,
-            {
-              opacity: heartAnim,
-              transform: [
-                {
-                  translateY: heartAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, -150],
-                  }),
-                },
-                {
-                  scale: heartAnim.interpolate({
-                    inputRange: [0, 0.3, 0.7, 1],
-                    outputRange: [0.5, 1.8, 1.5, 0.3],
-                  }),
-                },
-                {
-                  rotate: heartAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0deg', '15deg'],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <MaterialIcons name="favorite" size={50} color={modernColors.secondary} />
-        </Animated.View>
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+          onPress={() => navigation.goBack()}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons
@@ -989,28 +850,15 @@ const MagDetailesScreen = ({ route }) => {
           </TouchableOpacity>
         )}
 
-        <Animated.View
+        <View
           style={[
             styles.headerContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
           ]}
         >
           <View style={styles.titleWrapper}>
             <AppText style={styles.headerTitle}></AppText>
           </View>
-        </Animated.View>
-
-        <Animated.View
-          style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
-        >
-        </Animated.View>
-        <Animated.View
-          style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]}
-        >
-        </Animated.View>
+        </View>
 
         <ScrollView
           style={styles.scrollView}
@@ -1024,45 +872,16 @@ const MagDetailesScreen = ({ route }) => {
             />
           }
         >
-          <Animated.View
+          <View
             style={[
               styles.animatedContent,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
             ]}
           >
             {renderContent()}
-          </Animated.View>
+          </View>
         </ScrollView>
 
-        <View style={styles.decorativeElements}>
-          <View style={styles.floatingElements}>
-            <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="star"
-                size={22}
-                color="rgba(255, 215, 0, 0.4)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star2, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="auto-awesome"
-                size={18}
-                color="rgba(255, 107, 107, 0.4)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star3, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="diamond"
-                size={20}
-                color="rgba(78, 205, 196, 0.4)"
-              />
-            </Animated.View>
-          </View>
-        </View>
-
+  
         <Modal
           visible={showActionModal}
           transparent={true}
@@ -1241,104 +1060,11 @@ const MagDetailesScreen = ({ route }) => {
           </View>
         </Modal>
 
-        <Modal
-          visible={imageViewerVisible}
-          transparent={true}
-          animationType="none"
-          onRequestClose={handleCloseImageViewer}
-          statusBarTranslucent={true}
-        >
-          <View style={styles.imageViewerContainer}>
-            <Animated.View
-              style={[
-                styles.imageViewerBackdrop,
-                {
-                  opacity: imageViewerOpacityAnim,
-                },
-              ]}
-            >
-              <TouchableOpacity
-                style={styles.imageViewerBackdropTouchable}
-                onPress={handleCloseImageViewer}
-                activeOpacity={1}
-              />
-            </Animated.View>
-
-            <Animated.View
-              style={[
-                styles.imageViewerContent,
-                {
-                  opacity: imageViewerOpacityAnim,
-                  transform: [{ scale: imageViewerScaleAnim }],
-                },
-              ]}
-            >
-              {blogPost && blogPost.FeaturedImageFileName && blogPost.FeaturedImageURL && !imageError && (
-                <>
-                  <View style={styles.imageContainer}>
-                    <Image
-                      source={{ uri: blogPost.FeaturedImageURL }}
-                      style={styles.fullScreenImage}
-                      resizeMode="contain"
-                    />
-                  </View>
-
-                  <View style={styles.imageViewerHeader}>
-                    <TouchableOpacity
-                      style={styles.closeButton}
-                      onPress={handleCloseImageViewer}
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.closeButtonContainer}>
-                        <MaterialIcons name="close" size={24} color="#ffffff" />
-                      </View>
-                    </TouchableOpacity>
-
-                    <View style={styles.imageViewerInfo}>
-                      <AppText style={styles.imageViewerTitle} numberOfLines={2}>
-                        {toPersianDigits(blogPost.Title)}
-                      </AppText>
-                      <AppText style={styles.imageViewerSubtitle}>
-                        تصویر شاخص مقاله
-                      </AppText>
-                    </View>
-                  </View>
-
-                  <View style={styles.imageViewerFooter}>
-                    <View style={styles.imageActions}>
-                      {isOwnPost && (
-                        <TouchableOpacity
-                          style={styles.actionButton}
-                          onPress={() => {
-                            handleCloseImageViewer();
-                            setTimeout(() => {
-                              handleEditPost();
-                            }, 300);
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <LinearGradient
-                            colors={[modernColors.primary, modernColors.primaryDark]}
-                            style={styles.actionButtonGradient}
-                          >
-                            <MaterialIcons name="edit" size={20} color="white" />
-                          </LinearGradient>
-                          <AppText style={styles.actionButtonText}>ویرایش</AppText>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                </>
-              )}
-            </Animated.View>
-          </View>
-        </Modal>
       </View>
     </>
   );
 };
 
-// ... بقیه کدهای بالا بدون تغییر باقی می‌مانند
 
 const styles = StyleSheet.create({
   container: {

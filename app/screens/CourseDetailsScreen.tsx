@@ -368,10 +368,6 @@ const CourseDetailsScreen = ({ route }) => {
     }
   }, [error]);
 
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   const showToast = (message, type = 'info') => {
     setToastMessage(message);
@@ -525,9 +521,7 @@ const CourseDetailsScreen = ({ route }) => {
 
       if (response.ok) {
         showToast('دوره با موفقیت حذف شد', 'success');
-        setTimeout(() => {
-          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
-        }, 2000);
+        navigation.navigate("App", { screen: "MyTeachingCourses"})
       } else {
         const errorData = await response.json();
         throw new Error(errorData.Message || 'خطا در حذف دوره');
@@ -652,7 +646,7 @@ const CourseDetailsScreen = ({ route }) => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+          onPress={() => navigation.goBack()}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
@@ -683,7 +677,7 @@ const CourseDetailsScreen = ({ route }) => {
         <MainBackground />
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+          onPress={() => navigation.goBack()}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
@@ -896,7 +890,7 @@ const CourseDetailsScreen = ({ route }) => {
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+          onPress={() =>navigation.goBack()}
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
@@ -916,27 +910,21 @@ const CourseDetailsScreen = ({ route }) => {
             </TouchableOpacity>
           )}
 
-          <Animated.View
+          <View
             style={[
               styles.headerContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
+
             ]}
           >
             <View style={styles.titleWrapper}>
               <AppText style={styles.headerTitle}>جزئیات دوره آموزشی</AppText>
             </View>
-          </Animated.View>
+          </View>
 
-          <Animated.View
+          <View
             style={[
               styles.imageHeaderContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
+    
             ]}
           >
             {(courseData?.FeaturedImageURL && !imageError) ? (
@@ -1003,20 +991,13 @@ const CourseDetailsScreen = ({ route }) => {
                 </AppText>
               </TouchableOpacity>
             </View>
-          </Animated.View>
-
-          <Animated.View
-            style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]}
-          />
+          </View>
 
         
-          <Animated.View
+          <View
             style={[
               styles.sectionTitleContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
+      
             ]}
           >
             <LinearGradient
@@ -1030,55 +1011,30 @@ const CourseDetailsScreen = ({ route }) => {
               <MaterialIcons name="star-half" size={16} color="#FFD700" style={styles.sparkle1} />
               <MaterialIcons name="star-half" size={12} color="#FF6B6B" style={styles.sparkle2} />
             </View>
-          </Animated.View>
+          </View>
 
-          {/* ✅ باکس مینیمال یک خطی */}
           {!isOwnCourse && registerState === 2 && (
-            <Animated.View
+            <View
               style={[
                 styles.registeredMinimalBanner,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                },
               ]}
             >
               <MaterialIcons name="check-circle" size={20} color="#10b981" />
               <AppText style={styles.registeredMinimalText}>
                 شما در این دوره ثبت‌نام کرده‌اید
               </AppText>
-            </Animated.View>
+            </View>
           )}
 
-          <Animated.View
-            style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
-          />
 
 
-<Animated.View
-  style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
-/>
 
-<Animated.View
-  style={[
-    styles.cardsContainer,
-    {
-      opacity: fadeAnim,
-      transform: [{ translateY: slideAnim }],
-    },
-  ]}
-></Animated.View>
-          <Animated.View
-            style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
-          />
 
-          <Animated.View
+
+
+          <View
             style={[
               styles.cardsContainer,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
             ]}
           >
             <SmartDetailItem
@@ -1306,16 +1262,12 @@ const CourseDetailsScreen = ({ route }) => {
               </View>
               <View style={[styles.featureAccent, { backgroundColor: modernColors.fashionGold + "60" }]} />
             </View>
-          </Animated.View>
+          </View>
 
           {!isOwnCourse && (
-            <Animated.View
+            <View
               style={[
                 styles.buttonsContainer,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }, { scale: pulseAnim }],
-                },
               ]}
             >
               {courseData.RegisterActive && registerState !== 2 && (
@@ -1339,22 +1291,9 @@ const CourseDetailsScreen = ({ route }) => {
               )}
 
          
-            </Animated.View>
+            </View>
           )}
 
-          <View style={styles.decorativeElements}>
-            <View style={styles.floatingElements}>
-              <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
-                <MaterialIcons name="star" size={22} color="rgba(255, 215, 0, 0.4)" />
-              </Animated.View>
-              <Animated.View style={[styles.star2, { transform: [{ rotate: spin }] }]}>
-                <MaterialIcons name="auto-awesome" size={18} color="rgba(255, 107, 107, 0.4)" />
-              </Animated.View>
-              <Animated.View style={[styles.star3, { transform: [{ rotate: spin }] }]}>
-                <MaterialIcons name="diamond" size={20} color="rgba(78, 205, 196, 0.4)" />
-              </Animated.View>
-            </View>
-          </View>
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
@@ -1366,12 +1305,9 @@ const CourseDetailsScreen = ({ route }) => {
           onRequestClose={handleCloseModal}
         >
           <View style={styles.modalContainer}>
-            <Animated.View
+            <View
               style={[
                 styles.modalBackdrop,
-                {
-                  opacity: modalBackdropAnim,
-                },
               ]}
             >
               <TouchableOpacity
@@ -1379,21 +1315,12 @@ const CourseDetailsScreen = ({ route }) => {
                 onPress={handleCloseModal}
                 activeOpacity={1}
               />
-            </Animated.View>
+            </View>
 
-            <Animated.View
+            <View
               style={[
                 styles.modalContent,
-                {
-                  transform: [
-                    {
-                      translateY: modalSlideAnim.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [300, 0],
-                      }),
-                    },
-                  ],
-                },
+        
               ]}
             >
               <View style={styles.modalHandle} />
@@ -1450,7 +1377,7 @@ const CourseDetailsScreen = ({ route }) => {
               >
                 <AppText style={styles.modalCancelText}>لغو</AppText>
               </TouchableOpacity>
-            </Animated.View>
+            </View>
           </View>
         </Modal>
 

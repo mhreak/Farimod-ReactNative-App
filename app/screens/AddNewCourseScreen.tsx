@@ -37,6 +37,8 @@ const AddNewCourseScreen = () => {
   const [loadingCities, setLoadingCities] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [featuredImage, setFeaturedImage] = useState<any>(null);
+  const [isImageChanged, setIsImageChanged] = useState(false);
+  const [isImageRemoved, setIsImageRemoved] = useState(false);
   const [selectedInstructorItems, setSelectedInstructorItems] = useState<any[]>([]);
 
   const [courseData, setCourseData] = useState(null);
@@ -396,8 +398,6 @@ const AddNewCourseScreen = () => {
         return num.toString().replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
       };
 
-      // ✅ تابع formatPersianDate اصلاح شده
-      // این تابع باید جایگزین تابع موجود در submitCourse شود
 
       const formatPersianDate = (dateString) => {
         if (!dateString) return '';
@@ -453,12 +453,7 @@ const AddNewCourseScreen = () => {
       const registerFinishDate = formatPersianDate(values.registerFinishDate);
       const registerAmount = toEnglishNumber(values.registerAmount);
 
-      console.log('📅 تاریخ‌های ارسالی:');
-      console.log('   StartDate:', startDate);
-      console.log('   FinishDate:', finishDate);
-      console.log('   RegisterStartDate:', registerStartDate);
-      console.log('   RegisterFinishDate:', registerFinishDate);
-      console.log('   RegisterAmount:', registerAmount);
+
 
       // ✅ Basic fields - استفاده از courseId واقعی یا 0 برای Add
       formData.append('CourseId', courseId?.toString() || '0');
@@ -518,9 +513,11 @@ const AddNewCourseScreen = () => {
 
       const hasNewImage = Boolean(
         featuredImage?.uri &&
-        typeof featuredImage.uri === 'string' &&
-        !featuredImage.uri.startsWith('http')
+        typeof featuredImage.uri === 'string'
       );
+   
+      
+      
 
       if (hasNewImage) {
         const imageName = featuredImage.fileName || featuredImage.name || `course_poster_${Date.now()}.jpg`;
@@ -665,15 +662,10 @@ const AddNewCourseScreen = () => {
         console.log(`✅ دوره ${courseId ? 'ویرایش' : 'ثبت'} شد:`, response.data);
         showToast(`دوره با موفقیت ${courseId ? 'ویرایش' : 'ثبت'} شد`, 'success');
 
-        setTimeout(() => {
-          navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
-        }, 2000);
+       navigation.navigate("App", { screen: "MyTeachingCourses"})
 
       } catch (axiosError) {
-        console.error('❌ خطای Axios:', axiosError);
-        console.error('📋 Response Data:', axiosError.response?.data);
-        console.error('📋 Response Status:', axiosError.response?.status);
-        console.error('📋 Response Headers:', axiosError.response?.headers);
+
 
         let errorMessage = `خطا در ${courseId ? 'ویرایش' : 'ثبت'} دوره`;
 
@@ -858,34 +850,23 @@ const AddNewCourseScreen = () => {
               <Tooltip content="دوره آموزشی جدید خود را ایجاد کنید. اطلاعات کامل دوره شامل عنوان، توضیحات، قیمت، مدت زمان، برنامه زمانی، آدرس محل برگزاری و مربیان را وارد کنید. می‌توانید تصویر شاخص برای دوره آپلود کنید." />
             </View>
 
-            <Animated.View
+            <View
               style={[
                 styles.backButton,
-                {
-                  opacity: backButtonAnim,
-                  transform: [{ scale: backButtonAnim }]
-                }
               ]}
             >
-              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}>
+              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "MyTeachingCourses"})}>
                 <View style={styles.backButtonGlass}>
                   <MaterialIcons name="arrow-forward" size={24} color="white" />
                 </View>
               </TouchableOpacity>
-            </Animated.View>
+            </View>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false}>
             <Animated.View
               style={[
                 styles.iconContainer,
-                {
-                  opacity: iconFadeAnim,
-                  transform: [
-                    { translateY: iconSlideAnim },
-                    { scale: pulseAnim },
-                  ],
-                },
               ]}
             >
               <LinearGradient
@@ -899,13 +880,10 @@ const AddNewCourseScreen = () => {
               </LinearGradient>
             </Animated.View>
 
-            <Animated.View
+            <View
               style={[
                 styles.formBox,
-                {
-                  opacity: formFadeAnim,
-                  transform: [{ translateY: formSlideAnim }],
-                },
+
               ]}
             >
               <View style={styles.glassOverlay} />
@@ -1107,7 +1085,9 @@ const AddNewCourseScreen = () => {
                         />
 
                         <ImageUpload
-                          onImageChange={(image) => setFeaturedImage(image)}
+                          onImageChange={(image) => {setFeaturedImage(image);    setIsImageChanged(true);
+
+                          setIsImageRemoved(false);}}
                           initialImage={featuredImage}
                           isMultiple={false}
                           placeholder="پوستر دوره"
@@ -1129,7 +1109,7 @@ const AddNewCourseScreen = () => {
                   )}
                 </Formik>
               </View>
-            </Animated.View>
+            </View>
           </ScrollView>
         </Screen>
       </LinearGradient>

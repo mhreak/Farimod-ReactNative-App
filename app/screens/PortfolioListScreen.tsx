@@ -125,31 +125,24 @@ const usePortfoliosWithInfiniteLoading = (memberId) => {
 
 
 const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
+  const opacityAnim = useRef(new Animated.Value(0.4)).current;
 
   useEffect(() => {
-    const startAnimation = () => {
+    Animated.loop(
       Animated.sequence([
-        Animated.timing(animatedValue, {
+        Animated.timing(opacityAnim, {
           toValue: 1,
           duration: 1000,
-          useNativeDriver: false,
+          useNativeDriver: true, 
         }),
-        Animated.timing(animatedValue, {
-          toValue: 0,
+        Animated.timing(opacityAnim, {
+          toValue: 0.4,
           duration: 1000,
-          useNativeDriver: false,
+          useNativeDriver: true, 
         }),
-      ]).start(() => startAnimation());
-    };
-
-    startAnimation();
-  }, [animatedValue]);
-
-  const backgroundColor = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#e0e0e0', '#f0f0f0'],
-  });
+      ])
+    ).start();
+  }, [opacityAnim]);
 
   return (
     <Animated.View
@@ -157,7 +150,8 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
         {
           width,
           height,
-          backgroundColor,
+          backgroundColor: '#e0e0e0', 
+          opacity: opacityAnim,     
           borderRadius,
         },
         style,
@@ -165,7 +159,6 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
     />
   );
 };
-
 const PortfolioImageComponent = ({ item }) => {
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
@@ -242,9 +235,6 @@ const PortfolioListScreen = () => {
   const navigation = useNavigation<AppNavigationProp>();
   const { user } = useAuth(); // دریافت اطلاعات کاربر
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const {
     data: portfolios,
@@ -271,33 +261,8 @@ const PortfolioListScreen = () => {
     fetchPortfolios(1, ITEMS_PER_PAGE);
   }, [user?.MemberId]); // fetch مجدد هنگام تغییر userId
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
 
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 8000,
-        useNativeDriver: true,
-      })
-    ).start();
-  }, []);
 
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   const showToast = (message, type = 'info') => {
     setToastMessage(message);
@@ -501,19 +466,15 @@ const PortfolioListScreen = () => {
           </View>
         </TouchableOpacity>
 
-        <Animated.View
+        <View
           style={[
             styles.headerContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
           ]}
         >
           <View style={styles.titleWrapper}>
             <AppText style={styles.headerTitle}>نمونه کارهای من</AppText>
           </View>
-        </Animated.View>
+        </View>
 
         <TouchableOpacity
           style={styles.addButton}
@@ -529,49 +490,12 @@ const PortfolioListScreen = () => {
           </LinearGradient>
         </TouchableOpacity>
 
-        <Animated.View
-          style={[
-            styles.sectionTitleContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <View style={styles.sparkleContainer}>
-            <MaterialIcons
-              name="star-half"
-              size={16}
-              color={modernColors.fashionGold}
-              style={styles.sparkle1}
-            />
-            <MaterialIcons
-              name="auto-awesome"
-              size={12}
-              color={modernColors.fashionPink}
-              style={styles.sparkle2}
-            />
-          </View>
-        </Animated.View>
 
-        <Animated.View
-          style={[styles.floatingDecoration1, { transform: [{ rotate: spin }] }]}
-        >
-          <MaterialIcons name="brush" size={30} color="rgba(255, 105, 180, 0.3)" />
-        </Animated.View>
-        <Animated.View
-          style={[styles.floatingDecoration2, { transform: [{ rotate: spin }] }]}
-        >
-          <MaterialIcons name="palette" size={25} color="rgba(255, 215, 0, 0.3)" />
-        </Animated.View>
 
-        <Animated.View
+
+        <View
           style={[
             styles.contentContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
           ]}
         >
           {portfolioError ? (
@@ -586,7 +510,6 @@ const PortfolioListScreen = () => {
                   if (item.isSkeleton) {
                     return item.id;
                   }
-                  // استفاده از ID های مختلف که ممکن است موجود باشد
                   const id = item.PotfolioId || item.PortfolioId || `portfolio-${index}`;
                   return id.toString();
                 }}
@@ -609,33 +532,8 @@ const PortfolioListScreen = () => {
               />
             </>
           )}
-        </Animated.View>
-
-        <View style={styles.decorativeElements}>
-          <View style={styles.floatingElements}>
-            <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="auto-awesome"
-                size={22}
-                color="rgba(147, 112, 219, 0.4)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star2, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="diamond"
-                size={18}
-                color="rgba(255, 105, 180, 0.4)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star3, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="star"
-                size={20}
-                color="rgba(255, 215, 0, 0.4)"
-              />
-            </Animated.View>
-          </View>
         </View>
+
       </View>
     </>
   );

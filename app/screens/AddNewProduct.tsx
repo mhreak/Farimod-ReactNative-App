@@ -36,13 +36,8 @@ const AddProductScreen = () => {
   const SUBMIT_COOLDOWN = 3000;
 
   // Animation refs
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
   const iconFadeAnim = useRef(new Animated.Value(0)).current;
   const iconSlideAnim = useRef(new Animated.Value(-30)).current;
-  const formFadeAnim = useRef(new Animated.Value(0)).current;
-  const formSlideAnim = useRef(new Animated.Value(30)).current;
-  const backButtonAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Debug: Log edit data when categories are loaded
@@ -74,11 +69,7 @@ const AddProductScreen = () => {
 
     // Animations
     Animated.sequence([
-      Animated.timing(backButtonAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
+
       Animated.parallel([
         Animated.timing(iconFadeAnim, {
           toValue: 1,
@@ -91,18 +82,7 @@ const AddProductScreen = () => {
           useNativeDriver: true,
         }),
       ]),
-      Animated.parallel([
-        Animated.timing(formFadeAnim, {
-          toValue: 1,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-        Animated.timing(formSlideAnim, {
-          toValue: 0,
-          duration: 700,
-          useNativeDriver: true,
-        }),
-      ]),
+
     ]).start();
 
     Animated.loop(
@@ -124,7 +104,6 @@ const AddProductScreen = () => {
   const fetchCategories = async () => {
     try {
       setLoadingCategories(true);
-      console.log('Fetching product categories from:', `${appConfig.mobileApi}ProductCategory/GetAll?filterActive=true&currentPage=1&pageSize=20`);
 
       const response = await fetch(`${appConfig.mobileApi}ProductCategory/GetAll?filterActive=true&currentPage=1&pageSize=20`);
 
@@ -319,10 +298,6 @@ const AddProductScreen = () => {
   // تابع اصلی آپلود عکس‌ها
   const uploadImages = async (productId, featuredImages, productImages) => {
     try {
-      console.log('Starting image upload process...');
-      console.log('Product ID:', productId);
-      console.log('Featured images:', featuredImages);
-      console.log('Product images:', productImages);
 
       const results = [];
 
@@ -404,20 +379,7 @@ const AddProductScreen = () => {
       throw error;
     }
   };
-  const testSingleImageUpload = async (productId, imageData) => {
-    try {
-      console.log('Testing single image upload...');
-      console.log('Product ID:', productId);
-      console.log('Image data:', imageData);
 
-      const result = await uploadImageWithXHR(productId, imageData, 0);
-      console.log('Test upload result:', result);
-      return result;
-    } catch (error) {
-      console.error('Test upload failed:', error);
-      throw error;
-    }
-  };
 
   const submitProduct = async (values, { setErrors, resetForm }) => {
     const currentTime = Date.now();
@@ -529,11 +491,10 @@ const AddProductScreen = () => {
           setProductImages([]);
         }
 
-        setTimeout(() => {
           if (navigation.isFocused()) {
-            navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
+            navigation.navigate("App", { screen: "MyProduct", params: { screen: "خانه" } });
           }
-        }, 1500);
+
       } else {
         const errorData = await response.json();
         throw new Error(errorData.Message || `خطا در ${isEditMode ? 'ویرایش' : 'ثبت'} محصول`);
@@ -576,13 +537,9 @@ const AddProductScreen = () => {
             <Animated.View
               style={[
                 styles.backButton,
-                {
-                  opacity: backButtonAnim,
-                  transform: [{ scale: backButtonAnim }]
-                }
               ]}
             >
-              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}>
+              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "MyProduct", params: { screen: "خانه" } })}>
                 <View style={styles.backButtonGlass}>
                   <MaterialIcons name="arrow-forward" size={24} color="white" />
                 </View>
@@ -614,13 +571,9 @@ const AddProductScreen = () => {
               </LinearGradient>
             </Animated.View>
 
-            <Animated.View
+            <View
               style={[
                 styles.formBox,
-                {
-                  opacity: formFadeAnim,
-                  transform: [{ translateY: formSlideAnim }],
-                },
               ]}
             >
               <View style={styles.glassOverlay} />
@@ -901,7 +854,7 @@ const AddProductScreen = () => {
                   )}
                 </Formik>
               </View>
-            </Animated.View>
+            </View>
           </ScrollView>
         </Screen>
       </LinearGradient>

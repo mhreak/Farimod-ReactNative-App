@@ -461,9 +461,8 @@ const GalleryItemScreen = () => {
 
       if (response.ok) {
         showToast('گالری با موفقیت حذف شد', 'success');
-        setTimeout(() => {
           navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
-        }, 2000);
+
       } else {
         const errorData = await response.json();
         throw new Error(errorData.Message || 'خطا در حذف گالری');

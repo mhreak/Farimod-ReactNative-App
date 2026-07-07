@@ -116,27 +116,25 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const startAnimation = () => {
+    Animated.loop(
       Animated.sequence([
         Animated.timing(animatedValue, {
           toValue: 1,
-          duration: 1000,
-          useNativeDriver: false,
+          duration: 900,
+          useNativeDriver: false, // لازم چون backgroundColor انیمیت می‌شود
         }),
         Animated.timing(animatedValue, {
           toValue: 0,
-          duration: 1000,
+          duration: 900,
           useNativeDriver: false,
         }),
-      ]).start(() => startAnimation());
-    };
-
-    startAnimation();
-  }, [animatedValue]);
+      ])
+    ).start();
+  }, []);
 
   const backgroundColor = animatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#e0e0e0', '#f0f0f0'],
+    outputRange: ['#e0e0e0', '#f5f5f5'], // رنگ‌های کمی روشن‌تر = طبیعی‌تر
   });
 
   return (
@@ -145,14 +143,15 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
         {
           width,
           height,
-          backgroundColor,
           borderRadius,
+          backgroundColor,
         },
         style,
       ]}
     />
   );
 };
+
 
 const RegistrationCardSkeleton = () => {
   return (
@@ -337,7 +336,7 @@ const CourseRegistrationScreen = () => {
         </AppText>
         <TouchableOpacity
           style={styles.browseCourseButton}
-          onPress={() => navigation.navigate("CoursesList")}
+          onPress={() => navigation.navigate("AllCourses")}
         >
           <MaterialIcons name="search" size={20} color={colors.white} />
           <AppText style={styles.browseCourseButtonText}>مشاهده دوره‌ها</AppText>
@@ -389,28 +388,20 @@ const CourseRegistrationScreen = () => {
           </View>
         </TouchableOpacity>
 
-        <Animated.View
+        <View
           style={[
             styles.headerContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
           ]}
         >
           <View style={styles.titleWrapper}>
             <AppText style={styles.headerTitle}>دوره های ثبت نام شده</AppText>
 
           </View>
-        </Animated.View>
+        </View>
 
-        <Animated.View
+        <View
           style={[
             styles.contentContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
           ]}
         >
           {registrationsError ? (
@@ -440,41 +431,8 @@ const CourseRegistrationScreen = () => {
               columnWrapperStyle={styles.row}
             />
           )}
-        </Animated.View>
-
-        {/* Decorative Elements */}
-        <View style={styles.decorativeElements}>
-          <View style={styles.floatingElements}>
-            <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="receipt"
-                size={22}
-                color="rgba(139, 92, 246, 0.3)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star2, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="check-circle"
-                size={18}
-                color="rgba(99, 102, 241, 0.3)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star3, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="credit-card"
-                size={20}
-                color="rgba(6, 182, 212, 0.3)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star4, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="star"
-                size={24}
-                color="rgba(139, 92, 246, 0.2)"
-              />
-            </Animated.View>
-          </View>
         </View>
+
       </View>
     </>
   );

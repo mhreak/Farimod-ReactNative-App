@@ -295,7 +295,7 @@ useEffect(() => {
             <MaterialIcons name="headset-mic" size={20} color="white" />
             <AppText style={styles.supportText}>پشتیبانی بله</AppText>
           </TouchableOpacity>
-          <AppText style={styles.versionText}>نسخه 1.45</AppText>
+          <AppText style={styles.versionText}>نسخه 1.46</AppText>
         </View>
       </Animated.View>
 

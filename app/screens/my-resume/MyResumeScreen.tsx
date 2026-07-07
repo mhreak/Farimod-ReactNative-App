@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import AppText from "../components/Text";
-import Toast from "../components/Toast";
+import AppText from "../../components/Text";
+import Toast from "../../components/Toast";
 import {
   ScrollView,
   StyleSheet,
@@ -17,59 +17,18 @@ import {
   Linking
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import colors from "../config/colors";
+import colors from "../../config/colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useNavigation } from "@react-navigation/native";
-import MainBackground from "../components/MainBackground";
+import MainBackground from "../../components/MainBackground";
 import * as DocumentPicker from 'expo-document-picker';
-import appConfig from "../config/config";
-import { usePostApi, useDeleteApi } from "../config/useApi";
-import { useAuth } from '../contexts/AuthContext';
+import appConfig from "../../config/config";
+import { usePostApi, useDeleteApi } from "../../config/useApi";
+import { useAuth } from '../../contexts/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { modernColors,styles,documentColors } from "./styles/styles";
+import { SkeletonCard } from "./ui/SkeletonCard";
 
-const { width, height } = Dimensions.get('window');
-
-const modernColors = {
-  ...colors,
-  primary: "#6366f1",
-  primaryDark: "#4f46e5",
-  primaryLight: "#e0e7ff",
-  secondary: "#8b5cf6",
-  tertiary: "#06b6d4",
-  accent: "#10b981",
-  surface: "#ffffff",
-  dark: "#2c3e50",
-  medium: "#34495e",
-  light: "#ecf0f1",
-  success: "#10b981",
-  warning: "#f59e0b",
-  error: "#ef4444",
-  info: "#06b6d4",
-  gradientStart: "#6366f1",
-  gradientEnd: "#8b5cf6",
-  fashionIcon: "#8b5cf6",
-  skillIcon: "#10b981",
-  experienceIcon: "#f59e0b",
-  educationIcon: "#8b5cf6",
-  contactIcon: "#06b6d4",
-  hobbyIcon: "#ef4444",
-  goalIcon: "#6366f1",
-  uploadIcon: "#06b6d4",
-  resumeIcon: "#8b5cf6",
-  portfolioIcon: "#10b981",
-  certificateIcon: "#f59e0b",
-  projectIcon: "#ef4444",
-  otherIcon: "#6366f1",
-};
-
-const documentColors = [
-  "#6366f1",
-  "#8b5cf6",
-  "#10b981",
-  "#f59e0b",
-  "#ef4444",
-  "#06b6d4",
-];
 
 const MyResumeScreen = () => {
   const { user } = useAuth();
@@ -430,7 +389,7 @@ const MyResumeScreen = () => {
     }
   };
 
-  const FileUploadCard = ({ documentType, index }) => {
+  const FileUploadCard = ({ documentType, index }:any) => {
     const color = getColorForIndex(index);
     const files = uploadedFiles[documentType.MemberDocumentTypeId] || [];
     const isCurrentlyUploading = isUploading === documentType.MemberDocumentTypeId.toString();
@@ -439,8 +398,8 @@ const MyResumeScreen = () => {
       <View style={styles.detailItem}>
         <View style={[styles.labelContainer, { justifyContent: 'space-between' }]}>
           <View style={{ flexDirection: 'row-reverse', alignItems: 'center', flex: 1 }}>
-            <LinearGradient
-              colors={[color, color + 'CC']}
+            <View
+       
               style={styles.iconWrapper}
             >
               <MaterialIcons
@@ -448,7 +407,7 @@ const MyResumeScreen = () => {
                 size={22}
                 color={modernColors.surface}
               />
-            </LinearGradient>
+            </View>
             <View style={{ flex: 1 }}>
               <AppText style={styles.label}>{documentType.Name}</AppText>
               {documentType.ShortDescription && (
@@ -464,9 +423,8 @@ const MyResumeScreen = () => {
             onPress={() => pickDocument(documentType.MemberDocumentTypeId)}
             disabled={isCurrentlyUploading}
           >
-            <LinearGradient
-              colors={[color, color + 'DD']}
-              style={styles.uploadButtonGradient}
+            <View
+          style={[styles.uploadButtonGradient, { backgroundColor: color }]}
             >
               <MaterialIcons
                 name={isCurrentlyUploading ? "timer" : "add"}
@@ -476,7 +434,7 @@ const MyResumeScreen = () => {
               <AppText style={styles.uploadButtonText}>
                 {isCurrentlyUploading ? 'در حال اپلود...' : 'انتخاب فایل'}
               </AppText>
-            </LinearGradient>
+            </View>
           </TouchableOpacity>
 
           {files.length > 0 && (
@@ -570,21 +528,6 @@ const MyResumeScreen = () => {
     );
   };
 
-  const SkeletonCard = () => (
-    <View style={styles.skeletonCard}>
-      <View style={styles.skeletonHeader}>
-        <View style={styles.skeletonIcon} />
-        <View style={styles.skeletonTextContainer}>
-          <View style={styles.skeletonTitle} />
-          <View style={styles.skeletonSubtitle} />
-        </View>
-      </View>
-      <View style={styles.skeletonContent}>
-        <View style={styles.skeletonButton} />
-        <View style={styles.skeletonEmptyState} />
-      </View>
-    </View>
-  );
 
   if (!loading && error) {
     return (
@@ -634,7 +577,7 @@ const MyResumeScreen = () => {
 
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+            onPress={() => (navigation as any).navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons
@@ -687,7 +630,7 @@ const MyResumeScreen = () => {
 
             <View style={styles.sectionTitleContainer}>
               <AppText style={styles.sectionTitle}>فایل ها و مدارک</AppText>
-              <View style={styles.sparkleContainer}>
+              {/* <View style={styles.sparkleContainer}>
                 <MaterialIcons
                   name="star"
                   size={16}
@@ -700,7 +643,7 @@ const MyResumeScreen = () => {
                   color="#FF69B4"
                   style={styles.sparkle2}
                 />
-              </View>
+              </View> */}
             </View>
 
             <View style={styles.cardsContainer}>
@@ -837,477 +780,5 @@ const MyResumeScreen = () => {
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContainer: {
-    flexGrow: 1,
-  },
-  backButton: {
-    position: 'absolute',
-    top: StatusBar.currentHeight + 30,
-    right: 20,
-    zIndex: 1000,
-  },
-  backButtonContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    marginTop: -32,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  profileHeaderContainer: {
-    alignItems: "center",
-    marginBottom: 30,
-    paddingTop: StatusBar.currentHeight + 80,
-    paddingHorizontal: 20,
-  },
-  sectionTitleContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 30,
-    marginTop: -40,
-    position: "relative",
-    paddingHorizontal: 20,
-  },
-  sparkleContainer: {
-    position: "relative",
-  },
-  sparkle1: {
-    position: "absolute",
-    top: -10,
-    right: 90,
-  },
-  sparkle2: {
-    position: "absolute",
-    top: 5,
-    right: 25,
-  },
-  sectionTitle: {
-    textAlign: "center",
-    fontSize: 26,
-    fontFamily: "Yekan_Bakh_ExtraBold",
-    color: "#2c3e50",
-  },
-  cardsContainer: {
-    paddingHorizontal: 20,
-  },
-  detailItem: {
-    marginBottom: 20,
-    backgroundColor: "rgba(248, 250, 252, 0.3)",
-    backdropFilter: "blur(15px)",
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: "rgba(203, 213, 225, 0.4)",
-    position: "relative",
-    overflow: "hidden",
-    marginHorizontal: 5,
-  },
-  labelContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    flex: 1,
-  },
-  iconWrapper: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 12,
-  },
-  label: {
-    fontSize: 17,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    textAlign: 'right',
-  },
-  categoryDescription: {
-    fontSize: 13,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#6b7280",
-    textAlign: 'right',
-    marginTop: 2,
-  },
-  contentContainer: {
-    paddingHorizontal: 15,
-    marginTop: 15,
-  },
-  featureAccent: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 6,
-    borderTopRightRadius: 22,
-    borderBottomRightRadius: 22,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 2,
-      height: 0,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  uploadButton: {
-    borderRadius: 18,
-    overflow: 'hidden',
-    marginBottom: 20,
-  },
-  uploadButtonDisabled: {
-    opacity: 0.7,
-  },
-  uploadButtonGradient: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  uploadButtonText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#ffffff',
-    marginLeft: 10,
-  },
-  fileItem: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(6, 182, 212, 0.2)',
-  },
-  fileInfo: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    flex: 1,
-  },
-  fileIcon: {
-    marginLeft: 12,
-  },
-  fileDetails: {
-    flex: 1,
-  },
-  fileName: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#2c3e50",
-    textAlign: 'right',
-    marginBottom: 2,
-  },
-  fileSize: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#6b7280",
-    textAlign: 'right',
-  },
-  filesContainer: {
-    marginTop: 15,
-  },
-  filesTitleContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginBottom: 15,
-    paddingHorizontal: 4,
-  },
-  filesTitleIcon: {
-    marginLeft: 8,
-  },
-  filesTitle: {
-    fontSize: 15,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: "#2c3e50",
-    textAlign: 'right',
-  },
-  filesGrid: {
-    flexDirection: 'row-reverse',
-    flexWrap: 'wrap',
-    marginHorizontal: -6,
-  },
-  fileCard: {
-    width: '48%',
-    margin: '1%',
-    borderRadius: 16,
-    overflow: 'hidden',
-    borderWidth: 1.5,
-  },
-  fileCardGradient: {
-    padding: 16,
-    minHeight: 140,
-    justifyContent: 'space-between',
-  },
-  fileIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  fileDateContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  fileDate: {
-    fontSize: 12,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#6b7280",
-    marginLeft: 4,
-  },
-  fileActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 8,
-  },
-  viewButton: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  deleteButton: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-  },
-  uploadDate: {
-    fontSize: 11,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#9ca3af",
-    textAlign: 'right',
-    marginTop: 2,
-  },
-  removeButton: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#6b7280",
-    marginTop: 12,
-    textAlign: 'center',
-  },
-  emptyStateSubtext: {
-    fontSize: 14,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: "#9ca3af",
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  skeletonCard: {
-    marginBottom: 20,
-    backgroundColor: "rgba(248, 250, 252, 0.3)",
-    backdropFilter: "blur(15px)",
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: "rgba(203, 213, 225, 0.4)",
-    position: "relative",
-    overflow: "hidden",
-    marginHorizontal: 5,
-  },
-  skeletonHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  skeletonIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#e2e8f0',
-    marginLeft: 12,
-  },
-  skeletonTextContainer: {
-    flex: 1,
-  },
-  skeletonTitle: {
-    height: 18,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 9,
-    marginBottom: 8,
-    width: '60%',
-    alignSelf: 'flex-end',
-  },
-  skeletonSubtitle: {
-    height: 14,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 7,
-    width: '80%',
-    alignSelf: 'flex-end',
-  },
-  skeletonContent: {
-    paddingHorizontal: 15,
-  },
-  skeletonButton: {
-    height: 52,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 18,
-    marginBottom: 20,
-  },
-  skeletonEmptyState: {
-    height: 120,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 12,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 60,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#2c3e50',
-    marginTop: 20,
-    textAlign: 'center',
-  },
-  errorSubtitle: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#9e9e9e',
-    marginTop: 12,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  retryButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    backgroundColor: modernColors.primary,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 25,
-    marginTop: 24,
-    shadowColor: modernColors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  retryButtonText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.surface,
-    marginRight: 8,
-  },
-  bottomSpacer: {
-    height: 50,
-  },
-  // Delete Modal Styles
-  deleteModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 30,
-  },
-  deleteModalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 30,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 15,
-    width: '100%',
-    maxWidth: 350,
-  },
-  deleteIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#FEE2E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  deleteTitle: {
-    fontSize: 20,
-    fontFamily: "Yekan_Bakh_Bold",
-    color: '#1F2937',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  deleteMessage: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#6B7280',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 30,
-  },
-  deleteButtonsContainer: {
-    flexDirection: 'row',
-    width: '100%',
-    gap: 12,
-  },
-  cancelDeleteButton: {
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-  },
-  confirmDeleteButton: {
-    backgroundColor: '#EF4444',
-  },
-  cancelDeleteText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#374151',
-  },
-  confirmDeleteText: {
-    fontSize: 16,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: '#FFFFFF',
-  },
-});
 
 export default MyResumeScreen;

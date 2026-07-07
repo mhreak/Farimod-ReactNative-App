@@ -19,8 +19,7 @@ const gregorianToPersian = (gregorianDate) => {
   let gm = gDate.getUTCMonth() + 1;
   let gd = gDate.getUTCDate();
 
-  console.log('🔄 gregorianToPersian - ورودی:', gregorianDate);
-  console.log('🔄 gregorianToPersian - UTC Components:', { gy, gm, gd });
+
 
   const g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
 
@@ -57,7 +56,6 @@ const gregorianToPersian = (gregorianDate) => {
     jd = 1 + ((days - 186) % 30);
   }
 
-  console.log('🔄 gregorianToPersian - نتیجه شمسی:', [jy, jm, jd]);
   return [jy, jm, jd];
 };
 

@@ -116,7 +116,7 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const startAnimation = () => {
+    Animated.loop(
       Animated.sequence([
         Animated.timing(animatedValue, {
           toValue: 1,
@@ -128,11 +128,9 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
           duration: 1000,
           useNativeDriver: false,
         }),
-      ]).start(() => startAnimation());
-    };
-
-    startAnimation();
-  }, [animatedValue]);
+      ])
+    ).start();
+  }, []);
 
   const backgroundColor = animatedValue.interpolate({
     inputRange: [0, 1],
@@ -145,8 +143,8 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
         {
           width,
           height,
-          backgroundColor,
           borderRadius,
+          backgroundColor,
         },
         style,
       ]}
@@ -193,9 +191,6 @@ const CourseCardSkeleton = () => {
 const MyTeachingCoursesScreen = () => {
   const navigation = useNavigation();
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
-  const rotateAnim = useRef(new Animated.Value(0)).current;
 
   const {
     data: userCourses,
@@ -219,33 +214,8 @@ const MyTeachingCoursesScreen = () => {
     }, [])
   );
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-    ]).start();
 
-    Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 8000,
-        useNativeDriver: true,
-      })
-    ).start();
-  }, []);
 
-  const spin = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
 
   const showToast = (message, type = 'info') => {
     setToastMessage(message);
@@ -385,27 +355,21 @@ const MyTeachingCoursesScreen = () => {
           </View>
         </TouchableOpacity>
 
-        <Animated.View
+        <View
           style={[
             styles.headerContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
+  
           ]}
         >
           <View style={styles.titleWrapper}>
             <AppText style={styles.headerTitle}>دوره‌های تدریس من</AppText>
           </View>
-        </Animated.View>
+        </View>
 
-        <Animated.View
+        <View
           style={[
             styles.contentContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
+  
           ]}
         >
           {coursesError ? (
@@ -437,41 +401,10 @@ const MyTeachingCoursesScreen = () => {
               />
             </>
           )}
-        </Animated.View>
+        </View>
 
         {/* Decorative Elements */}
-        <View style={styles.decorativeElements}>
-          <View style={styles.floatingElements}>
-            <Animated.View style={[styles.star1, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="auto-awesome"
-                size={22}
-                color="rgba(139, 92, 246, 0.3)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star2, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="school"
-                size={18}
-                color="rgba(99, 102, 241, 0.3)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star3, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="menu-book"
-                size={20}
-                color="rgba(6, 182, 212, 0.3)"
-              />
-            </Animated.View>
-            <Animated.View style={[styles.star4, { transform: [{ rotate: spin }] }]}>
-              <MaterialIcons
-                name="star"
-                size={24}
-                color="rgba(139, 92, 246, 0.2)"
-              />
-            </Animated.View>
-          </View>
-        </View>
+   
       </View>
     </>
   );

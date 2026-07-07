@@ -1,58 +1,85 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, Dimensions, Animated } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-
+import React, { useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { Dimensions } from "react-native";
 interface TooltipProps {
   content: string;
   iconSize?: number;
 }
+const { width } = Dimensions.get('window');
 
 const Tooltip: React.FC<TooltipProps> = ({
   content,
-  iconSize = 24
+  iconSize = 24,
 }) => {
   const [visible, setVisible] = useState(false);
-  const scaleAnim = useRef(new Animated.Value(0)).current;
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+
+  const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.85)).current;
+  const translateY = useRef(new Animated.Value(35)).current;
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.spring(scaleAnim, {
+        Animated.timing(backdropOpacity, {
           toValue: 1,
-          tension: 80,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+
+        Animated.timing(contentOpacity, {
+          toValue: 1,
+          duration: 220,
+          useNativeDriver: true,
+        }),
+
+        Animated.spring(scale, {
+          toValue: 1,
+          tension: 70,
           friction: 8,
           useNativeDriver: true,
         }),
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 250,
-          useNativeDriver: true,
-        }),
-        Animated.spring(slideAnim, {
+
+        Animated.spring(translateY, {
           toValue: 0,
-          tension: 80,
+          tension: 70,
           friction: 8,
           useNativeDriver: true,
         }),
       ]).start();
     } else {
       Animated.parallel([
-        Animated.timing(scaleAnim, {
+        Animated.timing(backdropOpacity, {
           toValue: 0,
-          duration: 200,
+          duration: 170,
           useNativeDriver: true,
         }),
-        Animated.timing(fadeAnim, {
+
+        Animated.timing(contentOpacity, {
           toValue: 0,
-          duration: 200,
+          duration: 170,
           useNativeDriver: true,
         }),
-        Animated.timing(slideAnim, {
-          toValue: 50,
-          duration: 200,
+
+        Animated.timing(scale, {
+          toValue: 0.92,
+          duration: 170,
+          useNativeDriver: true,
+        }),
+
+        Animated.timing(translateY, {
+          toValue: 20,
+          duration: 170,
           useNativeDriver: true,
         }),
       ]).start();
@@ -62,97 +89,117 @@ const Tooltip: React.FC<TooltipProps> = ({
   return (
     <>
       <TouchableOpacity
-        onPress={() => setVisible(true)}
+        activeOpacity={0.8}
         style={styles.iconButton}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        activeOpacity={0.7}
+        onPress={() => setVisible(true)}
       >
         <LinearGradient
-          colors={['#10b981', '#059669']}
+          colors={["#10b981", "#059669"]}
           style={styles.gradientButton}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
         >
-          <Ionicons name="information" size={iconSize} color="white" />
+          <Ionicons
+            name="information-circle"
+            color="#fff"
+            size={iconSize}
+          />
         </LinearGradient>
       </TouchableOpacity>
 
       <Modal
         visible={visible}
         transparent
+        statusBarTranslucent
         animationType="none"
         onRequestClose={() => setVisible(false)}
       >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setVisible(false)}
+        <Animated.View
+          style={[
+            styles.overlay,
+            {
+              opacity: backdropOpacity,
+            },
+          ]}
         >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setVisible(false)}
+          />
+
           <Animated.View
             style={[
-              styles.tooltipContainer,
+              styles.card,
               {
-                opacity: fadeAnim,
+                opacity: contentOpacity,
                 transform: [
-                  { scale: scaleAnim },
-                  { translateY: slideAnim }
+                  {
+                    scale,
+                  },
+                  {
+                    translateY,
+                  },
                 ],
-              }
+              },
             ]}
           >
-            {/* Header with gradient */}
             <LinearGradient
-              colors={['#10b981', '#059669']}
-              style={styles.tooltipHeader}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              colors={["#10b981", "#059669"]}
+              style={styles.header}
             >
-              <View style={styles.headerContent}>
-                <View style={styles.iconWrapper}>
-                  <Ionicons name="information-circle" size={32} color="white" />
-                </View>
-                <Text style={styles.tooltipTitle}>راهنما</Text>
+              <View style={styles.headerRow}>
+                <Ionicons
+                  name="information-circle"
+                  color="white"
+                  size={32}
+                />
+
+                <Text style={styles.title}>
+                  راهنما
+                </Text>
               </View>
+
               <TouchableOpacity
                 onPress={() => setVisible(false)}
-                style={styles.closeButton}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <MaterialIcons name="close" size={24} color="white" />
+                <MaterialIcons
+                  name="close"
+                  color="white"
+                  size={24}
+                />
               </TouchableOpacity>
             </LinearGradient>
 
-            {/* Content */}
-            <View style={styles.contentContainer}>
-              <Text style={styles.tooltipText}>{content}</Text>
+            <View style={styles.body}>
+              <Text style={styles.content}>
+                {content}
+              </Text>
 
-              {/* Bottom action */}
               <TouchableOpacity
-                style={styles.gotItButton}
+                activeOpacity={0.9}
                 onPress={() => setVisible(false)}
-                activeOpacity={0.8}
               >
                 <LinearGradient
-                  colors={['#10b981', '#059669']}
-                  style={styles.gotItGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                  colors={["#10b981", "#059669"]}
+                  style={styles.button}
                 >
-                  <MaterialIcons name="check" size={20} color="white" />
-                  <Text style={styles.gotItText}>متوجه شدم</Text>
+                  <MaterialIcons
+                    name="check"
+                    size={20}
+                    color="#fff"
+                  />
+
+                  <Text style={styles.buttonText}>
+                    متوجه شدم
+                  </Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
-
-            {/* Decorative circles */}
-            <View style={styles.decorCircle1} />
-            <View style={styles.decorCircle2} />
           </Animated.View>
-        </TouchableOpacity>
+        </Animated.View>
       </Modal>
     </>
   );
 };
+
 
 const styles = StyleSheet.create({
   iconButton: {
@@ -179,7 +226,7 @@ const styles = StyleSheet.create({
   tooltipContainer: {
     backgroundColor: '#fff',
     borderRadius: 24,
-    maxWidth: Dimensions.get('window').width - 40,
+    maxWidth: width - 40,
     width: '100%',
     overflow: 'hidden',
     shadowColor: '#000',
@@ -278,6 +325,78 @@ const styles = StyleSheet.create({
     bottom: -20,
     left: -20,
   },
+  overlay: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.45)",
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+card: {
+  width: "88%",
+  backgroundColor: "#fff",
+  borderRadius: 26,
+  overflow: "hidden",
+
+  shadowColor: "#000",
+  shadowOpacity: 0.25,
+  shadowRadius: 20,
+  shadowOffset: {
+    width: 0,
+    height: 8,
+  },
+  elevation: 18,
+},
+
+header: {
+  paddingHorizontal: 22,
+  paddingVertical: 18,
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+},
+
+headerRow: {
+  flexDirection: "row",
+  alignItems: "center",
+},
+
+title: {
+  color: "#fff",
+  fontSize: 20,
+  fontWeight: "bold",
+  marginLeft: 10,
+},
+
+body: {
+  padding: 24,
+},
+
+content: {
+  fontSize: 16,
+  color: "#555",
+  textAlign: "right",
+  lineHeight: 28,
+},
+
+button: {
+  marginTop: 25,
+  borderRadius: 16,
+  height: 52,
+  justifyContent: "center",
+  alignItems: "center",
+  flexDirection: "row",
+},
+
+buttonText: {
+  color: "#fff",
+  fontWeight: "bold",
+  fontSize: 16,
+  marginLeft: 8,
+},
+
+
+
 });
 
 export default Tooltip;
