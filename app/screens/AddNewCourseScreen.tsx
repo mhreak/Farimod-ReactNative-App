@@ -54,6 +54,7 @@ const AddNewCourseScreen = () => {
   const initialValues = useMemo(() => ({
     courseName: courseData?.CourseName || "",
     courseType: courseData?.CourseType || null,
+    Description:courseData?.Description || null,
     cityId: courseData?.CityId || null,
     cityName: courseData?.CityName || "",
     provinceId: courseData?.ProvinceId || null,
@@ -182,13 +183,11 @@ const AddNewCourseScreen = () => {
   const fetchCourseData = async () => {
     setLoadingCourse(true);
     try {
-      // ✅ تغییر endpoint به همان CourseDetailsScreen
       const response = await fetch(`${appConfig.mobileApi}Course/Get?courseId=${courseId}`);
 
       if (response.ok) {
-        const result = await response.json(); // ✅ تغییر نام از data به result
-        const data = result.Course; // ✅ استخراج Course از result
-
+        const result = await response.json(); 
+        const data = result.Course; 
         setCourseData(data);
 
         if (data.ProvinceId) {
@@ -282,27 +281,6 @@ const AddNewCourseScreen = () => {
     ).start();
   }, []);
 
-  const validationSchema = Yup.object().shape({
-    courseName: Yup.string().required("نام دوره الزامی است"),
-    courseType: Yup.number().required("نوع دوره الزامی است"),
-    cityId: Yup.number().when('courseType', {
-      is: (val) => val !== 2, // اگر دوره مجازی نیست
-      then: (schema) => schema.required("شهر الزامی است"),
-      otherwise: (schema) => schema.nullable()
-    }),
-    provinceId: Yup.number().when('courseType', {
-      is: (val) => val !== 2, // اگر دوره مجازی نیست
-      then: (schema) => schema.required("استان الزامی است"),
-      otherwise: (schema) => schema.nullable()
-    }),
-    courseAddress: Yup.string().required("آدرس دوره الزامی است"),
-    startDate: Yup.date().required("تاریخ شروع الزامی است"),
-    finishDate: Yup.date().required("تاریخ پایان الزامی است"),
-    registerStartDate: Yup.date().required("تاریخ شروع ثبت نام الزامی است"),
-    registerFinishDate: Yup.date().required("تاریخ پایان ثبت نام الزامی است"),
-    active: Yup.boolean().required("وضعیت دوره الزامی است").nullable(false),
-    registerAmount: Yup.number().required("مبلغ ثبت نام الزامی است").min(0, "مبلغ نمی تواند منفی باشد"),
-  });
 
   const showValidationErrors = (errors) => {
     const errorKeys = Object.keys(errors);
@@ -328,14 +306,11 @@ const AddNewCourseScreen = () => {
 
   const submitCourse = async (values, { setErrors }) => {
     setIsSubmitting(true);
-
     try {
-      // Validation
       const validationErrors = {};
       if (!values.courseName?.trim()) validationErrors.courseName = "نام دوره الزامی است";
       if (!values.courseType) validationErrors.courseType = "نوع دوره الزامی است";
 
-      // ✅ فقط اگر دوره مجازی نیست، شهر و استان اجباری است
       if (values.courseType !== 2) {
         if (!values.cityId) validationErrors.cityId = "شهر الزامی است";
         if (!values.provinceId) validationErrors.provinceId = "استان الزامی است";
@@ -432,7 +407,6 @@ const AddNewCourseScreen = () => {
           return dateString;
         }
 
-        console.log('📅 تبدیل تاریخ میلادی به شمسی (UTC):', { year, month, day });
 
         // تبدیل میلادی به شمسی با jalaali
         const jDate = jalaali.toJalaali(year, month, day);
@@ -441,7 +415,6 @@ const AddNewCourseScreen = () => {
         const persianDay = jDate.jd.toString().padStart(2, '0');
 
         const result = `${persianYear}-${persianMonth}-${persianDay}`;
-        console.log('📅 نتیجه تبدیل به شمسی:', result);
 
         return result;
       };
@@ -479,7 +452,7 @@ const AddNewCourseScreen = () => {
       }
 
       formData.append('CourseAddress', values.courseAddress || '');
-      formData.append('Description', '');
+      formData.append('Description', values.Description);
       formData.append('Rating', '0');
       formData.append('Active', values.active === true ? 'true' : 'false');
       weekDays.forEach(day => {
@@ -580,16 +553,7 @@ const AddNewCourseScreen = () => {
         });
       }
 
-      console.log('📌 Course_MemberId_List payload:', courseMemberIdList);
-      console.log('📌 Course_Member_List payload:', JSON.stringify(courseMemberListPayload, null, 2));
-      console.log('📌 formData payload before send:');
-      for (let [key, value] of formData.entries()) {
-        if (value instanceof Object && value.uri) {
-          console.log(`  ${key}:`, { name: value.name, type: value.type, uri: value.uri?.substring(0, 50) + '...' });
-        } else {
-          console.log(`  ${key}:`, value);
-        }
-      }
+
 
       if (hasNewImage) {
         let imageUri = featuredImage.uri;
@@ -613,22 +577,9 @@ const AddNewCourseScreen = () => {
 
         formData.append('featuredImageFile', fileToUpload);
 
-        console.log('🖼️ تصویر پوستر جدید اضافه شد:', {
-          name: imageName,
-          type: imageType,
-          uri: imageUri.substring(0, 50) + '...',
-        });
+ 
       }
 
-      // لاگ کامل FormData قبل از ارسال
-      console.log('📦 محتویات FormData:');
-      for (let [key, value] of formData.entries()) {
-        if (value instanceof Object && value.uri) {
-          console.log(`  ${key}:`, { name: value.name, type: value.type, uri: value.uri?.substring(0, 50) + '...' });
-        } else {
-          console.log(`  ${key}:`, value);
-        }
-      }
 
       // ✅ تشخیص Add یا Edit و استفاده از endpoint و method مناسب
       const endpoint = courseId
@@ -637,11 +588,9 @@ const AddNewCourseScreen = () => {
 
       const method = courseId ? 'put' : 'post';
 
-      console.log(`📦 در حال ارسال ${method.toUpperCase()} به:`, endpoint);
 
       // ✅ ارسال با Axios
       try {
-        console.log('🚀 شروع ارسال با Axios...');
 
         const response = await axios[method](
           endpoint,
@@ -654,12 +603,10 @@ const AddNewCourseScreen = () => {
             timeout: 120000,
             onUploadProgress: (progressEvent) => {
               const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-              console.log(`📤 آپلود: ${percent}%`);
             },
           }
         );
 
-        console.log(`✅ دوره ${courseId ? 'ویرایش' : 'ثبت'} شد:`, response.data);
         showToast(`دوره با موفقیت ${courseId ? 'ویرایش' : 'ثبت'} شد`, 'success');
 
        navigation.navigate("App", { screen: "MyTeachingCourses"})
@@ -910,6 +857,18 @@ const AddNewCourseScreen = () => {
                           placeholder="نام دوره"
                           onChangeText={handleChange("courseName")}
                           value={values.courseName}
+                        />
+
+                        <AppTextInput
+                        style={{ height: 100 }}
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          icon="description"
+                          multiline
+                          keyboardType="default"
+                          placeholder="توضیحات دوره"
+                          onChangeText={handleChange("Description")}
+                          value={values.Description}
                         />
 
                         <View style={styles.inputSpacing}>

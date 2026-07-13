@@ -947,7 +947,7 @@ const CourseDetailsScreen = ({ route }) => {
               />
             )}
 
-            <LinearGradient
+            {/* <LinearGradient
               colors={['transparent', 'rgba(190, 126, 234, 0.5)', 'rgba(118, 75, 162, 0.85)']}
               style={styles.overlay}
             >
@@ -962,7 +962,9 @@ const CourseDetailsScreen = ({ route }) => {
                   </AppText>
                 </View>
               </View>
-            </LinearGradient>
+            </LinearGradient> */}
+
+
 
             <View
               style={[
@@ -994,12 +996,28 @@ const CourseDetailsScreen = ({ route }) => {
           </View>
 
         
+
+          <View style={styles.courseInfoBox}>
+            <AppText style={styles.courseTitle}>
+              {toPersianDigits(courseData.CourseName || "نام دوره مشخص نشده")}
+            </AppText>
+            
+            <View style={styles.courseTypeChip}>
+              <MaterialIcons name="school" size={16} color="#FFFFFF" />
+              <AppText style={styles.courseTypeText}>
+                {formatCourseType(courseData.CourseType)}
+              </AppText>
+            </View>
+          </View>
+    
           <View
             style={[
               styles.sectionTitleContainer,
       
             ]}
           >
+
+            
             <LinearGradient
               colors={['#E91E63', '#AD1457']}
               style={styles.sectionIconContainer}
@@ -1007,10 +1025,7 @@ const CourseDetailsScreen = ({ route }) => {
               <MaterialIcons name="info" size={26} color={modernColors.surface} />
             </LinearGradient>
             <AppText style={styles.sectionTitle}>مشخصات دوره</AppText>
-            <View style={styles.sparkleContainer}>
-              <MaterialIcons name="star-half" size={16} color="#FFD700" style={styles.sparkle1} />
-              <MaterialIcons name="star-half" size={12} color="#FF6B6B" style={styles.sparkle2} />
-            </View>
+    
           </View>
 
           {!isOwnCourse && registerState === 2 && (
@@ -1037,6 +1052,7 @@ const CourseDetailsScreen = ({ route }) => {
               styles.cardsContainer,
             ]}
           >
+
             <SmartDetailItem
               label="درباره این دوره"
               value={courseData.Description}
@@ -1629,51 +1645,47 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: '#fdf0fd',
   },
-  overlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '50%',
-    padding: 15,
-    justifyContent: 'flex-end',
-  },
-  titleBackground: {
-    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-    borderRadius: 20,
+courseInfoBox: {
+    borderRadius: 30,
+    backgroundColor: 'rgba(140, 103, 177, 0.95)', 
     padding: 20,
-    backdropFilter: 'blur(15px)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
+    minHeight: 120,
+    marginVertical: 12, 
+    width: '90%',
+    alignSelf: 'center', 
     alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden', 
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   courseTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontFamily: "Yekan_Bakh_Bold",
-    color: modernColors.surface,
+    color: '#FFFFFF', // متن سفید کاملاً درخشان
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.6)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
     marginBottom: 12,
-    lineHeight: 36,
+    lineHeight: 32,
+    
   },
   courseTypeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)', // کپسول کم‌رنگ داخل باکس بنفش
+    paddingHorizontal: 14,
     paddingVertical: 6,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   courseTypeText: {
+    color: '#FFFFFF',
+    marginLeft: 6, // فاصله متن از آیکون
     fontSize: 14,
-    fontFamily: "Yekan_Bakh_Regular",
-    color: modernColors.surface,
-    marginLeft: 6,
+    fontFamily: "Yekan_Bakh", // یا فونت معمولی خودت
   },
+
   topLikeBadge: {
     position: 'absolute',
     top: 15,
