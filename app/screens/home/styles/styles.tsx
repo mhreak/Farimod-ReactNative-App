@@ -12,6 +12,56 @@ export const styles = StyleSheet.create({
     padding: 20,
     flex: 1,
   },
+
+  buttonContainer: {
+    width: '90%', // کمی جمع‌تر برای شیک‌تر شدن
+    alignSelf: 'center', // وسط‌چین کردن دکمه در عرض صفحه
+    marginTop: 25,
+    marginBottom: 40, // ایجاد فاصله از لبه پایینی صفحه برای اسکرول راحت
+    
+    // سایه نئونی و لوکس (مخصوص پوشاک و جواهرات لاکچری)
+    shadowColor: "#d946ef", // ترکیب سایه صورتی-بنفش فانتزی
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  buttonGradient: {
+    flexDirection: "row-reverse", 
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 18, // دکمه کمی ضخیم‌تر و پرو پیمون‌تر شده
+    paddingHorizontal: 22,
+    borderRadius: 24, // گوشه‌های کاملاً مدرن و کپسولی شیک
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.4)", // خط سفید نیمه شفاف شیشه‌ای
+  },
+  buttonTextContainer: {
+    flex: 1,
+    alignItems: "flex-end", 
+    marginRight: 16, 
+    marginLeft: 8,
+  },
+  buttonTitle: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontFamily: "Yekan_Bakh_ExtraBold", 
+    fontWeight: "800", 
+    textAlign: "right",
+    marginBottom: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.15)', 
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  buttonSubtitle: {
+    color: "rgba(255, 255, 255, 0.85)",
+    fontSize: 11,
+    fontFamily: "IRANSans", 
+    fontWeight: "600",
+    textAlign: "right",
+    opacity: 0.9,
+  },
+
   headerContainer: {
     alignItems: "center",
     marginBottom: 50,

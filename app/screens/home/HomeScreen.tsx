@@ -26,6 +26,9 @@ import  Portfolios from "./components/Portfolios";
 import Gallery  from "./components/Gellery";
 import Members from "./components/Member";
 import { useRef } from "react";
+import { Linking } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import JobButton from "./ui/JobButton";
 
 const HomeScreen = () => {
     const isLoaded = useRef(false);
@@ -140,7 +143,10 @@ const HomeScreen = () => {
         {visibleSections.portfolios && <Portfolios />}
         {visibleSections.gallery && <Gallery/>}
         {visibleSections.members && <Members/>}
+             <JobButton/>
+
       </ScrollView>
+
       <MenuModal
         visible={showMenuModal}
         onClose={handleCloseMenu}

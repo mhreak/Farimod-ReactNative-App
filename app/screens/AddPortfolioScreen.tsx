@@ -498,7 +498,7 @@ const AddPortfolioScreen = () => {
       
               ]}
             >
-              <View style={styles.glassOverlay} />
+              <View style={styles.glassOverlay} pointerEvents="none"/>
 
               <View style={styles.contentContainer}>
                 <AppText style={styles.titleText}>
@@ -523,6 +523,7 @@ const AddPortfolioScreen = () => {
                     <>
                       <View>
                         <AppTextInput
+                        label="عنوان نمونه کار"
                           autoCapitalize="none"
                           autoCorrect={false}
                           icon="title"
@@ -533,6 +534,7 @@ const AddPortfolioScreen = () => {
                         />
 
                         <AppTextInput
+                        label="توضیحات نمونه کار"
                           autoCapitalize="none"
                           autoCorrect={false}
                           icon="description"

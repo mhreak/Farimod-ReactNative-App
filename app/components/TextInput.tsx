@@ -11,7 +11,7 @@ import {
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import colors from "../config/colors";
 
-const getFontFamily = (baseFont: string, weight: string): string => {
+export const getFontFamily = (baseFont: string, weight: string): string => {
   if (Platform.OS === "android") {
     switch (weight) {
       case "700":

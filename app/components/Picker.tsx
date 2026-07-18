@@ -20,7 +20,8 @@ import AppButton from "./Button";
 import colors from "../config/colors";
 import AppText from "./Text";
 import { toPersianDigits } from "../utils/converters";
-
+import { TextInput } from "react-native";
+import { Ionicons } from '@expo/vector-icons';
 interface IProps {
   icon: React.ComponentProps<typeof MaterialIcons>["name"];
   items: { value: string | number; label: string; price?: number; icon?: string }[];
@@ -36,7 +37,11 @@ interface IProps {
   onPress?: () => void;
   theme?: 'default' | 'subscription';
   multiSelect?: boolean; 
+  onSearch?: React.Dispatch<React.SetStateAction<string>>;
+  searchText?:string,
+  hasSearch:boolean,
   onMultiSelectChange?: (items: any[]) => void; 
+  inputPlaceHolder?:string,
 }
 
 const modernColors = {
@@ -77,7 +82,11 @@ const AppPicker: React.FC<IProps> = ({
   onPress,
   theme = 'default',
   multiSelect = false,
+  onSearch,
+  hasSearch,
   onMultiSelectChange,
+  inputPlaceHolder,
+  searchText
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [tempSelectedItem, setTempSelectedItem] = useState(selectedItem);
@@ -229,6 +238,16 @@ const AppPicker: React.FC<IProps> = ({
     }
   };
 
+
+  
+
+    
+    const handleSearch = (text:string) => {
+      if (onSearch) {
+        onSearch(text);
+      }
+    };
+
   return (
     <>
       <View >
@@ -315,6 +334,27 @@ const AppPicker: React.FC<IProps> = ({
                 keyboardShouldPersistTaps="handled"
                 nestedScrollEnabled={true}
               >
+                {
+                  hasSearch &&
+                  <View style={styles.searchContainer}>
+                  <Ionicons 
+                  name="search-outline" 
+                  size={20} 
+                  color={colors.dark} 
+                  style={styles.searchIcon} 
+                />
+                  <TextInput
+                      style={styles.searchInput}
+                      placeholder={inputPlaceHolder}
+                      value={searchText}
+                      onChangeText={handleSearch}
+                      placeholderTextColor={colors.medium}
+                    />
+
+                    </View>
+                }
+                     
+
                 {items.map((item, index) => (
                   <TouchableOpacity
                     key={index}
@@ -483,6 +523,42 @@ const styles = StyleSheet.create({
   },
   modalSafeArea: {
     backgroundColor: '#FFFFFF',
+  },
+searchContainer: {
+    flexDirection: 'row-reverse', // برای چیدمان راست‌به‌چپ (rtl) آیکون و متن
+    alignItems: 'center',
+    backgroundColor: '#F5F7FA', // یک خاکستری بسیار ملایم و مدرن (جایگزین سفید مطلق)
+    borderRadius: 12, // گوشه‌های گرد و نرم
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#E4E7EC', // حاشیه خیلی کمرنگ برای عمق دادن به باکس
+    height: 48, // ارتفاع استاندارد و خوش‌دست برای موبایل
+    marginVertical: 10,
+    
+    // اگر می‌خواهی به جای بوردر، سایه ملایم داشته باشد (اختیاری):
+    /*
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    */
+  },
+
+  // ۲. استایل اصلاح‌شده خودت برای متن ورودی
+  searchInput: {
+    flex: 1,
+    fontSize: 14, // سایز ۱۴ یا ۱۵ برای فونت‌های فارسی مثل یکان‌بخ عالیه
+    fontFamily: 'Yekan_Bakh_Regular',
+    color: colors.dark,
+    textAlign: 'right',
+    paddingVertical: 0, // حذف پدینگ پیش‌فرض اندروید برای تراز شدن عمقی متن
+    marginRight: 8, // فاصله ملایم متن از آیکونی که سمت راست قرار می‌گیرد
+  },
+  
+  // ۳. استایل برای آیکون سرچ
+  searchIcon: {
+    opacity: 0.5, // آیکون کمی کمرنگ‌تر باشد تا تمرکز روی متن باقی بماند
   },
   modalHeader: {
     alignItems: 'center',

@@ -22,13 +22,32 @@ import appConfig from "../config/config";
 import { useAuth } from "../contexts/AuthContext";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import Tooltip from '../components/Tooltip';
+import { Text } from "react-native";
+import { getFontFamily } from "../components/TextInput";
+import axiosRetry from 'axios-retry';
+
+axiosRetry(axios, { 
+  retries: 2,
+  retryDelay: (retryCount) => {
+    console.log(`⏳ تلاش مجدد شماره ${retryCount}...`);
+    return retryCount * 2000; 
+  },
+  retryCondition: (error) => {
+    return (
+      !error.response || 
+      error.code === 'ECONNABORTED' || 
+      error.response?.status >= 500
+    );
+  },
+});
+
 const AddNewCourseScreen = () => {
   const navigation = useNavigation<AppNavigationProp>();
   const { toastVisible, setToastVisible, toastMessage, toastType, showToast } = useToast();
   const { user } = useAuth();
   const route = useRoute();
   const courseId = route.params?.courseId || route.params?.courseData?.CourseId;
-
+const [inputHeight, setInputHeight] = useState(120);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [provinces, setProvinces] = useState([]);
   const [cities, setCities] = useState([]);
@@ -91,10 +110,17 @@ const AddNewCourseScreen = () => {
     fridayFinishTime: courseData?.Friday_FinishTime || "",
     otherInstructors: [],
   }), [courseData]);
+
+  const [searchMember,setSearchMember]=useState<string>("")
   useEffect(() => {
     fetchProvinces();
-    fetchMembers();
   }, []);
+  
+
+  useEffect(()=>{
+    fetchMembers();
+
+  },[searchMember])
 
   const fetchProvinces = async () => {
     setLoadingProvinces(true);
@@ -153,7 +179,7 @@ const AddNewCourseScreen = () => {
   const fetchMembers = async () => {
     setLoadingMembers(true);
     try {
-      const response = await fetch(`${appConfig.mobileApi}Member/GetAll?currentPage=1&pageSize=200`);
+      const response = await fetch(`${appConfig.mobileApi}Member/GetAll?currentPage=1&pageSize=200&filterName=${searchMember}`);
 
       if (response.ok) {
         const data = await response.json();
@@ -628,7 +654,7 @@ const AddNewCourseScreen = () => {
             `خطا ${axiosError.response.status}`;
         } else if (axiosError.request) {
           console.error('📋 Request:', axiosError.request);
-          errorMessage = 'خطا در اتصال به سرور';
+          errorMessage = 'خطا در اتصال به سرور,اتصال خود را به اینترنت بررسی کنید';
         } else {
           errorMessage = axiosError.message;
         }
@@ -780,6 +806,8 @@ const AddNewCourseScreen = () => {
         />
       </View>
 
+      
+
       <LinearGradient
         colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.6)', 'rgba(255,255,255,0.8)', 'rgba(255,255,255,1)']}
         style={styles.gradientOverlay}
@@ -791,6 +819,7 @@ const AddNewCourseScreen = () => {
             type={toastType}
             onHide={() => setToastVisible(false)}
           />
+          
 
           <View style={improvedStyles.headerButtons}>
             <View style={improvedStyles.headerLeft}>
@@ -810,7 +839,9 @@ const AddNewCourseScreen = () => {
             </View>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false}  keyboardShouldPersistTaps="handled">
+
+            
             <Animated.View
               style={[
                 styles.iconContainer,
@@ -833,12 +864,16 @@ const AddNewCourseScreen = () => {
 
               ]}
             >
-              <View style={styles.glassOverlay} />
+
+              
+              <View style={styles.glassOverlay} pointerEvents="none"/>
 
               <View style={styles.contentContainer}>
+                
                 <AppText style={styles.titleText}>
                   {courseId ? 'ویرایش دوره' : 'افزودن دوره جدید'}
                 </AppText>
+
 
                 <Formik
                   initialValues={initialValues}
@@ -848,7 +883,9 @@ const AddNewCourseScreen = () => {
                   {({ handleChange, handleSubmit, errors, values, setFieldValue }) => (
                     <>
                       <View>
+                        
                         <AppTextInput
+                          label="نام دوره"
                           autoCapitalize="none"
                           autoCorrect={false}
                           icon="menu-book"
@@ -859,20 +896,34 @@ const AddNewCourseScreen = () => {
                           value={values.courseName}
                         />
 
-                        <AppTextInput
-                        style={{ height: 100 }}
+                          <AppTextInput
+                          style={{ 
+                            height: Math.max(120, inputHeight), 
+                            paddingTop: 10, 
+                            paddingBottom: 10 
+                          }}
+                          label="توضیحات دوره"
                           autoCapitalize="none"
                           autoCorrect={false}
                           icon="description"
                           multiline
+                          scrollEnabled={true}
                           keyboardType="default"
                           placeholder="توضیحات دوره"
-                          onChangeText={handleChange("Description")}
                           value={values.Description}
+                          
+                          onChangeText={handleChange("Description")} 
+
+                          onChange={(event) => {
+                            const nativeHeight = event.nativeEvent?.contentSize?.height;
+                            setInputHeight(nativeHeight);
+                          }}
                         />
 
                         <View style={styles.inputSpacing}>
+                             <Text style={[styles.inputLabel]}>نوع دوره</Text>
                           <AppPicker
+                          
                             items={courseTypeOptions}
                             onSelectItem={(item) => setFieldValue("courseType", item?.value)}
                             selectedItem={values.courseType ? courseTypeOptions.find(item => item.value === values.courseType) : null}
@@ -881,8 +932,12 @@ const AddNewCourseScreen = () => {
                             placeholder="نوع دوره"
                           />
                         </View>
+                  {
+                    values.courseType!=2 &&
+                    <>
+                          <View style={styles.inputSpacing}>
+                              <Text style={[styles.inputLabel]}> استان</Text>
 
-                        <View style={styles.inputSpacing}>
                           <AppPicker
                             items={provinces}
                             onSelectItem={(item) => {
@@ -903,6 +958,7 @@ const AddNewCourseScreen = () => {
                         </View>
 
                         <View style={styles.inputSpacing}>
+                            <Text style={[styles.inputLabel]}>شهر</Text>
                           <AppPicker
                             items={cities}
                             onSelectItem={(item) => {
@@ -923,9 +979,19 @@ const AddNewCourseScreen = () => {
                             } : undefined}
                           />
                         </View>
+                    </>
 
+                  }
+
+                  
                         <View style={styles.inputSpacing}>
+                                                      <Text style={[styles.inputLabel]}>سایر مربیان</Text>
+
                           <AppPicker
+                          searchText={searchMember}
+                            onSearch={setSearchMember}
+                            inputPlaceHolder="جست و جوی مربیان"
+                            hasSearch={true}
                             items={members}
                             multiSelect={true}
                             selectedItems={selectedInstructorItems}
@@ -939,6 +1005,7 @@ const AddNewCourseScreen = () => {
                         </View>
 
                         <AppTextInput
+                        label="آدرس دوره"
                           autoCapitalize="none"
                           autoCorrect={false}
                           icon="location-on"
@@ -953,16 +1020,30 @@ const AddNewCourseScreen = () => {
                         <WeeklySchedule values={values} setFieldValue={setFieldValue} />
 
                         <AppTextInput
+                          label="مبلغ ثبت نام (تومان)"
                           autoCapitalize="none"
                           autoCorrect={false}
                           icon="attach-money"
                           keyboardType="numeric"
                           placeholder="مبلغ ثبت نام (تومان)"
-                          onChangeText={(text) => setFieldValue("registerAmount", text ? parseInt(text) : null)}
-                          value={values.registerAmount?.toString() || ""}
+                          onChangeText={(text) => {
+                            const rawString = text.replace(/[^0-9]/g, "");
+                            setFieldValue("registerAmount", rawString === "" ? "" : Number(rawString));
+                          }}
+                          value={
+                            values.registerAmount !== "" && values.registerAmount !== null && values.registerAmount !== undefined
+                              ? values.registerAmount
+                                  .toString()
+                                  .replace(/[^0-9]/g, "")
+                                  .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                              : ""
+                          }
                         />
 
+
                         <View style={styles.inputSpacing}>
+                      <Text style={[styles.inputLabel]}>وضعیت ثبت نام</Text>
+
                           <AppPicker
                             items={[
                               { value: true, label: "فعال" },
@@ -977,6 +1058,7 @@ const AddNewCourseScreen = () => {
                           />
                         </View>
                         <View style={styles.inputSpacing}>
+                          <Text style={[styles.inputLabel]}>وضعیت دوره</Text>
                           <AppPicker
                             items={[
                               { value: true, label: "فعال" },
@@ -992,6 +1074,7 @@ const AddNewCourseScreen = () => {
                         </View>
 
                         <View style={styles.inputSpacing}>
+                           <Text style={[styles.inputLabel]}>کد تخفیف</Text>
                           <AppPicker
                             items={[
                               { value: true, label: "دارد" },
@@ -1006,23 +1089,41 @@ const AddNewCourseScreen = () => {
                           />
                         </View>
 
-                        <AppDatePicker
-                          icon="event"
-                          placeholder="تاریخ شروع دوره"
-                          value={values.startDate}
-                          onDateChange={(date) => setFieldValue("startDate", date)}
-                          mode="date"
-                          minimumDate={new Date()}
-                        />
 
-                        <AppDatePicker
-                          icon="event-available"
-                          placeholder="تاریخ پایان دوره"
-                          value={values.finishDate}
-                          onDateChange={(date) => setFieldValue("finishDate", date)}
-                          mode="date"
-                          minimumDate={values.startDate || new Date()}
-                        />
+                        <View >
+                            <Text style={[styles.inputLabel]}>تاریخ شروع دوره</Text>
+
+
+                            <AppDatePicker
+                            
+                              icon="event"
+                              placeholder="تاریخ شروع دوره"
+                              value={values.startDate}
+                              onDateChange={(date) => setFieldValue("startDate", date)}
+                              mode="date"
+                              minimumDate={new Date()}
+                            />
+                        </View> 
+
+
+                      <View>
+                            <Text style={[styles.inputLabel]}>تاریخ پایان دوره</Text>
+
+
+                              <AppDatePicker
+                                icon="event-available"
+                                placeholder="تاریخ پایان دوره"
+                                value={values.finishDate}
+                                onDateChange={(date) => setFieldValue("finishDate", date)}
+                                mode="date"
+                                minimumDate={values.startDate || new Date()}
+                              />
+                        </View> 
+
+
+                        <View>
+                            <Text style={[styles.inputLabel]}>تاریخ شروع ثبت نام</Text>
+
 
                         <AppDatePicker
                           icon="how-to-reg"
@@ -1033,6 +1134,12 @@ const AddNewCourseScreen = () => {
                           minimumDate={new Date()}
                         />
 
+                        </View> 
+
+                             <View>
+                            <Text style={[styles.inputLabel]}>تاریخ پایان ثبت نام</Text>
+
+
                         <AppDatePicker
                           icon="assignment-turned-in"
                           placeholder="تاریخ پایان ثبت نام"
@@ -1042,6 +1149,11 @@ const AddNewCourseScreen = () => {
                           minimumDate={values.registerStartDate || new Date()}
                           maximumDate={values.startDate}
                         />
+                        </View> 
+
+
+                      
+
 
                         <ImageUpload
                           onImageChange={(image) => {setFeaturedImage(image);    setIsImageChanged(true);
@@ -1120,6 +1232,8 @@ const improvedStyles = StyleSheet.create({
     paddingHorizontal: 5,
     lineHeight: 20,
   },
+
+
 
   backButtonGlass: {
     backgroundColor: '#9E22AD',
@@ -1221,6 +1335,14 @@ const improvedStyles = StyleSheet.create({
 const styles = StyleSheet.create({
   backgroundContainer: {
     flex: 1,
+  },
+
+      inputLabel: {
+    fontSize: 15,
+    fontFamily: getFontFamily("Yekan_Bakh_Bold", "500"),
+    color: colors.dark,
+    marginBottom: 8,
+    textAlign: "right",
   },
   backgroundWrapper: {
     position: 'absolute',

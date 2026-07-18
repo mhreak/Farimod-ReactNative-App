@@ -456,7 +456,7 @@ const AddGalleryScreen = () => {
                 styles.formBox,
               ]}
             >
-              <View style={styles.glassOverlay} />
+              <View style={styles.glassOverlay} pointerEvents="none" />
 
               <View style={styles.contentContainer}>
                 <AppText style={styles.titleText}>افزودن گالری جدید</AppText>
@@ -472,6 +472,7 @@ const AddGalleryScreen = () => {
                   {({ handleChange, handleSubmit, errors, values, setFieldValue }) => (
                     <>
                       <AppTextInput
+                        label="عنوان گالری"
                         autoCapitalize="none"
                         autoCorrect={false}
                         icon="title"

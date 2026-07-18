@@ -17,6 +17,7 @@ import appConfig from "../config/config";
 import ImageUpload from "../components/ImageUpload";
 import { useAuth } from '../contexts/AuthContext';
 import Tooltip from '../components/Tooltip';
+import { getFontFamily } from "../components/TextInput";
 
 const AddNewPostScreen = () => {
   const { user } = useAuth();
@@ -270,7 +271,7 @@ const AddNewPostScreen = () => {
             </View>
 
             <View style={[styles.formBox]}>
-              <View style={styles.glassOverlay} />
+              <View style={styles.glassOverlay} pointerEvents="none" />
               <View style={styles.contentContainer}>
                 <AppText style={styles.titleText}>{isEditMode ? 'ویرایش پست' : 'افزودن پست جدید'}</AppText>
 
@@ -298,6 +299,7 @@ const AddNewPostScreen = () => {
                   {({ handleChange, handleSubmit, errors, values, setFieldValue }) => (
                     <>
                       <AppTextInput
+                      label="عنوان پست"
                         autoCapitalize="none"
                         autoCorrect={false}
                         icon="title"
@@ -312,42 +314,48 @@ const AddNewPostScreen = () => {
                         <Text style={styles.errorText}>{errors.title}</Text>
                       )}
 
-                      <AppPicker
-                        items={categories}
-                        onSelectItem={(item) => { }}
-                        onMultiSelectChange={(selectedItems) => {
-                          const selectedIds = selectedItems ? selectedItems.map(item => item.value) : [];
-                          setFieldValue("blogPostCategoryIds", selectedIds);
-                        }}
-                        selectedItems={
-                          (values.blogPostCategoryIds && Array.isArray(values.blogPostCategoryIds)) ?
-                            values.blogPostCategoryIds
-                              .filter(id => id !== null && id !== undefined)
-                              .map(id => {
-                                const category = categories.find(cat => cat.value === id);
-                                return category || null;
-                              })
-                              .filter(item => item !== null)
-                            : []
-                        }
-                        icon="category"
-                        placeholder={
-                          loadingCategories
-                            ? "در حال بارگذاری..."
-                            : !values.blogPostCategoryIds || values.blogPostCategoryIds.length === 0
-                              ? "انتخاب دسته‌بندی پست"
-                              : `${values.blogPostCategoryIds.length} دسته انتخاب شده`
-                        }
-                        disabled={loadingCategories}
-                        multiSelect={true}
-                        error={errors.blogPostCategoryIds}
-                        style={{ borderColor: errors.blogPostCategoryIds ? '#e74c3c' : undefined }}
-                      />
+                      <View>
+                        <Text style={[styles.inputLabel]}>دسته بندی</Text>
+
+                        <AppPicker
+                          items={categories}
+                          onSelectItem={(item) => { }}
+                          onMultiSelectChange={(selectedItems) => {
+                            const selectedIds = selectedItems ? selectedItems.map(item => item.value) : [];
+                            setFieldValue("blogPostCategoryIds", selectedIds);
+                          }}
+                          selectedItems={
+                            (values.blogPostCategoryIds && Array.isArray(values.blogPostCategoryIds)) ?
+                              values.blogPostCategoryIds
+                                .filter(id => id !== null && id !== undefined)
+                                .map(id => {
+                                  const category = categories.find(cat => cat.value === id);
+                                  return category || null;
+                                })
+                                .filter(item => item !== null)
+                              : []
+                          }
+                          icon="category"
+                          placeholder={
+                            loadingCategories
+                              ? "در حال بارگذاری..."
+                              : !values.blogPostCategoryIds || values.blogPostCategoryIds.length === 0
+                                ? "انتخاب دسته‌بندی پست"
+                                : `${values.blogPostCategoryIds.length} دسته انتخاب شده`
+                          }
+                          disabled={loadingCategories}
+                          multiSelect={true}
+                          error={errors.blogPostCategoryIds}
+                          style={{ borderColor: errors.blogPostCategoryIds ? '#e74c3c' : undefined }}
+                        />
+                      </View>
+
                       {errors.blogPostCategoryIds && (
                         <Text style={styles.errorText}>{errors.blogPostCategoryIds}</Text>
                       )}
 
                       <AppTextInput
+                        label="محتوای پست"
                         autoCapitalize="none"
                         autoCorrect={false}
                         icon="description"
@@ -367,6 +375,8 @@ const AddNewPostScreen = () => {
                         <Text style={styles.errorText}>{errors.content}</Text>
                       )}
 
+                      <View>
+                        <Text style={[styles.inputLabel]}>وضعیت انتشار</Text>
                       <AppPicker
                         items={[{ value: true, label: "منتشر شده" }, { value: false, label: "پیش‌نویس" }]}
                         onSelectItem={(item) => setFieldValue("active", item?.value)}
@@ -375,6 +385,9 @@ const AddNewPostScreen = () => {
                         placeholder="وضعیت انتشار"
                         style={styles.halfWidthPicker}
                       />
+
+                      </View>
+
                       <ImageUpload
                         onImageChange={(images) => {
                           let imageArray = [];
@@ -436,6 +449,16 @@ const AddNewPostScreen = () => {
 
 const styles = StyleSheet.create({
   backgroundContainer: { flex: 1 },
+
+
+  inputLabel: {
+    fontSize: 15,
+    fontFamily: getFontFamily("Yekan_Bakh_Bold", "500"),
+    color: colors.dark,
+    marginBottom: 8,
+    textAlign: "right",
+  },
+
   headerButtons: {
     position: 'absolute',
     top: 15,
