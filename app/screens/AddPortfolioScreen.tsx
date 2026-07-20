@@ -29,11 +29,46 @@ const AddPortfolioScreen = () => {
   const isEditMode = route.params?.isEdit || false;
   const editPortfolioData = route.params?.portfolioData || null;
 
+
+const getInitialFeaturedImage = () => {
+  if (isEditMode && editPortfolioData?.Images && editPortfolioData.Images.length > 0) {
+    return [{
+      id: 'portfolio-initial-index-0',
+      uri: editPortfolioData.Images[0],
+      name: 'featured.jpg',
+      type: 'image/jpeg'
+    }];
+  }
+  return [];
+};
+
+const getInitialPortfolioImages = () => {
+  if (isEditMode && editPortfolioData?.Images && editPortfolioData.Images.length > 1) {
+    return editPortfolioData.Images.slice(1).map((img, index) => {
+      const serverIndex = index + 1;
+      return {
+        id: `portfolio-initial-index-${serverIndex}`,
+        uri: img,
+        name: `portfolio_${serverIndex}.jpg`,
+        type: 'image/jpeg'
+      };
+    });
+  }
+  return [];
+};
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [featuredImage, setFeaturedImage] = useState([]);
-  const [portfolioImages, setPortfolioImages] = useState([]);
+const [featuredImage, setFeaturedImage] = useState(getInitialFeaturedImage());
+const [portfolioImages, setPortfolioImages] = useState(getInitialPortfolioImages());
   const [uploadingImages, setUploadingImages] = useState(false);
+
+  const [initialServerFeaturedId, setInitialServerFeaturedId] = useState<string | null>(
+    getInitialFeaturedImage().length > 0 ? String(getInitialFeaturedImage()[0].id) : null
+  );
+  const [initialServerPortfolioIds, setInitialServerPortfolioIds] = useState<string[]>(
+    getInitialPortfolioImages().map(img => String(img.id))
+  );
 
   const [lastSubmitTime, setLastSubmitTime] = useState(0);
   const SUBMIT_COOLDOWN = 3000;
@@ -43,6 +78,7 @@ const AddPortfolioScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
+
 
 
 
@@ -87,15 +123,6 @@ const AddPortfolioScreen = () => {
     }
   };
 
-  const loadMore = () => {
-    if (hasMore && !loading) {
-      fetchPortfolios(currentPage + 1);
-    }
-  };
-
-  const onRefresh = () => {
-    fetchPortfolios(1, true);
-  };
 
 
 
@@ -106,6 +133,16 @@ const AddPortfolioScreen = () => {
       showToast(firstError, 'error');
     }
   };
+
+  useEffect(() => {
+    // initialize server image ids when edit data changes
+    if (isEditMode && editPortfolioData && editPortfolioData.Images) {
+      setInitialServerFeaturedId(editPortfolioData.Images.length > 0 ? 'portfolio-initial-index-0' : null);
+      const ids = (editPortfolioData.Images.length > 1 ? editPortfolioData.Images.slice(1) : [])
+        .map((_, idx) => `portfolio-initial-index-${idx + 1}`);
+      setInitialServerPortfolioIds(ids);
+    }
+  }, [isEditMode, editPortfolioData]);
 
   const uploadImageWithRetry = async (uploadUrl, imageData, maxRetries = 2) => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -154,111 +191,131 @@ const AddPortfolioScreen = () => {
       }
     }
   };
-  const uploadImages = async (portfolioId, featuredImages, portfolioImages) => {
+
+  const getFileNameFieldBySlot = (slot) => {
+    const mapping = {
+      1: 'FirstImageFileName',
+      2: 'SecondImageFileName',
+      3: 'ThirdImageFileName',
+      4: 'FourthImageFileName',
+      5: 'FifthImageFileName'
+    };
+    return mapping[slot];
+  };
 
 
-    const results = [];
+  const computeSlotAssignments = (currentPortfolioImages, editData, isEdit) => {
+    const oldImageForSlot = (slot) =>
+      currentPortfolioImages.find(img => img.id === `portfolio-initial-index-${slot}`);
 
-    if (featuredImages && Array.isArray(featuredImages) && featuredImages.length > 0) {
-      const featuredImage = featuredImages[0];
+    const newImages = currentPortfolioImages.filter(
+      img => !img.id || !String(img.id).startsWith('portfolio-initial-index-')
+    );
 
-      if (featuredImage && featuredImage.uri) {
+    let newImageIndex = 0;
+    const slots = [];
+
+    for (let slot = 1; slot <= 5; slot++) {
+      const oldImage = oldImageForSlot(slot);
+      const fileNameField = getFileNameFieldBySlot(slot);
+      const hadImageOnServer = !!(isEdit && editData && editData[fileNameField]);
+
+      if (oldImage) {
+    
+        slots.push({
+          slot,
+          uri: oldImage.uri,
+          name: (editData && editData[fileNameField]) || oldImage.name,
+          isNew: false,
+          isRemovedOld: false,
+        });
+        continue;
+      }
+
+  
+      if (newImages[newImageIndex]) {
+        const img = newImages[newImageIndex];
+        newImageIndex++;
+        slots.push({
+          slot,
+          uri: img.uri,
+          name: img.name,
+          isNew: true,
+          isRemovedOld: false,
+        });
+        continue;
+      }
+
+      slots.push({
+        slot,
+        uri: '',
+        name: '',
+        isNew: false,
+        isRemovedOld: hadImageOnServer,
+      });
+    }
+
+    return slots;
+  };
+
+  const uploadImages = async (portfolioId, featuredImages, slotAssignments) => {
+    if (featuredImages && featuredImages.length > 0) {
+      const fImage = featuredImages[0];
+      const isNewFeatured = !fImage.id || !String(fImage.id).startsWith('portfolio-initial-index-');
+      if (fImage?.uri && isNewFeatured) {
         try {
-          const fileExtension = featuredImage.uri.split('.').pop()?.toLowerCase() || 'jpg';
-          const mimeType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
+          const fileExtension = fImage.uri.split('.').pop()?.toLowerCase() || 'jpg';
+          const imageData = { uri: fImage.uri, name: fImage.name, type: fileExtension === 'png' ? 'image/png' : 'image/jpeg' };
+          const uploadUrl = `${appConfig.mobileApi}Portfolio/UploadImage?portfolioId=${portfolioId}&type=0`;
+          await uploadImageWithRetry(uploadUrl, imageData);
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } catch (e) { console.log("Featured upload error:", e.message); }
+      }
+    }
 
+    for (const slotData of slotAssignments) {
+      const { slot, uri, name, isNew, isRemovedOld } = slotData;
+
+      if (isRemovedOld) {
+        try {
+          console.log(`🧹 ارسال درخواست حذف صریح برای اسلات خالی شده‌ی: ${slot}`);
+          const uploadUrl = `${appConfig.mobileApi}Portfolio/UploadImage?portfolioId=${portfolioId}&type=${slot}`;
+
+          const emptyFormData = new FormData();
+          const response = await fetch(uploadUrl, {
+            method: 'POST',
+            body: emptyFormData,
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+
+          console.log(`Cleaned slot ${slot} status:`, response.status);
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } catch (error) {
+          console.log(`Error clearing slot ${slot}:`, error.message);
+        }
+        continue;
+      }
+
+      if (isNew && uri) {
+        try {
+          const fileExtension = uri.split('.').pop()?.toLowerCase() || 'jpg';
           const imageData = {
-            uri: featuredImage.uri,
-            name: featuredImage.name || `featured-image-${Date.now()}.${fileExtension}`,
-            type: mimeType
+            uri,
+            name: name || `portfolio-${slot}-${Date.now()}.${fileExtension}`,
+            type: fileExtension === 'png' ? 'image/png' : 'image/jpeg'
           };
 
-
-          const uploadUrl = `${appConfig.mobileApi}Portfolio/UploadImage?portfolioId=${portfolioId}&type=0`;
-
-          const result = await uploadImageWithRetry(uploadUrl, imageData);
-          results.push({ type: 'featured', ...result });
-
-          await new Promise(resolve => setTimeout(resolve, 3000));
-
+          console.log(`🚀 در حال آپلود عکس جدید در اسلات: ${slot}`);
+          const uploadUrl = `${appConfig.mobileApi}Portfolio/UploadImage?portfolioId=${portfolioId}&type=${slot}`;
+          await uploadImageWithRetry(uploadUrl, imageData);
+          await new Promise(resolve => setTimeout(resolve, 1500));
         } catch (error) {
-          results.push({ type: 'featured', success: false, error: error.message });
-        }
-      } else {
-      }
-    }
-
-    if (portfolioImages && Array.isArray(portfolioImages) && portfolioImages.length > 0) {
-      console.log('Processing portfolio images...');
-
-      for (let i = 0; i < Math.min(portfolioImages.length, 5); i++) {
-        const image = portfolioImages[i];
-        const type = i + 1;
-
-        console.log(`Processing portfolio image ${i + 1}:`, image);
-
-        if (image && image.uri) {
-          try {
-            const fileExtension = image.uri.split('.').pop()?.toLowerCase() || 'jpg';
-            const mimeType = fileExtension === 'png' ? 'image/png' : 'image/jpeg';
-
-            const imageData = {
-              uri: image.uri,
-              name: image.name || `portfolio-image-${i}-${Date.now()}.${fileExtension}`,
-              type: mimeType
-            };
-
-            console.log(`Portfolio image ${i + 1} data:`, imageData);
-
-            const uploadUrl = `${appConfig.mobileApi}Portfolio/UploadImage?portfolioId=${portfolioId}&type=${type}`;
-            console.log(`Portfolio image ${i + 1} upload URL:`, uploadUrl);
-
-            const result = await uploadImageWithRetry(uploadUrl, imageData);
-            results.push({ type: `portfolio-${i}`, ...result });
-
-            console.log(`Portfolio image ${i + 1} upload completed, waiting before next upload...`);
-            await new Promise(resolve => setTimeout(resolve, 3000));
-
-          } catch (error) {
-            console.error(`Error preparing portfolio image ${i + 1}:`, error);
-            results.push({ type: `portfolio-${i}`, success: false, error: error.message });
-          }
-        } else {
-          console.log(`Portfolio image ${i + 1} has no valid URI or is null`);
+          console.log(`Error uploading to slot ${slot}:`, error.message);
         }
       }
     }
 
-    if (results.length === 0) {
-      console.log('No images to upload');
-      return;
-    }
-
-    console.log(`Upload completed. Total results: ${results.length}`);
-    console.log('Upload results:', results);
-
-    const successfulUploads = results.filter(result => result.success).length;
-    const failedUploads = results.filter(result => !result.success);
-
-    console.log(`Successful uploads: ${successfulUploads}`);
-    console.log(`Failed uploads: ${failedUploads.length}`);
-
-    if (failedUploads.length > 0) {
-      console.log('Failed upload details:', failedUploads);
-
-      const firstFailure = failedUploads[0];
-      let errorMessage = `${failedUploads.length} عکس آپلود نشد`;
-
-      if (firstFailure.response) {
-        errorMessage += `: ${firstFailure.response}`;
-      } else if (firstFailure.error) {
-        errorMessage += `: ${firstFailure.error}`;
-      }
-
-      showToast(errorMessage, 'error');
-    } else {
-      showToast('تمام عکس‌ها با موفقیت آپلود شدند', 'success');
-    }
+    console.log('Sync process completed successfully.');
   };
 
   const submitPortfolio = async (values, { setErrors, resetForm }) => {
@@ -294,23 +351,33 @@ const AddPortfolioScreen = () => {
         return;
       }
 
+      
+      const slotAssignments = computeSlotAssignments(portfolioImages, editPortfolioData, isEditMode);
+
       const portfolioData = {
         PortfolioId: isEditMode ? editPortfolioData.PortfolioId : 0,
         MemberId: user?.MemberId,
         Title: values.title.trim(),
         Description: values.description.trim(),
-        FeaturedImageFileName: "",
-        FeaturedImageURL: "",
-        FirstImageFileName: "",
-        FirstImageURL: "",
-        SecondImageFileName: "",
-        SecondImageURL: "",
-        ThirdImageFileName: "",
-        ThirdImageURL: "",
-        FourthImageFileName: "",
-        FourthImageURL: "",
-        FifthImageFileName: "",
-        FifthImageURL: "",
+
+        FeaturedImageURL: featuredImage.length > 0 ? featuredImage[0].uri : "",
+        FeaturedImageFileName: featuredImage.length > 0 ? featuredImage[0].name : "",
+
+        FirstImageURL: slotAssignments[0].uri,
+        FirstImageFileName: slotAssignments[0].name,
+
+        SecondImageURL: slotAssignments[1].uri,
+        SecondImageFileName: slotAssignments[1].name,
+
+        ThirdImageURL: slotAssignments[2].uri,
+        ThirdImageFileName: slotAssignments[2].name,
+
+        FourthImageURL: slotAssignments[3].uri,
+        FourthImageFileName: slotAssignments[3].name,
+
+        FifthImageURL: slotAssignments[4].uri,
+        FifthImageFileName: slotAssignments[4].name,
+
         Active: values.active !== undefined ? values.active : true,
         InsertDate: new Date().toISOString(),
         Rating: 0,
@@ -318,6 +385,8 @@ const AddPortfolioScreen = () => {
         PortfolioItemViewModelList: []
       };
 
+
+      console.log('Submitting portfolio data:', portfolioData);
       const url = isEditMode
         ? `${appConfig.mobileApi}Portfolio/Edit`
         : `${appConfig.mobileApi}Portfolio/Add`;
@@ -348,10 +417,17 @@ const AddPortfolioScreen = () => {
           'success'
         );
 
-        if ((featuredImage && featuredImage.length > 0) || (portfolioImages && portfolioImages.length > 0)) {
+
+        const hasFeaturedChange =
+          featuredImage.length > 0 &&
+          (!featuredImage[0].id || !String(featuredImage[0].id).startsWith('portfolio-initial-index-'));
+
+        const hasPortfolioImageChanges = slotAssignments.some(s => s.isNew || s.isRemovedOld);
+
+        if (hasFeaturedChange || hasPortfolioImageChanges) {
           console.log('Starting image upload process...');
-          console.log('Featured images count:', featuredImage?.length || 0);
-          console.log('Portfolio images count:', portfolioImages?.length || 0);
+          console.log('Featured image changed:', hasFeaturedChange);
+          console.log('Portfolio slot changes:', slotAssignments.filter(s => s.isNew || s.isRemovedOld));
 
           setUploadingImages(true);
           showToast('شروع آپلود عکس‌ها...', 'info');
@@ -359,7 +435,7 @@ const AddPortfolioScreen = () => {
           await new Promise(resolve => setTimeout(resolve, 2000));
 
           try {
-            await uploadImages(portfolioId, featuredImage, portfolioImages);
+            await uploadImages(portfolioId, featuredImage, slotAssignments);
           } catch (uploadError) {
             console.error('Error uploading images:', uploadError);
             showToast('خطا در آپلود برخی عکس‌ها: ' + uploadError.message, 'error');
@@ -367,7 +443,7 @@ const AddPortfolioScreen = () => {
             setUploadingImages(false);
           }
         } else {
-          console.log('No images selected for upload');
+          console.log('No image changes detected — skipping upload step.');
         }
 
         if (!isEditMode) {
@@ -378,11 +454,8 @@ const AddPortfolioScreen = () => {
 
         fetchPortfolios(1, true);
 
-        setTimeout(() => {
-          if (navigation.isFocused()) {
-            navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
-          }
-        }, 1500);
+
+       navigation.navigate("App", { screen: "PortfolioList" })
       } else {
         const errorData = await response.json();
         throw new Error(errorData.Message || `خطا در ${isEditMode ? 'ویرایش' : 'ثبت'} نمونه کار`);
@@ -413,7 +486,7 @@ const AddPortfolioScreen = () => {
         <View style={styles.cardActions}>
           <TouchableOpacity
             style={styles.editButton}
-            onPress={() => navigation.navigate('AddNewPortfolio', {
+            onPress={() => navigation.navigate('AddPortfolio', {
               isEdit: true,
               portfolioData: item
             })}
@@ -426,15 +499,7 @@ const AddPortfolioScreen = () => {
     </View>
   );
 
-  const renderFooter = () => {
-    if (!loading) return null;
-    return (
-      <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={colors.primary} />
-        <AppText style={styles.loadingText}>در حال بارگذاری...</AppText>
-      </View>
-    );
-  };
+
 
   return (
     <View style={styles.backgroundContainer}>
@@ -467,7 +532,7 @@ const AddPortfolioScreen = () => {
                 styles.backButton,
               ]}
             >
-              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "PortfolioList"})}>
+              <TouchableOpacity onPress={() => navigation.navigate("App", { screen: "PortfolioList" })}>
                 <View style={styles.backButtonGlass}>
                   <MaterialIcons name="arrow-forward" size={24} color="white" />
                 </View>
@@ -495,7 +560,7 @@ const AddPortfolioScreen = () => {
             <View
               style={[
                 styles.formBox,
-      
+
               ]}
             >
               <View style={styles.glassOverlay} pointerEvents="none"/>
@@ -510,8 +575,6 @@ const AddPortfolioScreen = () => {
                     title: isEditMode ? editPortfolioData?.Title || "" : "",
                     description: isEditMode ? editPortfolioData?.Description || "" : "",
                     active: isEditMode ? editPortfolioData?.Active !== undefined ? editPortfolioData.Active : true : true,
-                    featuredImage: [],
-                    portfolioImages: [],
                   }}
                   onSubmit={submitPortfolio}
                   validate={(values) => {
@@ -550,13 +613,11 @@ const AddPortfolioScreen = () => {
                       </View>
 
                       <View style={styles.imageUploadSection}>
-                     
+
 
                         <ImageUpload
                           onImageChange={(images) => {
-                            console.log('Featured images changed:', images);
-                            console.log('Featured images type:', typeof images);
-                            console.log('Featured images is array:', Array.isArray(images));
+                    
 
                             let imageArray = [];
 
@@ -568,11 +629,26 @@ const AddPortfolioScreen = () => {
                               }
                             }
 
-                            console.log('Featured images final array:', imageArray);
+
+                            const prev = featuredImage || [];
+                            const newArr = imageArray || [];
+
+                            if (isEditMode && editPortfolioData?.PortfolioId && prev.length > 0) {
+                              const prevInitial = prev[0];
+                              const wasServerImage = prevInitial && String(prevInitial.id).startsWith('portfolio-initial-index-');
+                              const stillExists = newArr.some(img => String(img.id) === String(prevInitial.id));
+                              if (wasServerImage && !stillExists) {
+                                const portfolioId = editPortfolioData.PortfolioId;
+                                const type = 0; // featured
+                                fetch(`${appConfig.mobileApi}Portfolio/DeletePortfolioImage?portfolioId=${portfolioId}&type=${type}`, { method: 'POST' })
+                                  .then(res => console.log('Featured delete response', res.status))
+                                  .catch(err => console.log('Featured delete error', err));
+                              }
+                            }
 
                             setFeaturedImage(imageArray);
-                            setFieldValue("featuredImage", imageArray);
                           }}
+                          initialImage={featuredImage && featuredImage.length > 0 ? featuredImage[0] : null}
                           isMultiple={false}
                           maxImages={1}
                           imageQuality={0.8}
@@ -584,7 +660,7 @@ const AddPortfolioScreen = () => {
                           aspectRatio={[1, 1]}
                           onShowToast={showToast}
                         />
-              
+
                       </View>
 
                       <View style={styles.imageUploadSection}>
@@ -593,40 +669,48 @@ const AddPortfolioScreen = () => {
                           <AppText style={styles.sectionTitle}>تصاویر پورتفولیو</AppText>
                         </View>
 
-                        <ImageUpload
-                          onImageChange={(images) => {
-                            console.log('Portfolio images changed:', images);
-                            console.log('Portfolio images type:', typeof images);
-                            console.log('Portfolio images is array:', Array.isArray(images));
+                  <ImageUpload
+                  onImagesChange={(images) => {
+                    let imageArray = [];
 
-                            let imageArray = [];
+                    if (images && Array.isArray(images)) {
+                      imageArray = images.filter(img => img && img.uri);
+                    } else if (images && (images as any).uri) {
+                      imageArray = [images];
+                    }
 
-                            if (images) {
-                              if (Array.isArray(images)) {
-                                imageArray = images.filter(img => img && img.uri);
-                              } else if (images.uri) {
-                                imageArray = [images];
-                              }
-                            }
+                    const prev = portfolioImages || [];
+                    const newArr = imageArray || [];
 
-                            console.log('Portfolio images final array:', imageArray);
+                    if (isEditMode && editPortfolioData?.PortfolioId && prev.length > 0) {
+                      const removed = prev.filter(p => p && String(p.id).startsWith('portfolio-initial-index-') && !newArr.some(n => String(n.id) === String(p.id)));
+                      if (removed.length > 0) {
+                        const portfolioId = editPortfolioData.PortfolioId;
+                        removed.forEach(r => {
+                          const m = String(r.id).match(/portfolio-initial-index-(\d+)$/);
+                          const type = m ? Number(m[1]) : 1;
+                          fetch(`${appConfig.mobileApi}Portfolio/DeletePortfolioImage?portfolioId=${portfolioId}&type=${type}`, { method: 'POST' })
+                            .then(res => console.log('Delete slot', type, 'status', res.status))
+                            .catch(err => console.log('Delete slot error', err));
+                        });
+                      }
+                    }
 
-                            setPortfolioImages(imageArray);
-                            setFieldValue("portfolioImages", imageArray);
-                          }}
-                          isMultiple={true}
-                          maxImages={5}
-                          imageQuality={0.8}
-                          allowCamera={true}
-                          allowGallery={true}
-                          error={errors.portfolioImages as string}
-                          placeholder="انتخاب تصاویر پورتفولیو"
-                          style={styles.imageUploadContainer}
-                          aspectRatio={[1, 1]}
-                          allowVideos={true}
-                          onShowToast={showToast}
-                        />
-                 
+                    setPortfolioImages(imageArray);
+                  }}
+                  initialImages={portfolioImages}
+                  isMultiple={true}
+                  maxImages={5}
+                  imageQuality={0.8}
+                  allowCamera={true}
+                  allowGallery={true}
+                  error={errors.portfolioImages as string}
+                  placeholder="انتخاب تصاویر پورتفولیو"
+                  style={styles.imageUploadContainer}
+                  aspectRatio={[1, 1]}
+                  allowVideos={true}
+                  onShowToast={showToast}
+                />
                       </View>
 
                       <View style={styles.buttonContainer}>

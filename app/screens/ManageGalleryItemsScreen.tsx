@@ -479,7 +479,7 @@ const ManageGalleryItemsScreen = () => {
         >
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() =>           navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+            onPress={() =>      navigation.goBack()}
           >
             <View style={styles.backButtonContainer}>
               <MaterialIcons name="arrow-forward" size={26} color="#6366f1" />

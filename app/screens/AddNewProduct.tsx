@@ -36,6 +36,7 @@ const AddProductScreen = () => {
 
   const isEditMode = route.params?.isEdit || false;
   const editProductData = route.params?.productData || null;
+  console.log("Edit Product Data:", editProductData);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [featuredImage, setFeaturedImage] = useState([]);
@@ -44,7 +45,157 @@ const AddProductScreen = () => {
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [lastSubmitTime, setLastSubmitTime] = useState(0);
+  const [originalFeaturedImageId, setOriginalFeaturedImageId] = useState<string | null>(null);
+  const [originalProductImageIds, setOriginalProductImageIds] = useState<string[]>([]);
   const SUBMIT_COOLDOWN = 3000;
+  const PRODUCT_IMAGE_INITIAL_ID_PREFIX = "product-initial-index-";
+
+  // initialize server images when editing
+  useEffect(() => {
+    if (isEditMode && editProductData) {
+      const f = [];
+      if (editProductData.FeaturedImageURL) {
+        f.push({
+          id: `${PRODUCT_IMAGE_INITIAL_ID_PREFIX}0`,
+          uri: editProductData.FeaturedImageURL,
+          name: "featured.jpg",
+        });
+      }
+
+      const p = [];
+      const fields = [
+        "FirstImageURL",
+        "SecondImageURL",
+        "ThirdImageURL",
+        "FourthImageURL",
+        "FifthImageURL",
+      ];
+
+      fields.forEach((field, idx) => {
+        const url = editProductData[field];
+        if (url) {
+          p.push({
+            id: `${PRODUCT_IMAGE_INITIAL_ID_PREFIX}${idx + 1}`,
+            uri: url,
+            name: `product_${idx + 1}.jpg`,
+          });
+        }
+      });
+
+      setFeaturedImage(f);
+      setProductImages(p);
+      setOriginalFeaturedImageId(f.length > 0 ? String(f[0].id) : null);
+      setOriginalProductImageIds(p.map((img) => String(img.id)));
+    }
+  }, [isEditMode, editProductData]);
+
+  const isServerImage = (image: any) => {
+    return image?.id && String(image.id).startsWith(PRODUCT_IMAGE_INITIAL_ID_PREFIX);
+  };
+
+  const getProductImageSlot = (image: any) => {
+    if (!isServerImage(image)) return null;
+    const match = String(image.id).match(/product-initial-index-(\d+)$/);
+    return match ? Number(match[1]) : null;
+  };
+
+  const deleteProductImage = async (productId: number, type: number) => {
+    try {
+      const response = await fetch(
+        `${appConfig.mobileApi}Product/DeleteProductImage?productId=${productId}&type=${type}`,
+        { method: "POST" },
+      );
+      console.log(`Deleted product image type ${type} status`, response.status);
+    } catch (error) {
+      console.log(`Delete product image type ${type} failed`, error);
+    }
+  };
+
+  const getRemovedServerImageSlots = (prevImages: any[], nextImages: any[]) => {
+    return prevImages
+      .filter(
+        (prev) =>
+          isServerImage(prev) &&
+          !nextImages.some((next) => String(next.id) === String(prev.id)),
+      )
+      .map((removed) => getProductImageSlot(removed))
+      .filter((slot) => slot !== null) as number[];
+  };
+
+  const getFileNameFieldBySlot = (slot) => {
+    const mapping: Record<number, string> = {
+      1: "FirstImageFileName",
+      2: "SecondImageFileName",
+      3: "ThirdImageFileName",
+      4: "FourthImageFileName",
+      5: "FifthImageFileName",
+    };
+    return mapping[slot];
+  };
+
+  const computeProductSlotAssignments = (
+    currentImages: any[],
+    editData: any,
+    isEdit: boolean,
+  ) => {
+    const oldImageForSlot = (slot: number) =>
+      currentImages.find(
+        (img) => String(img.id) === `${PRODUCT_IMAGE_INITIAL_ID_PREFIX}${slot}`,
+      );
+
+    const newImages = currentImages.filter(
+      (img) => !img.id || !String(img.id).startsWith(PRODUCT_IMAGE_INITIAL_ID_PREFIX),
+    );
+
+    let newImageIndex = 0;
+    const slots: Array<{
+      slot: number;
+      uri: string;
+      name: string;
+      isNew: boolean;
+      isRemovedOld: boolean;
+    }> = [];
+
+    for (let slot = 1; slot <= 5; slot += 1) {
+      const oldImage = oldImageForSlot(slot);
+      const fileNameField = getFileNameFieldBySlot(slot);
+      const hadImageOnServer = !!(isEdit && editData && editData[fileNameField]);
+
+      if (oldImage) {
+        slots.push({
+          slot,
+          uri: oldImage.uri,
+          name: (editData && editData[fileNameField]) || oldImage.name,
+          isNew: false,
+          isRemovedOld: false,
+        });
+        continue;
+      }
+
+      if (newImages[newImageIndex]) {
+        const img = newImages[newImageIndex];
+        newImageIndex += 1;
+        slots.push({
+          slot,
+          uri: img.uri,
+          name: img.name,
+          isNew: true,
+          isRemovedOld: false,
+        });
+        continue;
+      }
+
+      slots.push({
+        slot,
+        uri: "",
+        name: "",
+        isNew: false,
+        isRemovedOld: hadImageOnServer,
+      });
+    }
+
+    return slots;
+  };
 
   // Animation refs
   const iconFadeAnim = useRef(new Animated.Value(0)).current;
@@ -338,29 +489,33 @@ const AddProductScreen = () => {
     }
   };
 
-  // تابع اصلی آپلود عکس‌ها
-  const uploadImages = async (productId, featuredImages, productImages) => {
+  const uploadImages = async (productId, featuredImages, slotAssignments) => {
     try {
       const results = [];
 
-      // آپلود عکس شاخص (type = 0)
-      if (featuredImages && featuredImages.length > 0) {
+      if (
+        featuredImages &&
+        featuredImages.length > 0 &&
+        !isServerImage(featuredImages[0])
+      ) {
         console.log("Uploading featured image...");
         showToast("در حال آپلود عکس شاخص...", "info");
 
         try {
-          // ابتدا fetch را امتحان کنیم
+          const featured = featuredImages[0];
+          const fileExtension = featured.uri.split('.').pop()?.toLowerCase() || 'jpg';
+          const imageData = {
+            uri: featured.uri,
+            name: featured.name || `featured_${Date.now()}.${fileExtension}`,
+            type: fileExtension === 'png' ? 'image/png' : 'image/jpeg',
+          };
+
           let result;
           try {
-            result = await uploadImageWithRetry(
-              productId,
-              featuredImages[0],
-              0,
-              1,
-            );
+            result = await uploadImageWithRetry(productId, imageData, 0, 1);
           } catch (fetchError) {
             console.log("Fetch failed, trying XHR method...");
-            result = await uploadImageWithXHR(productId, featuredImages[0], 0);
+            result = await uploadImageWithXHR(productId, imageData, 0);
           }
 
           results.push({ type: "featured", success: true, data: result.data });
@@ -376,62 +531,58 @@ const AddProductScreen = () => {
         }
       }
 
-      // آپلود عکس‌های محصول (type = 1 تا 5)
-      if (productImages && productImages.length > 0) {
-        console.log(`Uploading ${productImages.length} product images...`);
+      const newAssignments = slotAssignments.filter((assignment) => assignment.isNew);
 
-        for (let i = 0; i < Math.min(productImages.length, 5); i++) {
-          const imageType = i + 1; // type 1 تا 5
+      if (newAssignments.length > 0) {
+        console.log(`Uploading ${newAssignments.length} new product images...`);
+      }
 
+      for (let index = 0; index < newAssignments.length; index += 1) {
+        const { slot, uri, name } = newAssignments[index];
+
+        try {
+          showToast(
+            `در حال آپلود عکس ${index + 1} از ${newAssignments.length}...`,
+            "info",
+          );
+
+          const fileExtension = uri.split('.').pop()?.toLowerCase() || 'jpg';
+          const imageData = {
+            uri,
+            name: name || `product_${slot}_${Date.now()}.${fileExtension}`,
+            type: fileExtension === 'png' ? 'image/png' : 'image/jpeg',
+          };
+
+          let result;
           try {
-            showToast(
-              `در حال آپلود عکس ${i + 1} از ${productImages.length}...`,
-              "info",
+            result = await uploadImageWithRetry(productId, imageData, slot, 1);
+          } catch (fetchError) {
+            console.log(
+              `Fetch failed for new product image slot ${slot}, trying XHR method...`,
             );
-
-            // ابتدا fetch را امتحان کنیم
-            let result;
-            try {
-              result = await uploadImageWithRetry(
-                productId,
-                productImages[i],
-                imageType,
-                1,
-              );
-            } catch (fetchError) {
-              console.log(
-                `Fetch failed for image ${i + 1}, trying XHR method...`,
-              );
-              result = await uploadImageWithXHR(
-                productId,
-                productImages[i],
-                imageType,
-              );
-            }
-
-            results.push({
-              type: `product_${i + 1}`,
-              success: true,
-              data: result.data,
-            });
-            console.log(`Product image ${i + 1} uploaded successfully`);
-
-            // کمی صبر بین آپلودها
-            if (i < productImages.length - 1) {
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-            }
-          } catch (error) {
-            console.error(`Product image ${i + 1} upload failed:`, error);
-            results.push({
-              type: `product_${i + 1}`,
-              success: false,
-              error: error.message,
-            });
+            result = await uploadImageWithXHR(productId, imageData, slot);
           }
+
+          results.push({
+            type: `product_${slot}`,
+            success: true,
+            data: result.data,
+          });
+          console.log(`Product image slot ${slot} uploaded successfully`);
+
+          if (index < newAssignments.length - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+        } catch (error) {
+          console.error(`Product image slot ${slot} upload failed:`, error);
+          results.push({
+            type: `product_${slot}`,
+            success: false,
+            error: error.message,
+          });
         }
       }
 
-      // بررسی نتایج نهایی
       const successfulUploads = results.filter((r) => r.success).length;
       const totalUploads = results.length;
 
@@ -554,11 +705,22 @@ const AddProductScreen = () => {
           "success",
         );
 
-        // آپلود عکس‌ها اگر موجود است
-        if (
-          (featuredImage && featuredImage.length > 0) ||
-          (productImages && productImages.length > 0)
-        ) {
+        // آپلود عکس‌ها فقط وقتی عکس جدید وجود دارد
+        const featuredImageNeedsUpload =
+          featuredImage &&
+          featuredImage.length > 0 &&
+          !isServerImage(featuredImage[0]);
+
+        const slotAssignments = computeProductSlotAssignments(
+          productImages,
+          editProductData,
+          isEditMode,
+        );
+        const productImagesNeedUpload = slotAssignments.some(
+          (assignment) => assignment.isNew,
+        );
+
+        if (featuredImageNeedsUpload || productImagesNeedUpload) {
           console.log("Starting image upload process...");
           setUploadingImages(true);
           showToast("شروع آپلود عکس‌ها...", "info");
@@ -566,7 +728,7 @@ const AddProductScreen = () => {
           await new Promise((resolve) => setTimeout(resolve, 1000));
 
           try {
-            await uploadImages(productId, featuredImage, productImages);
+            await uploadImages(productId, featuredImage, slotAssignments);
           } catch (uploadError) {
             console.error("Error uploading images:", uploadError);
             showToast(
@@ -775,30 +937,38 @@ const AddProductScreen = () => {
                           style={{ height: 100, textAlignVertical: "top" }}
                         />
 
-                       <AppTextInput
-                      label="قیمت (تومان)"
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      icon="attach-money"
-                      keyboardType="numeric"
-                      placeholder="قیمت (تومان)"
-                      
-                      onChangeText={(text) => {
-                        const cleanNumberString = text.replace(/[^0-9]/g, "");
-                          setFieldValue("price", cleanNumberString ? Number(cleanNumberString) : "");
-                      }}
-
-                      value={values.price
-                        ? values.price
-                            .toString()
-                            .replace(/[^0-9]/g, "") 
-                            .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                        : ""}
-                      error={errors.price}
-                      style={{
-                        borderColor: errors.price ? "#e74c3c" : undefined,
-                      }}
-                    />
+                        <AppTextInput
+                          label="قیمت (تومان)"
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          icon="attach-money"
+                          keyboardType="numeric"
+                          placeholder="قیمت (تومان)"
+                          onChangeText={(text) => {
+                            const cleanNumberString = text.replace(
+                              /[^0-9]/g,
+                              "",
+                            );
+                            setFieldValue(
+                              "price",
+                              cleanNumberString
+                                ? Number(cleanNumberString)
+                                : "",
+                            );
+                          }}
+                          value={
+                            values.price
+                              ? values.price
+                                  .toString()
+                                  .replace(/[^0-9]/g, "")
+                                  .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                              : ""
+                          }
+                          error={errors.price}
+                          style={{
+                            borderColor: errors.price ? "#e74c3c" : undefined,
+                          }}
+                        />
 
                         <AppTextInput
                           label="قیمت ویژه (تومان)"
@@ -807,16 +977,26 @@ const AddProductScreen = () => {
                           icon="local-offer"
                           keyboardType="numeric"
                           placeholder="قیمت ویژه (تومان)"
-                           onChangeText={(text) => {
-                              const cleanNumberString = text.replace(/[^0-9]/g, "");
-                                setFieldValue("specialPrice", cleanNumberString ? Number(cleanNumberString) : "");
-                            }}
-                          value={values.specialPrice
-                                ? values.specialPrice
-                                    .toString()
-                                    .replace(/[^0-9]/g, "") 
-                                    .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                                : ""}
+                          onChangeText={(text) => {
+                            const cleanNumberString = text.replace(
+                              /[^0-9]/g,
+                              "",
+                            );
+                            setFieldValue(
+                              "specialPrice",
+                              cleanNumberString
+                                ? Number(cleanNumberString)
+                                : "",
+                            );
+                          }}
+                          value={
+                            values.specialPrice
+                              ? values.specialPrice
+                                  .toString()
+                                  .replace(/[^0-9]/g, "")
+                                  .replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                              : ""
+                          }
                           error={errors.specialPrice}
                           style={{
                             borderColor: errors.specialPrice
@@ -914,8 +1094,6 @@ const AddProductScreen = () => {
                       <View style={styles.imageUploadSection}>
                         <ImageUpload
                           onImageChange={(images) => {
-                            console.log("Featured images changed:", images);
-
                             let imageArray = [];
 
                             if (images) {
@@ -928,14 +1106,31 @@ const AddProductScreen = () => {
                               }
                             }
 
-                            console.log(
-                              "Featured images final array:",
-                              imageArray,
-                            );
+                            if (
+                              isEditMode &&
+                              editProductData?.ProductId &&
+                              originalFeaturedImageId
+                            ) {
+                              const stillExists = imageArray.some(
+                                (img) => String(img.id) === originalFeaturedImageId,
+                              );
+
+                              if (!stillExists) {
+                                deleteProductImage(
+                                  editProductData.ProductId,
+                                  0,
+                                );
+                              }
+                            }
 
                             setFeaturedImage(imageArray);
                             setFieldValue("featuredImage", imageArray);
                           }}
+                          initialImage={
+                            featuredImage && featuredImage.length > 0
+                              ? featuredImage[0]
+                              : null
+                          }
                           isMultiple={false}
                           maxImages={1}
                           imageQuality={0.8}
@@ -952,28 +1147,41 @@ const AddProductScreen = () => {
                       <View style={styles.imageUploadSection}>
                         <ImageUpload
                           onImageChange={(images) => {
-                            console.log("Product images changed:", images);
-
                             let imageArray = [];
 
-                            if (images) {
-                              if (Array.isArray(images)) {
-                                imageArray = images.filter(
-                                  (img) => img && img.uri,
-                                );
-                              } else if (images.uri) {
-                                imageArray = [images];
-                              }
+                            if (images && Array.isArray(images)) {
+                              imageArray = images.filter(
+                                (img) => img && img.uri,
+                              );
+                            } else if (images && (images as any).uri) {
+                              imageArray = [images];
                             }
 
-                            console.log(
-                              "Product images final array:",
-                              imageArray,
-                            );
+                            if (
+                              isEditMode &&
+                              editProductData?.ProductId &&
+                              productImages.length > 0
+                            ) {
+                              const removedSlots = getRemovedServerImageSlots(
+                                productImages,
+                                imageArray,
+                              );
+
+                              removedSlots.forEach((type) => {
+                                if (type !== null) {
+                                  deleteProductImage(editProductData.ProductId, type);
+                                }
+                              });
+                            }
 
                             setProductImages(imageArray);
                             setFieldValue("productImages", imageArray);
                           }}
+                          initialImages={
+                            productImages && productImages.length > 0
+                              ? productImages
+                              : []
+                          }
                           isMultiple={true}
                           maxImages={5}
                           imageQuality={0.8}

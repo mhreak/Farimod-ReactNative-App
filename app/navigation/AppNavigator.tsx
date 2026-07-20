@@ -64,6 +64,7 @@ function HomeStackNavigator() {
       <HomeStack.Screen name="AllProducts" component={AllProductsScreen} />
       <HomeStack.Screen name="AllCourses" component={AllCoursesScreen} />
       <HomeStack.Screen name="AllMemberGroups" component={AllMemberGroupsScreen} />
+      <AppStack.Screen name="PortfolioDetail" component={PortfolioDetailScreen} options={{ gestureEnabled: false }} />
 
       <HomeStack.Screen name="ProductDetails" component={ProductDetailsScreen} />
       <HomeStack.Screen name="CourseDetails" component={CourseDetailsScreen} />

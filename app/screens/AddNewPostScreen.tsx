@@ -30,10 +30,21 @@ const AddNewPostScreen = () => {
   const [categories, setCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [postImages, setPostImages] = useState([]);
+  useEffect(()=>{
+    if(editPostData){
+      setPostImages([
+        {
+          uri: editPostData.FeaturedImageURL,
+          thumbnail: editPostData.FeaturedImageThumbnailURL,
+          fileName: editPostData.FeaturedImageFileName,
+        } as any
+      ]);
+    }
+  
+  },[editPostData])
 
-  // Animation refs
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(50)).current;
+
+
   const iconFadeAnim = useRef(new Animated.Value(0)).current;
   const iconSlideAnim = useRef(new Animated.Value(-30)).current;
   const formFadeAnim = useRef(new Animated.Value(0)).current;
@@ -156,7 +167,17 @@ const AddNewPostScreen = () => {
 
       const imagesToUpload = values.images && values.images.length > 0 ? values.images : postImages;
 
-      if (imagesToUpload && imagesToUpload.length > 0 && imagesToUpload[0]) {
+      console.log('🖼️ Images to upload:', imagesToUpload);
+
+      const hasNewImage = Boolean(
+        imagesToUpload[0]?.uri &&
+        typeof imagesToUpload[0].uri === 'string' && !imagesToUpload[0].uri.startsWith('http')
+      );
+
+            console.log('🖼️ Has New Image:', hasNewImage);
+
+
+      if (hasNewImage) {
         const image = imagesToUpload[0];
         if (image.uri) {
           let imageUri = image.uri;
@@ -194,6 +215,13 @@ const AddNewPostScreen = () => {
       } else {
         formData.append('FeaturedImageFileName', '');
         formData.append('FeaturedImageURL', '');
+        if(imagesToUpload &&imagesToUpload[0]?.uri ){
+         formData.append('DeleteFeaturedImage', false);
+
+        }else{
+          formData.append('DeleteFeaturedImage', true);
+        }
+        
       }
 
       const url = isEditMode ? `${appConfig.mobileApi}BlogPost/Edit` : `${appConfig.mobileApi}BlogPost/Add`;
@@ -412,16 +440,8 @@ const AddNewPostScreen = () => {
                         style={styles.imageUploadContainer}
                         // مقدار initialImage را به شکل زیر اصلاح کنید تا پیش‌نمایش به درستی کار کند:
                         initialImage={
-                          postImages.length > 0
-                            ? postImages[0]
-                            : isEditMode && editPostData?.FeaturedImageURL
-                              ? {
-                                id: 'existing',
-                                uri: editPostData.FeaturedImageURL,
-                                name: editPostData.FeaturedImageFileName || 'existing-image.jpg',
-                                type: 'image/jpeg'
-                              }
-                              : null
+                          postImages && postImages[0]
+                           
                         }
                         onShowToast={showToast}
                       />

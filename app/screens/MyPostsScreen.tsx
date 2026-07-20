@@ -21,9 +21,9 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import Toast from "../components/Toast";
 import appConfig from "../config/config";
 import { toPersianDigits } from "../utils/converters";
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from "../contexts/AuthContext";
 import useToast from "../hooks/useToast";
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 const modernColors = {
   ...colors,
@@ -64,7 +64,7 @@ const useUserPostsWithPagination = () => {
       setError(null);
 
       const response = await fetch(
-        `${appConfig.mobileApi}BlogPost/GetAll?filterMemberId=${user?.MemberId}&currentPage=${newPage}&pageSize=${pageSize}`
+        `${appConfig.mobileApi}BlogPost/GetAll?filterMemberId=${user?.MemberId}&currentPage=${newPage}&pageSize=${pageSize}`,
       );
 
       if (!response.ok) {
@@ -76,13 +76,16 @@ const useUserPostsWithPagination = () => {
       if (newPage === 1) {
         setData(result.Data || []);
       } else {
-        setData(prevData => [...prevData, ...(result.Data || [])]);
+        setData((prevData) => [...prevData, ...(result.Data || [])]);
       }
 
       setTotal(result.Total || 0);
       setPage(newPage);
 
-      setHasMore((result.Data || []).length === pageSize && (result.Data || []).length > 0);
+      setHasMore(
+        (result.Data || []).length === pageSize &&
+          (result.Data || []).length > 0,
+      );
     } catch (err) {
       setError(err.message);
       if (newPage === 1) {
@@ -112,7 +115,12 @@ const useUserPostsWithPagination = () => {
   };
 };
 
-const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }:any) => {
+const SkeletonLoader = ({
+  width,
+  height,
+  borderRadius = 8,
+  style = {},
+}: any) => {
   const animatedValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -136,7 +144,7 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }:any) => 
 
   const backgroundColor = animatedValue.interpolate({
     inputRange: [0, 1],
-    outputRange: ['#e0e0e0', '#f0f0f0'],
+    outputRange: ["#e0e0e0", "#f0f0f0"],
   });
 
   return (
@@ -160,19 +168,34 @@ const BlogPostCardSkeleton = () => {
       <View style={styles.blogImageSkeleton}>
         <SkeletonLoader width="100%" height="100%" borderRadius={12} />
       </View>
-
       <View style={styles.blogDetailsSkeleton}>
-        <SkeletonLoader width="90%" height={18} style={{ marginBottom: 12, alignSelf: 'flex-end' }} />
-        <SkeletonLoader width="70%" height={16} style={{ marginBottom: 8, alignSelf: 'flex-end' }} />
-
+        <SkeletonLoader
+          width="90%"
+          height={18}
+          style={{ marginBottom: 12, alignSelf: "flex-end" }}
+        />
+        <SkeletonLoader
+          width="70%"
+          height={16}
+          style={{ marginBottom: 8, alignSelf: "flex-end" }}
+        />
         <View style={styles.blogMetaSkeleton}>
-          <View style={{ flexDirection: 'row-reverse', alignItems: 'center' }}>
-            <SkeletonLoader width={16} height={16} borderRadius={8} style={{ marginLeft: 6 }} />
+          <View style={{ flexDirection: "row-reverse", alignItems: "center" }}>
+            <SkeletonLoader
+              width={16}
+              height={16}
+              borderRadius={8}
+              style={{ marginLeft: 6 }}
+            />
             <SkeletonLoader width={80} height={14} />
           </View>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <SkeletonLoader width={16} height={16} borderRadius={8} style={{ marginRight: 6 }} />
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <SkeletonLoader
+              width={16}
+              height={16}
+              borderRadius={8}
+              style={{ marginRight: 6 }}
+            />
             <SkeletonLoader width={30} height={14} />
           </View>
         </View>
@@ -185,9 +208,10 @@ const BlogImageComponent = ({ item }) => {
   const [imageError, setImageError] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
 
-  const hasValidImage = item.FeaturedImageFileName &&
+  const hasValidImage =
+    item.FeaturedImageFileName &&
     item.FeaturedImageURL &&
-    !item.FeaturedImageURL.endsWith('/');
+    !item.FeaturedImageURL.endsWith("/");
 
   const handleImageError = () => {
     setImageError(true);
@@ -202,16 +226,16 @@ const BlogImageComponent = ({ item }) => {
   if (!hasValidImage || imageError) {
     return (
       <View style={styles.blogImagePlaceholder}>
-<Image
+        <Image
           style={styles.postImage}
           source={require("../../assets/blogPost_icon.jpg")}
-        />      </View>
+        />
+      </View>
     );
   }
 
   return (
     <View style={styles.blogImageContainer}>
-    
       <Image
         source={{ uri: item.FeaturedImageURL }}
         style={styles.blogImage}
@@ -237,17 +261,18 @@ const MyPostsScreen = () => {
     error: postsError,
     fetchUserPosts,
     loadMore,
-    hasMore
+    hasMore,
   } = useUserPostsWithPagination();
 
-  const {showToast,toastMessage,toastVisible,toastType,setToastVisible}=useToast()
+  const { showToast, toastMessage, toastVisible, toastType, setToastVisible } =
+    useToast();
 
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       fetchUserPosts(1, ITEMS_PER_PAGE);
-    }, [])
+    }, []),
   );
 
   useEffect(() => {
@@ -270,25 +295,24 @@ const MyPostsScreen = () => {
           toValue: 1,
           duration: 8000,
           useNativeDriver: true,
-        })
+        }),
       ).start(),
     ]);
   }, []);
 
-
-
-
-
   useEffect(() => {
     if (postsError) {
-      showToast('خطا در دریافت اطلاعات پست‌ها. لطفاً دوباره تلاش کنید.', 'error');
+      showToast(
+        "خطا در دریافت اطلاعات پست‌ها. لطفاً دوباره تلاش کنید.",
+        "error",
+      );
     }
   }, [postsError]);
 
   const handlePostPress = (postData) => {
-  (navigation as any).navigate("MagDetailes", {
+    (navigation as any).navigate("MagDetailes", {
       title: postData.Title,
-      blogId: postData.BlogPostId
+      blogId: postData.BlogPostId,
     });
   };
 
@@ -309,11 +333,13 @@ const MyPostsScreen = () => {
   };
 
   const createSkeletonData = () => {
-    return Array.from({ length: ITEMS_PER_PAGE }, (_, index) => ({ id: `skeleton-${index}` }));
+    return Array.from({ length: ITEMS_PER_PAGE }, (_, index) => ({
+      id: `skeleton-${index}`,
+    }));
   };
 
   const renderPostItem = ({ item, index }) => {
-    if (item.id && item.id.startsWith('skeleton')) {
+    if (item.id && item.id.startsWith("skeleton")) {
       return (
         <View style={styles.blogItemContainer}>
           <BlogPostCardSkeleton />
@@ -330,10 +356,18 @@ const MyPostsScreen = () => {
         >
           <View style={styles.blogImageContainer}>
             <BlogImageComponent item={item} />
-
-            <View style={[styles.statusBadge, { backgroundColor: item.Active ? modernColors.success : modernColors.warning }]}>
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: item.Active
+                    ? modernColors.success
+                    : modernColors.warning,
+                },
+              ]}
+            >
               <AppText style={styles.statusText}>
-                {item.Active ? 'منتشر شده' : 'پیش نویس'}
+                {item.Active ? "منتشر شده" : "پیش نویس"}
               </AppText>
             </View>
           </View>
@@ -346,16 +380,18 @@ const MyPostsScreen = () => {
             <View style={styles.blogMeta}>
               <View style={styles.dateContainer}>
                 <MaterialIcons name="calendar-month" size={16} color="#666" />
-                <AppText style={styles.dateText}>{toPersianDigits(item.ShamsiInsertDate)}</AppText>
+                <AppText style={styles.dateText}>
+                  {toPersianDigits(item.ShamsiInsertDate)}
+                </AppText>
               </View>
 
               <View style={styles.likeContainer}>
                 <MaterialIcons name="favorite" size={16} color="#ff6b6b" />
-                <AppText style={styles.likeText}>{toPersianDigits(item.LikeCount || 0)}</AppText>
+                <AppText style={styles.likeText}>
+                  {toPersianDigits(item.LikeCount || 0)}
+                </AppText>
               </View>
             </View>
-
-         
           </View>
         </TouchableOpacity>
       </View>
@@ -363,7 +399,6 @@ const MyPostsScreen = () => {
   };
 
   const renderFooter = () => {
-
     if (!postsLoading) return null;
 
     return (
@@ -414,7 +449,11 @@ const MyPostsScreen = () => {
 
   return (
     <>
-      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent
+      />
       <View style={styles.container}>
         <MainBackground />
 
@@ -427,23 +466,21 @@ const MyPostsScreen = () => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => (navigation as any).navigate("App", { screen: "MainTabs", params: { screen: "پروفایل" } })}
+          onPress={() =>
+            (navigation as any).navigate("App", {
+              screen: "MainTabs",
+              params: { screen: "پروفایل" },
+            })
+          }
         >
           <View style={styles.backButtonContainer}>
-            <MaterialIcons
-              name="arrow-forward"
-              size={24}
-              color="#6366f1"
-            />
+            <MaterialIcons name="arrow-forward" size={24} color="#6366f1" />
           </View>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleAddPost}
-        >
+        <TouchableOpacity style={styles.addButton} onPress={handleAddPost}>
           <LinearGradient
-            colors={[modernColors.success, '#27ae60']}
+            colors={[modernColors.success, "#27ae60"]}
             style={styles.addButtonGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
@@ -452,59 +489,28 @@ const MyPostsScreen = () => {
           </LinearGradient>
         </TouchableOpacity>
 
-        <View
-          style={[
-            styles.headerContainer,
-        
-          ]}
-        >
+        <View style={[styles.headerContainer]}>
           <View style={styles.titleWrapper}>
             <AppText style={styles.headerTitle}>وبلاگ من</AppText>
           </View>
         </View>
-{/* 
-        <Animated.View
-          style={[
-            styles.sectionTitleContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <View style={styles.sparkleContainer}>
-            <MaterialIcons
-              name="star-half"
-              size={16}
-              color="#FFD700"
-              style={styles.sparkle1}
-            />
-            <MaterialIcons
-              name="star-half"
-              size={12}
-              color="#FF6B6B"
-              style={styles.sparkle2}
-            />
-          </View>
-        </Animated.View> */}
 
-
- 
-
-        <View
-          style={[
-            styles.contentContainer,
-          ]}
-        >
+        <View style={[styles.contentContainer]}>
           {postsError ? (
             renderErrorComponent()
           ) : (
             <>
               <FlatList
-                data={postsLoading && userPosts.length === 0 ? createSkeletonData() : userPosts}
+                data={
+                  postsLoading && userPosts.length === 0
+                    ? createSkeletonData()
+                    : userPosts
+                }
                 renderItem={renderPostItem}
                 keyExtractor={(item, index) =>
-                  item.BlogPostId ? item.BlogPostId.toString() : `skeleton-${index}`
+                  item.BlogPostId
+                    ? item.BlogPostId.toString()
+                    : `skeleton-${index}`
                 }
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.listContainer}
@@ -524,7 +530,6 @@ const MyPostsScreen = () => {
             </>
           )}
         </View>
-
       </View>
     </>
   );
@@ -533,7 +538,7 @@ const MyPostsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: "#f8fafc",
   },
   headerContainer: {
     alignItems: "center",
@@ -541,7 +546,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   backButton: {
-    position: 'absolute',
+    position: "absolute",
     top: StatusBar.currentHeight + 45,
     right: 20,
     zIndex: 1000,
@@ -550,10 +555,10 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -561,10 +566,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 5,
-    marginTop: -12
+    marginTop: -12,
   },
   addButton: {
-    position: 'absolute',
+    position: "absolute",
     top: StatusBar.currentHeight + 45,
     left: 20,
     zIndex: 1000,
@@ -573,8 +578,8 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     shadowColor: modernColors.success,
     shadowOffset: {
       width: 0,
@@ -583,7 +588,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 8,
-    marginTop: -12
+    marginTop: -12,
   },
   titleWrapper: {
     flexDirection: "row",
@@ -599,9 +604,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   sectionTitleContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 30,
     marginTop: 10,
     position: "relative",
@@ -624,25 +629,25 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingBottom: 20,
   },
   listContainer: {
     paddingBottom: 20,
     paddingTop: 10,
-    alignItems: 'center',
-    width: '100%',
+    alignItems: "center",
+    width: "100%",
   },
   blogItemContainer: {
     width: width - 40,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginBottom: 20,
   },
   blogCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -653,22 +658,22 @@ const styles = StyleSheet.create({
   },
   blogImageContainer: {
     height: 200,
-    width: '100%',
-    position: 'relative',
+    width: "100%",
+    position: "relative",
   },
   blogImage: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   blogImagePlaceholder: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
     height: 200,
   },
   statusBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: 12,
     right: 12,
     paddingHorizontal: 8,
@@ -678,7 +683,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     fontFamily: "Yekan_Bakh_Bold",
-    color: '#ffffff',
+    color: "#ffffff",
   },
   blogContent: {
     padding: 16,
@@ -692,34 +697,34 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   blogMeta: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 8,
   },
   dateContainer: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
+    flexDirection: "row-reverse",
+    alignItems: "center",
   },
   dateText: {
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Regular",
-    color: '#666',
+    color: "#666",
     marginRight: 6,
   },
   likeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   likeText: {
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Regular",
-    color: '#666',
+    color: "#666",
     marginLeft: 6,
   },
   commentStatus: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
+    flexDirection: "row-reverse",
+    alignItems: "center",
     marginTop: 8,
   },
   commentStatusText: {
@@ -729,30 +734,30 @@ const styles = StyleSheet.create({
   },
   loadingFooter: {
     padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
   },
   loadingMoreText: {
     marginLeft: 10,
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Regular",
-    color: '#666',
+    color: "#666",
   },
   endListMessage: {
     padding: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   endListText: {
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Regular",
-    color: '#999',
+    color: "#999",
   },
   blogSkeletonContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 1,
@@ -763,42 +768,42 @@ const styles = StyleSheet.create({
   },
   blogImageSkeleton: {
     height: 200,
-    width: '100%',
+    width: "100%",
   },
   blogDetailsSkeleton: {
     padding: 16,
   },
   blogMetaSkeleton: {
-    flexDirection: 'row-reverse',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row-reverse",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: 12,
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 40,
     paddingVertical: 60,
   },
   emptyTitle: {
     fontSize: 20,
     fontFamily: "Yekan_Bakh_Bold",
-    color: '#2c3e50',
+    color: "#2c3e50",
     marginTop: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
   emptySubtitle: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
-    color: '#9e9e9e',
+    color: "#9e9e9e",
     marginTop: 12,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 24,
   },
   createPostButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
+    flexDirection: "row-reverse",
+    alignItems: "center",
     backgroundColor: modernColors.success,
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -818,29 +823,29 @@ const styles = StyleSheet.create({
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 40,
     paddingVertical: 60,
   },
   errorTitle: {
     fontSize: 20,
     fontFamily: "Yekan_Bakh_Bold",
-    color: '#2c3e50',
+    color: "#2c3e50",
     marginTop: 20,
-    textAlign: 'center',
+    textAlign: "center",
   },
   errorSubtitle: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
-    color: '#9e9e9e',
+    color: "#9e9e9e",
     marginTop: 12,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 24,
   },
   retryButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
+    flexDirection: "row-reverse",
+    alignItems: "center",
     backgroundColor: modernColors.primary,
     paddingHorizontal: 20,
     paddingVertical: 12,
@@ -859,13 +864,13 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   floatingDecoration1: {
-    position: 'absolute',
+    position: "absolute",
     top: 200,
     right: 30,
     zIndex: -1,
   },
   floatingDecoration2: {
-    position: 'absolute',
+    position: "absolute",
     top: 400,
     left: 30,
     zIndex: -1,

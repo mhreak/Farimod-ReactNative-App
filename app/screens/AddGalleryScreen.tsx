@@ -94,20 +94,13 @@ const AddGalleryScreen = () => {
       }
 
       if (Object.keys(validationErrors).length > 0) {
-        console.log('Validation errors:', validationErrors);
         showValidationErrors(validationErrors);
         setErrors(validationErrors);
         setIsSubmitting(false);
         return;
       }
 
-      console.log('🚀 Starting gallery submission...');
-      console.log('📸 Images to upload:', imagesToUpload);
-
-      // ═══════════════════════════════════════════════════════════
-      // مرحله 1: ایجاد گالری اصلی
-      // ═══════════════════════════════════════════════════════════
-      console.log('📋 STEP 1: Creating main gallery...');
+   
 
       const galleryData = {
         ImageGalleryId: 0,
@@ -125,7 +118,6 @@ const AddGalleryScreen = () => {
         ImageGalleryItemList: []
       };
 
-      console.log('📤 Sending gallery data:', galleryData);
 
       const galleryResponse = await fetch(
         `${appConfig.mobileApi}ImageGallery/Add`,
@@ -139,33 +131,27 @@ const AddGalleryScreen = () => {
         }
       );
 
-      console.log('📥 Gallery response status:', galleryResponse.status);
 
       if (!galleryResponse.ok) {
         const errorText = await galleryResponse.text();
-        console.error('❌ Gallery creation error:', errorText);
         throw new Error('خطا در ایجاد گالری');
       }
 
       const responseText = await galleryResponse.text();
-      console.log('📥 Raw response text:', responseText);
 
       let galleryResult;
       try {
         galleryResult = JSON.parse(responseText);
-        console.log('✅ Parsed gallery result:', JSON.stringify(galleryResult, null, 2));
       } catch (parseError) {
         console.error('❌ JSON parse error:', parseError);
         throw new Error('خطا در دریافت پاسخ سرور');
       }
 
-      // استخراج Gallery ID
+
       let imageGalleryId;
 
-      // اول سعی کن ID رو مستقیماً از response بگیری
       if (typeof galleryResult === 'number') {
         imageGalleryId = galleryResult;
-        console.log('✅ Gallery ID received directly as number:', imageGalleryId);
       } else {
         imageGalleryId = galleryResult.ImageGalleryId ||
           galleryResult.imageGalleryId ||
@@ -177,13 +163,11 @@ const AddGalleryScreen = () => {
           galleryResult.Id;
 
         if (imageGalleryId && imageGalleryId !== 0) {
-          console.log('✅ Gallery ID extracted from response:', imageGalleryId);
         }
       }
 
       // اگر ID پیدا نشد و فقط پیام موفقیت داریم، از لیست بگیر
       if ((!imageGalleryId || imageGalleryId === 0) && galleryResult.Message && galleryResult.Message.includes('موفقیت')) {
-        console.log('⚠️ No ID in response, fetching gallery list...');
 
         try {
           const galleryListResponse = await fetch(
@@ -199,7 +183,6 @@ const AddGalleryScreen = () => {
           if (galleryListResponse.ok) {
             const galleryListText = await galleryListResponse.text();
             const galleryList = JSON.parse(galleryListText);
-            console.log('📥 Gallery list received:', galleryList);
 
             let newGallery = null;
 
@@ -239,7 +222,6 @@ const AddGalleryScreen = () => {
 
             if (newGallery) {
               imageGalleryId = newGallery.ImageGalleryId || newGallery.imageGalleryId;
-              console.log('✅ Found gallery ID from list:', imageGalleryId);
             } else {
               throw new Error('گالری در لیست پیدا نشد');
             }
@@ -259,21 +241,14 @@ const AddGalleryScreen = () => {
         throw new Error('شناسه گالری دریافت نشد');
       }
 
-      console.log('🎯 Final gallery ID:', imageGalleryId);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-      // ═══════════════════════════════════════════════════════════
-      // مرحله 2: ثبت آیتم‌ها و آپلود تصاویر
-      // ═══════════════════════════════════════════════════════════
-      console.log('📸 STEP 2: Adding gallery items...');
-      console.log(`📊 Total images: ${imagesToUpload.length}`);
 
+    
       let successCount = 0;
       let failedCount = 0;
 
       for (let i = 0; i < imagesToUpload.length; i++) {
         const image = imagesToUpload[i];
-        console.log(`\n📸 [${i + 1}/${imagesToUpload.length}] Processing image...`);
 
         try {
           // ساخت FormData
@@ -319,9 +294,6 @@ const AddGalleryScreen = () => {
 
           itemFormData.append('imageFile', imageFile);
 
-          console.log(`  ↳ Uploading with axios...`);
-          console.log(`  ↳ File:`, { name: fileName, type: fileType, uri: imageUri.substring(0, 50) + '...' });
-
           // ارسال با axios
           const response = await axios.post(
             `${appConfig.mobileApi}ImageGalleryItem/Add`,
@@ -334,12 +306,10 @@ const AddGalleryScreen = () => {
               timeout: 60000,
               onUploadProgress: (progressEvent) => {
                 const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-                console.log(`    📤 Upload progress: ${percent}%`);
               },
             }
           );
 
-          console.log(`  ✅ Success! Response:`, response.data);
           successCount++;
 
         } catch (error) {
@@ -349,8 +319,7 @@ const AddGalleryScreen = () => {
         }
       }
 
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log(`📊 Summary: ${successCount} succeeded, ${failedCount} failed`);
+
 
       setIsSubmitting(false);
 
@@ -504,7 +473,6 @@ const AddGalleryScreen = () => {
 
                       <ImageUpload
                         onImageChange={(images) => {
-                          console.log('📸 ImageUpload callback:', images);
 
                           let imageArray = [];
 
@@ -520,6 +488,7 @@ const AddGalleryScreen = () => {
                           setFieldValue("images", imageArray);
                         }}
                         isMultiple={true}
+                        initialImages={galleryImages}
                         multiple={true}
                         imageQuality={0.8}
                         allowCamera={true}

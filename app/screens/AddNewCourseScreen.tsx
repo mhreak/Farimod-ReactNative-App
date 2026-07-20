@@ -512,8 +512,10 @@ const [inputHeight, setInputHeight] = useState(120);
 
       const hasNewImage = Boolean(
         featuredImage?.uri &&
-        typeof featuredImage.uri === 'string'
+        typeof featuredImage.uri === 'string' && !featuredImage.uri.startsWith('http')
       );
+
+    
    
       
       
@@ -604,6 +606,15 @@ const [inputHeight, setInputHeight] = useState(120);
         formData.append('featuredImageFile', fileToUpload);
 
  
+      }else{
+          if(featuredImage){
+            console.log("image not changed")
+                  formData.append('DeleteFeaturedImage', false);
+
+        }else{
+                  formData.append('DeleteFeaturedImage', true);
+
+        }
       }
 
 

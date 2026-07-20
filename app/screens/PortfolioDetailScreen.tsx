@@ -234,31 +234,29 @@ const PortfolioImage = ({ source, style, resizeMode = "contain", onError, onLoad
 };
 
 const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
-  const animatedValue = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    const startAnimation = () => {
+    const animation = Animated.loop(
       Animated.sequence([
-        Animated.timing(animatedValue, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: false,
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
         }),
-        Animated.timing(animatedValue, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: false,
+        Animated.timing(opacity, {
+          toValue: 1, 
+          duration: 800,
+          useNativeDriver: true
         }),
-      ]).start(() => startAnimation());
-    };
+      ])
+    );
 
-    startAnimation();
-  }, [animatedValue]);
+    animation.start();
 
-  const backgroundColor = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#e0e0e0', '#f0f0f0'],
-  });
+
+    return () => animation.stop();
+  }, [opacity]);
 
   return (
     <Animated.View
@@ -266,8 +264,9 @@ const SkeletonLoader = ({ width, height, borderRadius = 8, style = {} }) => {
         {
           width,
           height,
-          backgroundColor,
           borderRadius,
+          opacity, 
+          backgroundColor: '#e0e0e0',
         },
         style,
       ]}
@@ -466,7 +465,7 @@ const PortfolioDetailScreen = ({ route }) => {
   const isOwnPortfolio =  portfolio && portfolio.MemberId === user?.MemberId;
 
   const handleEditPortfolio = () => {
-    navigation.navigate("AddNewPortfolio", {
+    (navigation as any).navigate("AddPortfolio", {
       isEdit: true,
       portfolioData: portfolio
     });
@@ -642,35 +641,79 @@ const PortfolioDetailScreen = ({ route }) => {
     }
   };
 
-  const confirmDeletePortfolio = async () => {
+
+    const confirmDeleteProduct = async () => {
     handleCloseDeleteModal();
 
     try {
       setIsDeleting(true);
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const response = await fetch(`${appConfig.mobileApi}Product/Delete?productId=${productData.ProductId}`, {
+        method: 'DELETE',
+      });
 
-      showToast('نمونه کار با موفقیت حذف شد', 'success');
-      setTimeout(() => {
-        navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } });
-      }, 2000);
+      if (response.ok) {
+        showToast('محصول با موفقیت حذف شد', 'success');
+          navigation.navigate("App", { screen: "MyProduct" });
+
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.Message || 'خطا در حذف محصول');
+      }
     } catch (error) {
-      showToast(error.message || 'خطا در حذف نمونه کار', 'error');
+      console.error('Error deleting product:', error);
+      showToast(error.message || 'خطا در حذف محصول', 'error');
     } finally {
       setIsDeleting(false);
     }
   };
 
+
+const confirmDeletePortfolio = async () => {
+  handleCloseDeleteModal();
+
+  
+  if (!portfolioId) {
+    showToast('شناسه نمونه کار معتبر نیست', 'error');
+    return;
+  }
+
+  try {
+    setIsDeleting(true);
+
+
+      const response = await fetch(`${appConfig.mobileApi}Portfolio/Delete?portfolioId=${portfolioId}`, {
+        method: 'DELETE',
+      });
+    
+
+
+    if (response.ok) {
+      const result = await response.json();
+      console.log('Delete API successful response:', result);
+      
+      showToast(result.Message || 'نمونه کار با موفقیت حذف شد', 'success');
+      
+      navigation.navigate("App", { screen: "PortfolioList" })
+    } else {
+      const errorResult = await response.json().catch(() => ({}));
+      throw new Error(errorResult.Message || `خطای سرور (${response.status})`);
+    }
+
+  } catch (error) {
+    console.log('Error executing portfolio delete:', error.message);
+    showToast(error.message || 'خطا در حذف نمونه کار', 'error');
+  } finally {
+    setIsDeleting(false);
+  }
+};
+
   const renderRatingSection = () => {
     return (
-      <Animated.View
+      <View
         style={[
           styles.card,
           styles.simpleRatingCard,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
         ]}
       >
         <View style={styles.simpleCardContent}>
@@ -762,7 +805,7 @@ const PortfolioDetailScreen = ({ route }) => {
             )}
           </View>
         </View>
-      </Animated.View>
+      </View>
     );
   };
 
@@ -780,14 +823,11 @@ const PortfolioDetailScreen = ({ route }) => {
     }
 
     return (
-      <Animated.View
+      <View
         style={[
           styles.card,
           styles.contentReviewCard,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
+    
         ]}
       >
         <View style={styles.simpleCardContent}>
@@ -820,7 +860,7 @@ const PortfolioDetailScreen = ({ route }) => {
             ))}
           </View>
         </View>
-      </Animated.View>
+      </View>
     );
   };
 
@@ -893,20 +933,16 @@ const PortfolioDetailScreen = ({ route }) => {
     return (
       <View style={styles.contentWrapper}>
         <View style={styles.contentCards}>
-          <Animated.View
+          <View
             style={[
               styles.card,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
+          
             ]}
           >
             <View style={styles.imageGalleryContainer}>
               {displayImages.length > 0 ? (
                 <>
                   {isDefaultImage ? (
-                    // نمایش تصویر پیش‌فرض (بدون اسکرول)
                     <View style={styles.singleImageContainer}>
                       <View style={styles.imageContainer}>
                         <Image
@@ -917,7 +953,6 @@ const PortfolioDetailScreen = ({ route }) => {
                       </View>
                     </View>
                   ) : (
-                    // نمایش تصاویر معتبر (با قابلیت اسکرول)
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
@@ -927,7 +962,6 @@ const PortfolioDetailScreen = ({ route }) => {
                       scrollEventThrottle={16}
                     >
                       {validImages.map((image, index) => {
-                        // فقط تصاویری که ارور نداشته‌اند را نمایش بده
                         if (errorImages.has(index)) {
                           return null;
                         }
@@ -1039,16 +1073,13 @@ const PortfolioDetailScreen = ({ route }) => {
                 </View>
               )}
             </View>
-          </Animated.View>
+          </View>
 
-          <Animated.View
+          <View
             style={[
               styles.card,
               styles.designerCard,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
+              
             ]}
           >
             <View style={styles.simpleCardContent}>
@@ -1061,16 +1092,13 @@ const PortfolioDetailScreen = ({ route }) => {
                 </AppText>
               </View>
             </View>
-          </Animated.View>
+          </View>
 
-          <Animated.View
+          <View
             style={[
               styles.card,
               styles.mainCard,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
+          
             ]}
           >
             <View style={styles.simpleCardContent}>
@@ -1089,7 +1117,7 @@ const PortfolioDetailScreen = ({ route }) => {
                 </AppText>
               </View>
             </View>
-          </Animated.View>
+          </View>
 
           {renderRatingSection()}
 
@@ -1152,7 +1180,7 @@ const PortfolioDetailScreen = ({ route }) => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+          onPress={() => navigation.goBack()}
         >
           <LinearGradient
             colors={['rgba(255, 255, 255, 0.95)', 'rgba(255, 255, 255, 0.9)']}
@@ -1177,19 +1205,16 @@ const PortfolioDetailScreen = ({ route }) => {
           </TouchableOpacity>
         )}
 
-        <Animated.View
+        <View
           style={[
             styles.headerContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
+
           ]}
         >
           <View style={styles.titleWrapper}>
             <AppText style={styles.headerTitle}>نمونه کار</AppText>
           </View>
-        </Animated.View>
+        </View>
 
         <Animated.ScrollView
           style={styles.scrollView}
@@ -1259,9 +1284,7 @@ const PortfolioDetailScreen = ({ route }) => {
                   style={styles.modalActionItem}
                   onPress={() => {
                     handleCloseModal();
-                    setTimeout(() => {
                       handleEditPortfolio();
-                    }, 300);
                   }}
                 >
                   <View style={styles.modalActionContent}>
