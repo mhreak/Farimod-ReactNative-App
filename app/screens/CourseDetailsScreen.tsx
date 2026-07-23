@@ -193,13 +193,14 @@ const useCourseDetails = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+
   const fetchCourseDetails = async (courseId) => {
     try {
       setLoading(true);
       setError(null);
 
       const response = await fetch(
-        `${appConfig.mobileApi}Course/Get?courseId=${courseId}`
+        `${appConfig.mobileApi}Course/Get?courseId=${courseId}&currentMemberId=${user.MemberId}`
       );
 
       if (!response.ok) {

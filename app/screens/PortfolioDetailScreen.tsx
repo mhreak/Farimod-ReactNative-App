@@ -130,7 +130,7 @@ const usePortfolioDetail = () => {
       setError(null);
 
       const response = await fetch(
-        `${appConfig.mobileApi}Portfolio/Get?portfolioId=${portfolioId}`
+        `${appConfig.mobileApi}Portfolio/Get?portfolioId=${portfolioId}&currentMemberId=${user.MemberId}`
       );
 
       if (!response.ok) {

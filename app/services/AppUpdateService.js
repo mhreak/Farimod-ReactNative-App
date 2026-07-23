@@ -1,7 +1,7 @@
 import apiService from "./ApiService";
 import appInfo from "../config/appInfo";
 
-const APP_VERSION = 1.4;
+const APP_VERSION = 1.46;
 
 class AppUpdateService {
   static getCurrentAppVersion() {

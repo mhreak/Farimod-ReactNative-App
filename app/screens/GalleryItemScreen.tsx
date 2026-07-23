@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import AppText from "../components/Text";
-import ImageInput from "../components/ImageInput";
 import { Image, View, StyleSheet, TouchableOpacity, StatusBar, Animated, Modal, Pressable, ScrollView, RefreshControl, Dimensions } from "react-native";
 import ImageInputList from "../components/ImageInputList";
-import FormImagePicker from "../components/forms/FormImagePicker";
 import MainBackground from "../components/MainBackground";
 import { useNavigation, useRoute, useFocusEffect } from "@react-navigation/native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -81,6 +79,7 @@ const useGalleryDetail = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const {user}=useAuth()
 
   const fetchGallery = async (galleryId) => {
     try {
@@ -88,7 +87,7 @@ const useGalleryDetail = () => {
       setError(null);
 
       const response = await fetch(
-        `${appConfig.mobileApi}ImageGallery/Get?id=${galleryId}`
+        `${appConfig.mobileApi}ImageGallery/Get?id=${galleryId}&currentMemberId=${user.MemberId}`
       );
 
       if (!response.ok) {
@@ -123,21 +122,7 @@ const useGalleryDetail = () => {
     setData,
   };
 };
-const DotIndicator = ({ totalImages, currentIndex }) => {
-  return (
-    <View style={styles.dotIndicatorContainer}>
-      {Array.from({ length: totalImages }).map((_, index) => (
-        <View
-          key={index}
-          style={[
-            styles.dot,
-            currentIndex === index && styles.activeDot
-          ]}
-        />
-      ))}
-    </View>
-  );
-};
+
 
 const GalleryItemScreen = () => {
   const { user } = useAuth();
@@ -617,7 +602,7 @@ useEffect(() => {
 
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.navigate("App", { screen: "MainTabs", params: { screen: "خانه" } })}
+          onPress={() => navigation.goBack()}
         >
           <View style={styles.backButtonContainer}>
             <MaterialIcons
@@ -630,13 +615,10 @@ useEffect(() => {
 
       
 
-        <Animated.View
+        <View
           style={[
             styles.headerContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
+  
           ]}
         >
           <View style={styles.headerRow}>
@@ -644,27 +626,9 @@ useEffect(() => {
 
             <View style={styles.titleWrapper}>
               <AppText style={styles.headerTitle}>{galleryTitle}</AppText>
-              <View style={styles.sparkleContainer}>
-                <Animated.View style={[{ transform: [{ rotate: spin }] }]}>
-                  <MaterialIcons
-                    name="star-half"
-                    size={16}
-                    color="#FFD700"
-                    style={styles.sparkle1}
-                  />
-                </Animated.View>
-                <Animated.View style={[{ transform: [{ rotate: spin }] }]}>
-                  <MaterialIcons
-                    name="diamond"
-                    size={12}
-                    color="#FF6B6B"
-                    style={styles.sparkle2}
-                  />
-                </Animated.View>
-              </View>
             </View>
           </View>
-        </Animated.View>
+        </View>
 
         <ScrollView
           style={styles.scrollView}
@@ -678,13 +642,10 @@ useEffect(() => {
             />
           }
         >
-          <Animated.View
+          <View
             style={[
               styles.content,
-              {
-                opacity: fadeAnim,
-                transform: [{ translateY: slideAnim }],
-              },
+            
             ]}
           >
             <ImageInputList
@@ -861,7 +822,7 @@ useEffect(() => {
                 </View>
               </View>
             )}
-          </Animated.View>
+          </View>
         </ScrollView>
 
         {isOwnGallery && (
@@ -875,13 +836,10 @@ useEffect(() => {
               style={styles.modalOverlay}
               onPress={() => setModalVisible(false)}
             >
-              <Animated.View
+              <View
                 style={[
                   styles.modalContent,
-                  {
-                    transform: [{ translateY: modalSlideAnim }],
-                    opacity: modalOpacityAnim,
-                  }
+                 
                 ]}
               >
                 <View style={styles.modalHeader}>
@@ -923,7 +881,7 @@ useEffect(() => {
                 </TouchableOpacity>
 
                 <View style={[styles.modalSafeArea, { height: insets.bottom }]} />
-              </Animated.View>
+              </View>
             </Pressable>
           </Modal>
         )}

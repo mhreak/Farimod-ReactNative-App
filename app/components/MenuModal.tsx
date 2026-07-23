@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState } from "react";
 import {
   View,
   TouchableOpacity,
@@ -8,17 +8,20 @@ import {
   ScrollView,
   Pressable,
   Linking,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons, MaterialCommunityIcons, Fontisto } from '@expo/vector-icons';
-import AppText from './Text';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import {
+  MaterialIcons,
+  MaterialCommunityIcons,
+  Fontisto,
+} from "@expo/vector-icons";
+import AppText from "./Text";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { InteractionManager } from "react-native";
 
+const { height, width } = Dimensions.get("window");
 
-const { height, width } = Dimensions.get('window');
-
-const MenuModal = ({ visible, onClose, onNavigate, showToast }:any) => {
+const MenuModal = ({ visible, onClose, onNavigate, showToast }: any) => {
   const logoutSlideAnim = useRef(new Animated.Value(300)).current;
   const logoutOpacityAnim = useRef(new Animated.Value(0)).current;
   const modalSlideAnim = useRef(new Animated.Value(height)).current;
@@ -31,141 +34,141 @@ const MenuModal = ({ visible, onClose, onNavigate, showToast }:any) => {
 
   const menuItems = [
     {
-      id: 'courses',
-      title: ' دوره‌ها',
-      icon: 'school',
-      colors: ['#002fff', '#c993ff'],
-      screen: 'AllCourses'
+      id: "courses",
+      title: " دوره‌ها",
+      icon: "school",
+      colors: ["#002fff", "#c993ff"],
+      screen: "AllCourses",
     },
     {
-      id: 'members',
-      title: ' اعضا',
-      icon: 'people',
-      colors: ['#5eff00', '#9fb9ff'],
-      screen: 'AllMembers'
+      id: "members",
+      title: " اعضا",
+      icon: "people",
+      colors: ["#5eff00", "#9fb9ff"],
+      screen: "AllMembers",
     },
     {
-      id: 'products',
-      title: ' محصولات',
-      icon: 'shopping-bag',
-      colors: ['#0088ff', '#98ff98'],
-      screen: 'AllProducts'
+      id: "products",
+      title: " محصولات",
+      icon: "shopping-bag",
+      colors: ["#0088ff", "#98ff98"],
+      screen: "AllProducts",
     },
     {
-      id: 'articles',
-      title: ' مقالات',
-      icon: 'article',
-      colors: ['#2cff72', '#c900a7'],
-      screen: 'وبلاگ'
+      id: "articles",
+      title: " مقالات",
+      icon: "article",
+      colors: ["#2cff72", "#c900a7"],
+      screen: "وبلاگ",
     },
     {
-      id: 'portfolios',
-      title: ' نمونه کارها',
-      icon: 'brush',
-      colors: ['#ff457d', '#ffe550'],
-      screen: 'AllPortfolio'
+      id: "portfolios",
+      title: " نمونه کارها",
+      icon: "brush",
+      colors: ["#ff457d", "#ffe550"],
+      screen: "AllPortfolio",
     },
     {
-      id: 'galleries',
-      title: ' گالری‌ها',
-      icon: 'photo-library',
-      colors: ['#90ebe6', '#4456ff'],
-      screen: 'AllGalleries'
+      id: "galleries",
+      title: " گالری‌ها",
+      icon: "photo-library",
+      colors: ["#90ebe6", "#4456ff"],
+      screen: "AllGalleries",
     },
     {
-      id: 'profile',
-      title: 'پروفایل من',
-      icon: 'account-circle',
-      colors: ['#8aafff', '#ff7345'],
-      screen: "پروفایل"
+      id: "profile",
+      title: "پروفایل من",
+      icon: "account-circle",
+      colors: ["#8aafff", "#ff7345"],
+      screen: "پروفایل",
     },
     {
-      id: 'instagram',
-      title: 'اینستاگرام فریمد',
-      icon: 'camera',
+      id: "instagram",
+      title: "اینستاگرام فریمد",
+      icon: "camera",
 
-      colors: ['#6F0EF7', '#F70060'],
-      screen: 'INSTAGRAM'
+      colors: ["#6F0EF7", "#F70060"],
+      screen: "INSTAGRAM",
     },
     {
-      id: 'support-guide',
-      title: 'راهنمای تماس با پشتیبانی',
-      icon: 'help',
-      colors: ['#258067', '#4DBCA0'],
-      screen: 'SUPPORT_GUIDE'
+      id: "support-guide",
+      title: "راهنمای تماس با پشتیبانی",
+      icon: "help",
+      colors: ["#258067", "#4DBCA0"],
+      screen: "SUPPORT_GUIDE",
     },
     {
-      id: 'farimod-app',
-      title: 'استفاده از اپلیکیشن فریمد',
-      icon: 'devices',
-      colors: ['#667eea', '#764ba2', '#fa709a'],
-      screen: 'farimod_APP',
+      id: "farimod-app",
+      title: "استفاده از اپلیکیشن فریمد",
+      icon: "devices",
+      colors: ["#667eea", "#764ba2", "#fa709a"],
+      screen: "farimod_APP",
     },
     {
-      id: 'logout',
-      title: 'خروج از حساب کاربری',
-      icon: 'logout',
-      colors: ['#bd001f', '#ff5050'],
-      screen: 'LOGOUT'
-    }
+      id: "logout",
+      title: "خروج از حساب کاربری",
+      icon: "logout",
+      colors: ["#bd001f", "#ff5050"],
+      screen: "LOGOUT",
+    },
   ];
 
-useEffect(() => {
-  if (visible) {
-    InteractionManager.runAfterInteractions(() => {
-      setIsRendered(true);
+  useEffect(() => {
+    if (visible) {
+      InteractionManager.runAfterInteractions(() => {
+        setIsRendered(true);
 
+        Animated.parallel([
+          Animated.spring(modalSlideAnim, {
+            toValue: 0,
+            stiffness: 180,
+            damping: 20,
+            mass: 0.8,
+            useNativeDriver: true,
+          }),
+          Animated.timing(modalBackdropAnim, {
+            toValue: 1,
+            duration: 150,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      });
+    } else {
       Animated.parallel([
-        Animated.spring(modalSlideAnim, {
-          toValue: 0,
-          stiffness: 180,
-          damping: 20,
-          mass: 0.8,
+        Animated.timing(modalSlideAnim, {
+          toValue: height,
+          duration: 220,
           useNativeDriver: true,
         }),
         Animated.timing(modalBackdropAnim, {
-          toValue: 1,
-          duration: 150,
+          toValue: 0,
+          duration: 160,
           useNativeDriver: true,
         }),
-      ]).start();
-    });
-  } else {
-    Animated.parallel([
-      Animated.timing(modalSlideAnim, {
-        toValue: height,
-        duration: 220,
-        useNativeDriver: true,
-      }),
-      Animated.timing(modalBackdropAnim, {
-        toValue: 0,
-        duration: 160,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setIsRendered(false);
-      setShowLogoutModal(false);
-      setShowSupportTooltip(false);
-    });
-  }
-}, [visible]);
+      ]).start(() => {
+        setIsRendered(false);
+        setShowLogoutModal(false);
+        setShowSupportTooltip(false);
+      });
+    }
+  }, [visible]);
 
-useEffect(() => {
-  Animated.parallel([
-    Animated.spring(logoutSlideAnim, {
-      toValue: showLogoutModal ? 0 : 300,
-      stiffness: 200,
-      damping: 22,
-      mass: 0.8,
-      useNativeDriver: true,
-    }),
-    Animated.timing(logoutOpacityAnim, {
-      toValue: showLogoutModal ? 1 : 0,
-      duration: 140,
-      useNativeDriver: true,
-    }),
-  ]).start();
-}, [showLogoutModal]);
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(logoutSlideAnim, {
+        toValue: showLogoutModal ? 0 : 300,
+        stiffness: 200,
+        damping: 22,
+        mass: 0.8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(logoutOpacityAnim, {
+        toValue: showLogoutModal ? 1 : 0,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [showLogoutModal]);
 
   const handleClose = () => {
     onClose();
@@ -181,17 +184,17 @@ useEffect(() => {
   };
 
   const handleMenuItemPress = (screen) => {
-    if (screen === 'LOGOUT') {
+    if (screen === "LOGOUT") {
       setShowLogoutModal(true);
-    } else if (screen === 'SUPPORT_GUIDE') {
+    } else if (screen === "SUPPORT_GUIDE") {
       setShowSupportTooltip(true);
-    } else if (screen === 'farimod_APP') {
-      Linking.openURL('https://farimod.ir/app-use').catch(() => {
+    } else if (screen === "farimod_APP") {
+      Linking.openURL("https://farimod.ir/app-use").catch(() => {
         showToast("خطا در باز کردن لینک", "error");
       });
       handleClose();
-    } else if (screen === 'INSTAGRAM') {
-      Linking.openURL('https://www.instagram.com/farimod.comm').catch(() => {
+    } else if (screen === "INSTAGRAM") {
+      Linking.openURL("https://www.instagram.com/farimod.comm").catch(() => {
         showToast("خطا در باز کردن اینستاگرام", "error");
       });
       handleClose();
@@ -202,7 +205,7 @@ useEffect(() => {
   };
 
   const handleLogoutConfirm = () => {
-    onNavigate('LOGOUT');
+    onNavigate("LOGOUT");
     setShowLogoutModal(false);
     handleClose();
   };
@@ -213,7 +216,7 @@ useEffect(() => {
     <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
       <Animated.View
         style={[styles.modalBackdrop, { opacity: modalBackdropAnim }]}
-        pointerEvents={visible ? 'auto' : 'none'}
+        pointerEvents={visible ? "auto" : "none"}
       >
         <TouchableOpacity
           style={StyleSheet.absoluteFill}
@@ -230,7 +233,7 @@ useEffect(() => {
             transform: [{ translateY: modalSlideAnim }],
           },
         ]}
-        pointerEvents={visible ? 'auto' : 'none'}
+        pointerEvents={visible ? "auto" : "none"}
       >
         <View style={styles.modalHandle} />
 
@@ -245,7 +248,9 @@ useEffect(() => {
             </TouchableOpacity>
             <AppText style={styles.modalTitle}>منوی اصلی</AppText>
           </View>
-          <AppText style={styles.modalSubtitle}>دسترسی سریع به تمام بخش‌ها</AppText>
+          <AppText style={styles.modalSubtitle}>
+            دسترسی سریع به تمام بخش‌ها
+          </AppText>
         </View>
 
         <ScrollView
@@ -254,35 +259,131 @@ useEffect(() => {
           bounces={true}
         >
           <View style={styles.menuItems}>
-            {menuItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.menuItem}
-                onPress={() => handleMenuItemPress(item.screen)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.menuItemContent}>
-                  <LinearGradient
-                    colors={item.colors}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.menuItemIcon}
-                  >
-                    {item.iconFamily === 'MaterialCommunityIcons' ? (
-                      <MaterialCommunityIcons name={item.icon} size={28} color="white" />
-                    ) : (
-                      <MaterialIcons name={item.icon} size={28} color="white" />
-                    )}
-                  </LinearGradient>
+            {menuItems
+              .filter((item) => item.id !== "logout")
+              .map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.menuItem}
+                  onPress={() => handleMenuItemPress(item.screen)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.menuItemContent}>
+                    <LinearGradient
+                      colors={item.colors}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.menuItemIcon}
+                    >
+                      {item.iconFamily === "MaterialCommunityIcons" ? (
+                        <MaterialCommunityIcons
+                          name={item.icon}
+                          size={28}
+                          color="white"
+                        />
+                      ) : (
+                        <MaterialIcons
+                          name={item.icon}
+                          size={28}
+                          color="white"
+                        />
+                      )}
+                    </LinearGradient>
 
-                  <View style={styles.menuItemText}>
-                    <AppText style={styles.menuItemTitle}>{item.title}</AppText>
+                    <View style={styles.menuItemText}>
+                      <AppText style={styles.menuItemTitle}>
+                        {item.title}
+                      </AppText>
+                    </View>
+
+                    <MaterialIcons
+                      name="chevron-left"
+                      size={24}
+                      color="#9e9e9e"
+                    />
                   </View>
+                </TouchableOpacity>
+              ))}
 
-                  <MaterialIcons name="chevron-left" size={24} color="#9e9e9e" />
+            {/* Contact Section */}
+            <View style={styles.contactCard}>
+              <TouchableOpacity
+                style={styles.contactButton}
+                activeOpacity={0.85}
+                onPress={() => Linking.openURL("tel:09937722986")}
+              >
+                <LinearGradient
+                  colors={["#1DB954", "#0AA86E"]}
+                  style={styles.contactIcon}
+                >
+                  <MaterialIcons name="phone" size={26} color="#fff" />
+                </LinearGradient>
+
+                <View style={styles.contactText}>
+                  <AppText style={styles.contactTitle}>تماس با ما</AppText>
+                  <AppText style={styles.contactSubtitle}>09937722986</AppText>
                 </View>
               </TouchableOpacity>
-            ))}
+
+              <View style={styles.contactDivider} />
+
+              <TouchableOpacity
+                style={styles.contactButton}
+                activeOpacity={0.85}
+                onPress={() => Linking.openURL("mailto:info@farimod.com")}
+              >
+                <LinearGradient
+                  colors={["#4285F4", "#6C63FF"]}
+                  style={styles.contactIcon}
+                >
+                  <MaterialCommunityIcons
+                    name="email-outline"
+                    size={26}
+                    color="#fff"
+                  />
+                </LinearGradient>
+
+                <View style={styles.contactText}>
+                  <AppText style={styles.contactTitle}>ارسال ایمیل</AppText>
+                  <AppText style={styles.contactSubtitle}>
+                    farzann2386@gmail.com
+                  </AppText>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Logout */}
+            {menuItems
+              .filter((item) => item.id === "logout")
+              .map((item) => (
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.menuItem}
+                  onPress={() => handleMenuItemPress(item.screen)}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.menuItemContent}>
+                    <LinearGradient
+                      colors={item.colors}
+                      style={styles.menuItemIcon}
+                    >
+                      <MaterialIcons name={item.icon} size={28} color="white" />
+                    </LinearGradient>
+
+                    <View style={styles.menuItemText}>
+                      <AppText style={styles.menuItemTitle}>
+                        {item.title}
+                      </AppText>
+                    </View>
+
+                    <MaterialIcons
+                      name="chevron-left"
+                      size={24}
+                      color="#9e9e9e"
+                    />
+                  </View>
+                </TouchableOpacity>
+              ))}
           </View>
         </ScrollView>
 
@@ -304,14 +405,17 @@ useEffect(() => {
           style={[styles.logoutOverlay, { opacity: logoutOpacityAnim }]}
           pointerEvents="auto"
         >
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowLogoutModal(false)} />
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setShowLogoutModal(false)}
+          />
           <Animated.View
             style={[
               styles.logoutModalContent,
               {
                 transform: [{ translateY: logoutSlideAnim }],
                 marginBottom: Math.max(insets.bottom, 20),
-              }
+              },
             ]}
           >
             <View style={styles.logoutIconContainer}>
@@ -348,7 +452,7 @@ useEffect(() => {
         >
           <View style={styles.tooltipContainer}>
             <LinearGradient
-              colors={['#10b981', '#059669']}
+              colors={["#10b981", "#059669"]}
               style={styles.tooltipHeader}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
@@ -357,7 +461,9 @@ useEffect(() => {
                 <View style={styles.tooltipIconWrapper}>
                   <MaterialIcons name="help" size={32} color="white" />
                 </View>
-                <AppText style={styles.tooltipTitle}>راهنمای تماس با پشتیبانی</AppText>
+                <AppText style={styles.tooltipTitle}>
+                  راهنمای تماس با پشتیبانی
+                </AppText>
               </View>
               <TouchableOpacity
                 onPress={() => setShowSupportTooltip(false)}
@@ -369,7 +475,9 @@ useEffect(() => {
 
             <View style={styles.tooltipContent}>
               <AppText style={styles.tooltipText}>
-                برای ارتباط با پشتیبانی می‌توانید از طریق پیام‌رسان بله با ما در ارتباط باشید. بدین منظور از دکمه پشتیبانی بله در پایین منو استفاده کنید.
+                برای ارتباط با پشتیبانی می‌توانید از طریق پیام‌رسان بله با ما در
+                ارتباط باشید. بدین منظور از دکمه پشتیبانی بله در پایین منو
+                استفاده کنید.
               </AppText>
               <TouchableOpacity
                 style={styles.tooltipGotItButton}
@@ -377,7 +485,7 @@ useEffect(() => {
                 activeOpacity={0.8}
               >
                 <LinearGradient
-                  colors={['#10b981', '#059669']}
+                  colors={["#10b981", "#059669"]}
                   style={styles.tooltipGotItGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -395,22 +503,70 @@ useEffect(() => {
 };
 
 const styles = StyleSheet.create({
+ contactCard: {
+  paddingVertical: 16,
+  paddingHorizontal: 15,
+  marginBottom: 12,
+  borderRadius: 18,
+  backgroundColor: "#f8f9fa",
+  borderWidth: 1,
+  borderColor: "#e9ecef",
+},
+
+  contactButton: {
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    paddingVertical: 16,
+
+  },
+
+  contactIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  contactText: {
+    flex: 1,
+    marginHorizontal: 14,
+  },
+
+  contactTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#222",
+  },
+
+  contactSubtitle: {
+    fontSize: 13,
+    color: "#888",
+    marginTop: 4,
+  },
+
+  contactDivider: {
+    height: 1,
+    backgroundColor: "#EFEFEF",
+    marginHorizontal: 16,
+  },
+
   modalBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
   modalContent: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     paddingTop: 15,
     paddingHorizontal: 20,
     maxHeight: height * 0.75,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -5 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
@@ -419,36 +575,36 @@ const styles = StyleSheet.create({
   modalHandle: {
     width: 40,
     height: 4,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: "#e0e0e0",
     borderRadius: 2,
-    alignSelf: 'center',
+    alignSelf: "center",
     marginBottom: 20,
   },
   modalHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 25,
     paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-    width: '100%',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    width: "100%",
   },
   closeIcon: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     width: 40,
     height: 40,
     borderRadius: 100,
     top: 5,
     borderWidth: 3,
-    borderColor: '#DC2626',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#DC2626",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalTitle: {
     fontSize: 20,
@@ -472,26 +628,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     marginBottom: 12,
     borderRadius: 18,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
     borderWidth: 1,
-    borderColor: '#e9ecef',
+    borderColor: "#e9ecef",
   },
   menuItemContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
+    flexDirection: "row-reverse",
+    alignItems: "center",
   },
   menuItemIcon: {
     width: 56,
     height: 56,
     borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginLeft: 15,
     elevation: 2,
   },
   menuItemText: {
     flex: 1,
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
   },
   menuItemTitle: {
     fontSize: 18,
@@ -503,134 +659,134 @@ const styles = StyleSheet.create({
     paddingTop: 15,
     paddingBottom: 10,
     borderTopWidth: 1,
-    borderTopColor: '#e9ecef',
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
+    borderTopColor: "#e9ecef",
+    backgroundColor: "#ffffff",
+    alignItems: "center",
   },
   supportButton: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    backgroundColor: '#10B981',
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    backgroundColor: "#10B981",
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#10B981',
+    borderColor: "#10B981",
     gap: 6,
   },
   supportText: {
     fontSize: 14,
     fontFamily: "Yekan_Bakh_Regular",
-    color: 'white',
+    color: "white",
   },
   versionText: {
     fontSize: 13,
     fontFamily: "Yekan_Bakh_Regular",
-    color: '#9CA3AF',
+    color: "#9CA3AF",
   },
   logoutOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 30,
   },
   logoutModalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 20,
     padding: 30,
-    alignItems: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 15,
-    width: '100%',
+    width: "100%",
     maxWidth: 350,
   },
   logoutIconContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FEE2E2',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#FEE2E2",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 20,
   },
   logoutTitle: {
     fontSize: 20,
     fontFamily: "Yekan_Bakh_Bold",
-    color: '#1F2937',
+    color: "#1F2937",
     marginBottom: 12,
-    textAlign: 'center',
+    textAlign: "center",
   },
   logoutMessage: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
-    color: '#6B7280',
-    textAlign: 'center',
+    color: "#6B7280",
+    textAlign: "center",
     lineHeight: 24,
     marginBottom: 30,
   },
   logoutButtonsContainer: {
-    flexDirection: 'row',
-    width: '100%',
+    flexDirection: "row",
+    width: "100%",
     gap: 12,
   },
   logoutButton: {
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cancelLogoutButton: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: "#D1D5DB",
   },
   confirmLogoutButton: {
-    backgroundColor: '#EF4444',
+    backgroundColor: "#EF4444",
   },
   cancelLogoutText: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
-    color: '#374151',
+    color: "#374151",
   },
   confirmLogoutText: {
     fontSize: 16,
     fontFamily: "Yekan_Bakh_Regular",
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
   tooltipModalOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   tooltipContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 24,
     maxWidth: width - 40,
-    width: '100%',
-    overflow: 'hidden',
-    shadowColor: '#000',
+    width: "100%",
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 15,
   },
   tooltipHeader: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row-reverse",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 20,
   },
   tooltipHeaderContent: {
-    flexDirection: 'row-reverse',
-    alignItems: 'center',
+    flexDirection: "row-reverse",
+    alignItems: "center",
     flex: 1,
     gap: 12,
   },
@@ -638,59 +794,59 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   tooltipTitle: {
     flex: 1,
     fontSize: 18,
-    fontFamily: 'Yekan_Bakh_Bold',
-    color: 'white',
-    textAlign: 'right',
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "white",
+    textAlign: "right",
   },
   tooltipCloseButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   tooltipContent: {
     padding: 24,
   },
   tooltipText: {
     fontSize: 16,
-    fontFamily: 'Yekan_Bakh_Regular',
-    color: '#374151',
+    fontFamily: "Yekan_Bakh_Regular",
+    color: "#374151",
     lineHeight: 28,
-    textAlign: 'justify',
+    textAlign: "justify",
     marginBottom: 24,
   },
   tooltipGotItButton: {
     borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: '#10b981',
+    overflow: "hidden",
+    shadowColor: "#10b981",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
   },
   tooltipGotItGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 14,
     paddingHorizontal: 24,
     gap: 8,
   },
   tooltipGotItText: {
     fontSize: 16,
-    fontFamily: 'Yekan_Bakh_Bold',
-    color: 'white',
+    fontFamily: "Yekan_Bakh_Bold",
+    color: "white",
   },
 });
 

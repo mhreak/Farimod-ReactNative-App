@@ -43,25 +43,27 @@ const useProductDetails = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+    const { user } = useAuth(); // Add this line
+  const currentMemberId = user?.MemberId || user?.memberId || null;
+
   const fetchProductDetails = async (productId) => {
     try {
       setLoading(true);
       setError(null);
 
-      console.log('Fetching product details for ID:', productId);
 
       const response = await fetch(
-        `${appConfig.mobileApi}Product/Get?productId=${productId}`
+        `${appConfig.mobileApi}Product/Get?productId=${productId}&currentMemberId=${currentMemberId}`
       );
 
-      console.log('API Response Status:', response.status);
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const result = await response.json();
-      console.log('API Response Data:', result);
+            console.log('API Response Status:', result);
+
 
       // Transform the data to include necessary fields
       const transformedData = {
@@ -76,10 +78,8 @@ const useProductDetails = () => {
         DetailedRatingsAverages: {}
       };
 
-      console.log('Transformed Product Data:', transformedData);
       setData(transformedData);
     } catch (err) {
-      console.error('Product Details API Error:', err);
       setError(err.message);
       setData(null);
     } finally {
@@ -166,33 +166,27 @@ const ProductDetailsScreen = ({ route }) => {
 
   // Enhanced parameter extraction with multiple fallback methods
   const getProductId = () => {
-    console.log('Route params:', route?.params);
 
     // Method 1: Direct productId
     if (route?.params?.productId) {
-      console.log('Found productId:', route.params.productId);
       return route.params.productId;
     }
 
     // Method 2: From productData object
     if (route?.params?.productData?.ProductId) {
-      console.log('Found ProductId in productData:', route.params.productData.ProductId);
       return route.params.productData.ProductId;
     }
 
     // Method 3: Check for other possible parameter names
     if (route?.params?.product?.ProductId) {
-      console.log('Found ProductId in product:', route.params.product.ProductId);
       return route.params.product.ProductId;
     }
 
     // Method 4: Check for id parameter
     if (route?.params?.id) {
-      console.log('Found id:', route.params.id);
       return route.params.id;
     }
 
-    console.error('No product ID found in route params');
     return null;
   };
 
@@ -202,10 +196,8 @@ const ProductDetailsScreen = ({ route }) => {
   useFocusEffect(
     useCallback(() => {
       if (productId) {
-        console.log('Fetching product details for ID:', productId);
         fetchProductDetails(productId);
       } else {
-        console.error('No product ID available for fetching details');
       }
     }, [productId])
   );
@@ -217,16 +209,16 @@ const ProductDetailsScreen = ({ route }) => {
 
       setLikeCount(productData.LikeCount || 0);
       setIsLiked(productData.IsMemberLiked || false);
+      console.log(productData.IsMemberLiked, productData.LikeCount, 'Initial like state and count');
 
       const ratingOptions = transformContentReviewToRatingOptions(productData.ContentReviewItemList);
       setDynamicRatingOptions(ratingOptions);
-      console.log('Dynamic Rating Options:', ratingOptions);
 
       // Reset image index when new product loads
       setCurrentImageIndex(0);
       setSelectedImageIndex(0);
     }
-  }, []);
+  }, [productData]);
 
 
 
@@ -572,6 +564,7 @@ const ProductDetailsScreen = ({ route }) => {
       // Call the like API
       const currentProductId = productId || productData.ProductId;
 
+
       const response = await fetch(
         `${appConfig.mobileApi}Product/Like?id=${currentProductId}&memberId=${currentMemberId}`,
         {
@@ -582,7 +575,6 @@ const ProductDetailsScreen = ({ route }) => {
         }
       );
 
-      console.log('Like API Response Status:', response.status);
 
       if (!response.ok) {
         showToast("خطا در لایک محصول")
@@ -704,10 +696,8 @@ const ProductDetailsScreen = ({ route }) => {
 
   // Smart Detail Item Component
   const SmartDetailItem = ({ label, value, icon, maxLength = 30 }) => {
-    console.log(`SmartDetailItem - Label: ${label}, Value: ${value}, Type: ${typeof value}`);
 
     if (!value || value === "نامشخص" || value === "تاریخ مشخص نشده") {
-      console.log(`SmartDetailItem - ${label} hidden because value is empty or invalid`);
       return null;
     }
 
@@ -1043,7 +1033,6 @@ const productImages = getProductImages(productData);
                   animated={true}
                   allowHalfStars={false}
                   onRatingSubmitted={(result) => {
-                    console.log('Rating submitted successfully:', result);
 
                     if (result.ratings) {
                       setUserDetailedRatings(result.ratings);

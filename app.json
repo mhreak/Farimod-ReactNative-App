@@ -1,18 +1,18 @@
 {
   "expo": {
     "name": "farimod",
-    "slug": "farimod-2",
+    "slug": "sajad008",
     "jsEngine": "hermes",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "orientation": "portrait",
     "icon": "./assets/main-icon.png",
     "userInterfaceStyle": "light",
-        "updates": {
+    "updates": {
       "enabled": false,
       "url": "https://u.expo.dev/a213af95-269d-4b1e-beb1-91dda1de2d7c"
     },
     "splash": {
-      "image": "./assets/main-icon.png",
+      "image": "./assets/farimod-logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -60,10 +60,10 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "a213af95-269d-4b1e-beb1-91dda1de2d7c"
+        "projectId": "9b90f82c-f9ac-46f2-b45a-c1805c5373ee"
       }
     },
-    "owner": "sajad007",
+    "owner": "sajad008s-team",
     "runtimeVersion": {
       "policy": "appVersion"
     }

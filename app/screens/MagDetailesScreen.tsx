@@ -148,6 +148,7 @@ const useBlogPostDetail = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const {user}=useAuth()
 
   const fetchBlogPost = async (blogPostId) => {
     try {
@@ -155,7 +156,7 @@ const useBlogPostDetail = () => {
       setError(null);
 
       const response = await fetch(
-        `${appConfig.mobileApi}BlogPost/Get?blogPostId=${blogPostId}`
+        `${appConfig.mobileApi}BlogPost/Get?blogPostId=${blogPostId}&currentMemberId=${user.MemberId}`
       );
 
       if (!response.ok) {
