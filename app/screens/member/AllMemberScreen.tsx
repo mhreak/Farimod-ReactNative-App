@@ -1,16 +1,12 @@
-import React, { useEffect, useRef, useState, useCallback, memo } from "react";
+import React, { useEffect, useRef, useState, useCallback, memo, useMemo } from "react";
 import AppText from "../../components/Text";
 import {
   View,
-  Animated,
   StatusBar,
   TouchableOpacity,
   FlatList,
   RefreshControl,
   ActivityIndicator,
-  StyleProp,
-  ViewStyle,
-  ImageStyle,
 } from "react-native";
 import colors from "../../config/colors";
 import MainBackground from "../../components/MainBackground";
@@ -23,11 +19,9 @@ import { modernColors, styles } from "./styles/styles";
 import { MemberCardSkeleton } from "./ui/MemberCardSkeleton";
 import { MemberCard } from "./ui/MemberCard";
 import useToast from "../../hooks/useToast";
-import { useMemo } from "react";
 
-// انتقال ثابت‌ها به خارج از کامپوننت
 const ITEMS_PER_PAGE = 15;
-const SKELETON_ITEM_COUNT = 6; // تعداد اسکلتون‌های همزمان برای نمایش
+const SKELETON_ITEM_COUNT = 6;
 
 // --- Custom Hook for Data Fetching ---
 const useMembersData = () => {
@@ -40,26 +34,23 @@ const useMembersData = () => {
   const [filters, setFilters] = useState({});
   const [memberGroups, setMemberGroups] = useState([]);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  
+  const isLoadingRef = useRef(false);
 
-  // Fetch Member Groups only once
   useEffect(() => {
     const fetchMemberGroups = async () => {
       try {
-        const response = await fetch(
-          `${appConfig.mobileApi}MemberGroup/GetAll?currentPage=1&pageSize=100`
-        );
+        const response = await fetch(`${appConfig.mobileApi}MemberGroup/GetAll?currentPage=1&pageSize=100`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const result = await response.json();
         if (result.Data) setMemberGroups(result.Data);
       } catch (err) {
         console.error("Error fetching member groups:", err);
-        // Optionally show a toast for group fetching error
       }
     };
     fetchMemberGroups();
   }, []);
 
-  // Main fetch function
   const fetchMembers = useCallback(
     async (
       newPage = 1,
@@ -67,7 +58,9 @@ const useMembersData = () => {
       isLoadMore = false,
       filterParams = {}
     ) => {
-      if (loading) return; // Prevent concurrent fetches
+      if (isLoadingRef.current) return;
+      
+      isLoadingRef.current = true;
       setLoading(true);
       setError(null);
 
@@ -91,37 +84,39 @@ const useMembersData = () => {
         setTotal(result.Total || 0);
         setPage(newPage);
         setFilters(filterParams);
-        setHasMore(newMembers.length === pageSize && newMembers.length > 0);
-        if (!isLoadMore) setInitialLoadComplete(true); // Mark initial load as complete
+        
+        setHasMore(newMembers.length >= pageSize);
+        
+        if (!isLoadMore) setInitialLoadComplete(true);
 
       } catch (err: any) {
         setError(err.message);
         if (!isLoadMore) {
           setData([]);
           setTotal(0);
-          setHasMore(true); // Reset hasMore on error to allow retry
-          if (!isLoadMore) setInitialLoadComplete(true);
+          setHasMore(true);
+          setInitialLoadComplete(true);
         }
       } finally {
+        isLoadingRef.current = false;
         setLoading(false);
       }
     },
-    [loading, setFilters, setData, setTotal, setPage, setHasMore, setError, setInitialLoadComplete]
+    []
   );
 
   const loadMore = useCallback(() => {
-    if (!loading && hasMore) {
+    if (!isLoadingRef.current && hasMore) {
       fetchMembers(page + 1, ITEMS_PER_PAGE, true, filters);
     }
-  }, [loading, hasMore, page, fetchMembers, filters]);
+  }, [hasMore, page, fetchMembers, filters]);
 
   const refresh = useCallback(() => {
     setPage(1);
     setHasMore(true);
-    // Reset initialLoadComplete to show skeletons again if needed
     setInitialLoadComplete(false);
     fetchMembers(1, ITEMS_PER_PAGE, false, filters);
-  }, [fetchMembers, filters, setInitialLoadComplete]);
+  }, [fetchMembers, filters]);
 
   return {
     data,
@@ -139,30 +134,25 @@ const useMembersData = () => {
   };
 };
 
-// --- Memoized Components for Performance ---
 const MemoizedMemberCard = memo(MemberCard);
 const MemoizedMemberCardSkeleton = memo(MemberCardSkeleton);
 
-// --- Render Row Item (Optimized) ---
 const RowItem = memo(({ rowData, index, itemIndex, onPress, isSkeletonRow }: any) => {
-  const globalIndex = index * 2 + itemIndex; // Calculate global index for unique keys
-
   if (isSkeletonRow) {
     return (
-      <View key={`skeleton-${globalIndex}`} style={styles.memberItemContainer}>
+      <View style={styles.memberItemContainer}>
         <MemoizedMemberCardSkeleton />
       </View>
     );
   }
 
   return (
-    <View key={rowData.MemberId || `item-${globalIndex}`} style={styles.memberItemContainer}>
+    <View style={styles.memberItemContainer}>
       <MemoizedMemberCard member={rowData} onPress={onPress} />
     </View>
   );
 });
 
-// --- AllMembersScreen Component ---
 const AllMembersScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -173,7 +163,6 @@ const AllMembersScreen = () => {
 
   const {
     data: members,
-    total,
     loading: membersLoading,
     error: membersError,
     fetchMembers,
@@ -187,7 +176,6 @@ const AllMembersScreen = () => {
 
   const [refreshing, setRefreshing] = useState(false);
 
-  // Initial fetch based on route params
   useEffect(() => {
     const initialFilter: any = {};
     if (route.params?.filterGroupId) {
@@ -196,9 +184,8 @@ const AllMembersScreen = () => {
       setHasActiveFilters(true);
     }
     fetchMembers(1, ITEMS_PER_PAGE, false, initialFilter);
-  }, [route.params?.filterGroupId, fetchMembers]); // Add fetchMembers as dependency
+  }, [route.params?.filterGroupId, fetchMembers]);
 
-  // Toast for errors
   useEffect(() => {
     if (membersError) {
       showToast('خطا در دریافت اطلاعات اعضا. لطفاً دوباره تلاش کنید.', 'error');
@@ -207,21 +194,14 @@ const AllMembersScreen = () => {
 
   const handleMemberPress = useCallback((memberData: any) => {
     (navigation as any).navigate("UserProfile", { userData: memberData });
-  }, [navigation]); // Dependency: navigation
-
-  const handleLoadMore = useCallback(() => {
-    if (!membersLoading && hasMore) {
-      loadMore();
-    }
-  }, [membersLoading, hasMore, loadMore]);
+  }, [navigation]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await refresh();
     setRefreshing(false);
-  }, [refresh]); // Dependency: refresh
+  }, [refresh]);
 
-  // Prepare filter options dynamically
   const filterOptions = useMemo(() => {
     const memberGroupOptions = [
       { label: "همه گروه‌ها", value: "all" },
@@ -239,7 +219,6 @@ const AllMembersScreen = () => {
     };
   }, [memberGroups]);
 
-  // Apply filters and refetch data
   const handleApplyFilters = useCallback((newFilters: any) => {
     setAppliedFilters(newFilters);
     const hasFilters = Object.values(newFilters).some(val => val !== false && val !== '' && val !== 'all' && val !== undefined && val !== null);
@@ -251,41 +230,29 @@ const AllMembersScreen = () => {
     fetchMembers(1, ITEMS_PER_PAGE, false, newFilters);
   }, [fetchMembers, showToast]);
 
-  // Clear all filters
-  const clearAllFilters = useCallback(() => {
-    setAppliedFilters({});
-    setHasActiveFilters(false);
-    fetchMembers(1, ITEMS_PER_PAGE, false, {});
-    showToast('فیلتر پاک شد', 'info');
-  }, [fetchMembers, showToast]);
+  const dataForList = useMemo(() => {
+    if (membersLoading && !initialLoadComplete) {
+      return Array.from({ length: SKELETON_ITEM_COUNT }, (_, i) => ({ id: `skeleton-${i}` }));
+    }
+    if (membersError && members.length === 0) return [];
+    return members;
+  }, [membersLoading, initialLoadComplete, membersError, members]);
 
-  // Generate skeleton data for initial loading or when data is empty
-  const skeletonData = Array.from({ length: SKELETON_ITEM_COUNT }, (_, i) => ({ id: `skeleton-${i}` }));
-
-  // Prepare data for FlatList (chunking into pairs)
-  const chunkedMembers = useCallback((dataToChunk) => {
+  const processedData = useMemo(() => {
     const chunked = [];
-    for (let i = 0; i < dataToChunk.length; i += 2) {
-      chunked.push(dataToChunk.slice(i, i + 2));
+    for (let i = 0; i < dataForList.length; i += 2) {
+      chunked.push(dataForList.slice(i, i + 2));
     }
     return chunked;
-  }, []);
+  }, [dataForList]);
 
-  const dataForList =
-    (membersLoading && !initialLoadComplete) ? skeletonData :
-    (membersError && members.length === 0) ? [] :
-    members;
-
-  const processedData = chunkedMembers(dataForList);
-
-  // Render Item for FlatList
   const renderItem = useCallback(({ item: rowData, index }: any) => {
     const isSkeletonRow = rowData.some((item:any) => item.id?.startsWith('skeleton'));
     return (
       <View style={styles.rowContainer}>
         {rowData.map((item:any, itemIndex: number) => (
           <RowItem
-            key={item.MemberId || item.id || `item-${index}-${itemIndex}`}
+            key={item.MemberId ? `member-${item.MemberId}` : `skeleton-${index}-${itemIndex}`}
             rowData={item}
             index={index}
             itemIndex={itemIndex}
@@ -293,16 +260,13 @@ const AllMembersScreen = () => {
             isSkeletonRow={isSkeletonRow}
           />
         ))}
-        {/* Add empty view if only one item in a row to maintain layout */}
         {rowData.length === 1 && <View style={styles.memberItemContainer} />}
       </View>
     );
-  }, [handleMemberPress]); // Dependencies: handleMemberPress
+  }, [handleMemberPress]);
 
-
-  // Footer for loading indicator
   const renderFooter = useCallback(() => {
-    if (membersLoading && members.length > 0 && hasMore) { // Only show loading when loading more, not initial load
+    if (membersLoading && initialLoadComplete && hasMore) {
       return (
         <View style={styles.loadingFooter}>
           <ActivityIndicator size="small" color={modernColors.primary} />
@@ -310,12 +274,10 @@ const AllMembersScreen = () => {
         </View>
       );
     }
-    return null;
-  }, [membersLoading, members.length, hasMore]);
+    return null; 
+  }, [membersLoading, initialLoadComplete, hasMore]);
 
-  // Empty component
   const renderEmptyComponent = useCallback(() => {
-    // Don't show empty state during initial skeleton loading
     if (!initialLoadComplete && membersLoading) return null;
 
     return (
@@ -333,7 +295,7 @@ const AllMembersScreen = () => {
         )}
       </View>
     );
-  }, [membersLoading, membersError, initialLoadComplete, members.length, fetchMembers, filters]);
+  }, [membersLoading, membersError, initialLoadComplete, fetchMembers, filters]);
 
   return (
     <>
@@ -379,7 +341,11 @@ const AllMembersScreen = () => {
             key="members-list"
             data={processedData}
             renderItem={renderItem}
-            keyExtractor={(item) => item.map((m:any) => m.MemberId || m.id).join('-')}
+            // کلید مطمئن برای جلوگیری از پرش
+            keyExtractor={(item, index) => {
+               if (item[0]?.id?.startsWith('skeleton')) return `row-skeleton-${index}`;
+               return `row-${item.map(m => m.MemberId).join('-')}`;
+            }}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContainer}
             refreshControl={
@@ -392,15 +358,12 @@ const AllMembersScreen = () => {
             }
             ListEmptyComponent={renderEmptyComponent}
             ListFooterComponent={renderFooter}
-            onEndReached={handleLoadMore}
-            onEndReachedThreshold={0.5} // Adjusted threshold
-            numColumns={1} // FlatList handles rows, so numColumns=1 here
-            // Performance optimizations
-            initialNumToRender={SKELETON_ITEM_COUNT} // Render skeletons initially
-            maxToRenderPerBatch={10}
-            updateCellsBatchingPeriod={50}
-            windowSize={15} // Render more items when scrolling
-            removeClippedSubviews={true} // Use with caution, test thoroughly
+            onEndReached={loadMore} 
+            onEndReachedThreshold={0.5}
+            initialNumToRender={SKELETON_ITEM_COUNT / 2}
+            maxToRenderPerBatch={8}
+            windowSize={11}
+            removeClippedSubviews={true}
           />
         </View>
       </View>
