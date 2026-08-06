@@ -36,7 +36,11 @@
       ],
       "softwareKeyboardLayoutMode": "pan",
       "edgeToEdgeEnabled": false,
-      "package": "com.yeganeh0.farimod2"
+      "package": "ir.farimod.app",
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ]
     },
     "ios": {
       "supportsTablet": true
