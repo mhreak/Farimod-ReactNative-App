@@ -14,7 +14,7 @@
       "env": {
         "ENABLE_HERMES": "false",
         "NODE_ENV": "development",
-        "API_URL": "http://my.farimod.ir"
+        "API_URL": "https://my.farimod.ir"
       },
       "channel": "development"
     },
@@ -29,26 +29,30 @@
     "production": {
       "autoIncrement": true,
       "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease"
+        "buildType": "app-bundle"
       },
       "env": {
         "NODE_ENV": "production",
-        "API_URL": "http://my.farimod.ir"
+        "API_URL": "https://my.farimod.ir"
       },
       "channel": "production"
     },
     "release": {
       "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease"
+        "buildType": "app-bundle"
       },
       "env": {
         "NODE_ENV": "production",
-        "API_URL": "http://my.farimod.ir"
+        "API_URL": "https://my.farimod.ir"
       },
       "distribution": "store",
       "channel": "release"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "gradleCommand": ":app:assembleRelease"
+      }
     }
   },
   "submit": {
